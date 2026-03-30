@@ -8,7 +8,7 @@ export const currentDir = path.resolve(new URL(import.meta.url).pathname, '..');
  * This ensures we always use the current contract, not old managed directories
  */
 function detectContractPath(): string {
-  const contractSourceDir = path.resolve(currentDir, '..', '..', 'contract', 'src');
+  const contractSourceDir = path.resolve(currentDir, '..', '..', '..', 'contract', 'src');
   const managedDir = path.join(contractSourceDir, 'managed');
   
   if (!fs.existsSync(contractSourceDir)) {
@@ -41,7 +41,7 @@ function detectContractPath(): string {
 }
 
 export const contractConfig = {
-  privateStateStoreName: 'counter-private-state',
+  privateStateStoreName: 'privacred-private-state',
   zkConfigPath: detectContractPath(),
 };
 
