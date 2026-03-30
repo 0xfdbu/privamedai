@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { webcrypto } from 'node:crypto';
 import { generateRandomSeed, HDWallet, Roles } from '@midnight-ntwrk/wallet-sdk-hd';
-import { ShieldedAddress, ShieldedCoinPublicKey, ShieldedEncryptionPublicKey } from '@midnight-ntwrk/wallet-sdk-address-format';
+import { UnshieldedAddress } from '@midnight-ntwrk/wallet-sdk-address-format';
 import nacl from 'tweetnacl';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -30,20 +30,14 @@ class WalletKeyGenerator {
       throw new Error('Failed to generate HD wallet from seed');
     }
 
-    const zswapResult = wallet.hdWallet.selectAccount(0).selectRole(Roles.Zswap).deriveKeyAt(0);
-    const encryptionResult = wallet.hdWallet.selectAccount(0).selectRole(Roles.Metadata).deriveKeyAt(0);
-
-    if (zswapResult.type !== 'keyDerived' || encryptionResult.type !== 'keyDerived') {
-      throw new Error('Failed to derive keys');
+    const dustResult = wallet.hdWallet.selectAccount(0).selectRole(Roles.Dust).deriveKeyAt(0);
+    if (dustResult.type !== 'keyDerived') {
+      throw new Error('Failed to derive dust key');
     }
 
-    const zswapKeypair = nacl.sign.keyPair.fromSeed(zswapResult.key);
-    const encryptionKeypair = nacl.sign.keyPair.fromSeed(encryptionResult.key);
-
-    const coinPk = new ShieldedCoinPublicKey(zswapKeypair.publicKey);
-    const encPk = new ShieldedEncryptionPublicKey(encryptionKeypair.publicKey);
-    const shieldedAddr = new ShieldedAddress(coinPk, encPk);
-    const bech32 = ShieldedAddress.codec.encode('preprod', shieldedAddr);
+    const dustKeypair = nacl.sign.keyPair.fromSeed(dustResult.key);
+    const unshieldedAddr = new UnshieldedAddress(dustKeypair.publicKey);
+    const bech32 = UnshieldedAddress.codec.encode('preprod', unshieldedAddr);
     return bech32.asString();
   }
 
