@@ -1,5 +1,5 @@
 // Enhanced API wrapper for PrivaCred Contract
-// Generated on: 2026-03-30T19:09:30.074Z
+// Generated on: 2026-03-30T19:29:17.579Z
 // Auto-generated from PrivaCred.compact
 
 import { type Logger } from 'pino';
@@ -110,7 +110,7 @@ export class EnhancedContractAPI {
 export const CONTRACT_METADATA = {
   name: 'PrivaCred Contract',
   fileName: 'PrivaCred.compact',
-  generatedAt: '2026-03-30T19:09:30.074Z',
+  generatedAt: '2026-03-30T19:29:17.579Z',
   functions: [
   {
     "name": "issueCredential",

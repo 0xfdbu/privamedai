@@ -11,7 +11,7 @@ const [folder] = fs.readdirSync(managedPath).filter(f =>
   fs.statSync(path.join(managedPath, f)).isDirectory()
 );
 
-const { Ledger } = await import(`./managed/${folder}/contract/index.cjs`);
+const { Ledger } = await import(`./managed/${folder}/contract/index.js`);
 
 export type PrivaCredPrivateState = {
   readonly secretKey: Uint8Array;

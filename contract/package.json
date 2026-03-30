@@ -20,6 +20,7 @@
     "build": "rm -rf dist && tsc --project tsconfig.build.json && cp -Rf ./src/managed ./dist/managed && cp ./src/*.compact ./dist",
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "dev": "npm run compact && npm run build"
+    "dev": "npm run compact && npm run build",
+    "test": "vitest run src/test"
   }
 }
