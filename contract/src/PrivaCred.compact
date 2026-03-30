@@ -1,0 +1,87 @@
+pragma language_version >= 0.16 && <= 0.21;
+
+import CompactStandardLibrary;
+
+export enum CredentialStatus {
+  VALID,
+  REVOKED
+}
+
+export struct Credential {
+  issuer: Bytes<32>,
+  claimHash: Bytes<32>,
+  expiry: Uint<64>,
+  status: CredentialStatus
+}
+
+export ledger credentials: Map<Bytes<32>, Credential>;
+export ledger roundCounter: Counter;
+
+witness local_secret_key(): Bytes<32>;
+witness get_credential_data(): Bytes<32>;
+
+pure circuit get_public_key(sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "privacred:pk:"), sk]);
+}
+
+export circuit issueCredential(
+  commitment: Bytes<32>,
+  issuer: Bytes<32>,
+  claimHash: Bytes<32>,
+  expiry: Uint<64>
+): [] {
+  const d_commitment = disclose(commitment);
+  const d_issuer = disclose(issuer);
+  const d_claimHash = disclose(claimHash);
+  const d_expiry = disclose(expiry);
+
+  assert(!credentials.member(d_commitment), "Credential already exists");
+
+  const credential = Credential {
+    issuer: d_issuer,
+    claimHash: d_claimHash,
+    expiry: d_expiry,
+    status: CredentialStatus.VALID
+  };
+
+  credentials.insert(d_commitment, credential);
+  roundCounter.increment(1);
+}
+
+export circuit verifyCredential(commitment: Bytes<32>): Boolean {
+  const d_commitment = disclose(commitment);
+
+  assert(credentials.member(d_commitment), "Credential not found");
+
+  const credential = credentials.lookup(d_commitment);
+  assert(disclose(credential.status == CredentialStatus.VALID), "Credential revoked");
+
+  const privateData = get_credential_data();
+  const computedHash = persistentHash<Vector<1, Bytes<32>>>([privateData]);
+  assert(disclose(computedHash == credential.claimHash), "Claim hash mismatch");
+
+  return true;
+}
+
+export circuit revokeCredential(commitment: Bytes<32>): [] {
+  const d_commitment = disclose(commitment);
+
+  assert(credentials.member(d_commitment), "Credential not found");
+
+  const credential = credentials.lookup(d_commitment);
+  const sk = local_secret_key();
+  const caller = get_public_key(sk);
+
+  assert(disclose(caller == credential.issuer), "Only issuer can revoke");
+  assert(disclose(credential.status == CredentialStatus.VALID), "Already revoked");
+
+  const revokedCredential = Credential {
+    issuer: credential.issuer,
+    claimHash: credential.claimHash,
+    expiry: credential.expiry,
+    status: CredentialStatus.REVOKED
+  };
+
+  credentials.insert(d_commitment, revokedCredential);
+  roundCounter.increment(1);
+}
