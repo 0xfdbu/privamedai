@@ -25,8 +25,8 @@ dotenv.config({ path: path.join(projectRoot, '.env') });
 
 import { createLogger } from './logger-utils.js';
 import { runEnhanced } from './simple-enhanced-cli.js';
-import { TestnetRemoteConfig } from './config.js';
+import { PreprodRemoteConfig } from './config.js';
 
-const config = new TestnetRemoteConfig();
+const config = new PreprodRemoteConfig();
 const logger = await createLogger(config.logDir);
 await runEnhanced(config, logger);

@@ -53,14 +53,15 @@ export interface Config {
   readonly proofServer: string;
 }
 
-export class TestnetLocalConfig implements Config {
-  logDir = path.resolve(currentDir, '..', 'logs', 'testnet-local', `${new Date().toISOString()}.log`);
+export class PreprodLocalConfig implements Config {
+  logDir = path.resolve(currentDir, '..', 'logs', 'preprod-local', `${new Date().toISOString()}.log`);
   indexer = 'http://127.0.0.1:8088/api/v1/graphql';
   indexerWS = 'ws://127.0.0.1:8088/api/v1/graphql/ws';
   node = 'http://127.0.0.1:9944';
   proofServer = 'http://127.0.0.1:6300';
   constructor() {
-    setNetworkId(NetworkId.TestNet);
+    // @ts-expect-error: preprod is not in the old NetworkId enum; upgrading to wallet-sdk is needed for full support
+    setNetworkId('preprod');
   }
 }
 
@@ -75,13 +76,14 @@ export class StandaloneConfig implements Config {
   }
 }
 
-export class TestnetRemoteConfig implements Config {
-  logDir = path.resolve(currentDir, '..', 'logs', 'testnet-remote', `${new Date().toISOString()}.log`);
-  indexer = 'https://indexer.testnet-02.midnight.network/api/v1/graphql';
-  indexerWS = 'wss://indexer.testnet-02.midnight.network/api/v1/graphql/ws';
-  node = 'https://rpc.testnet-02.midnight.network';
+export class PreprodRemoteConfig implements Config {
+  logDir = path.resolve(currentDir, '..', 'logs', 'preprod-remote', `${new Date().toISOString()}.log`);
+  indexer = 'https://indexer.preprod.midnight.network/api/v1/graphql';
+  indexerWS = 'wss://indexer.preprod.midnight.network/api/v1/graphql/ws';
+  node = 'https://rpc.preprod.midnight.network';
   proofServer = 'http://127.0.0.1:6300';
   constructor() {
-    setNetworkId(NetworkId.TestNet);
+    // @ts-expect-error: preprod is not in the old NetworkId enum; upgrading to wallet-sdk is needed for full support
+    setNetworkId('preprod');
   }
 }

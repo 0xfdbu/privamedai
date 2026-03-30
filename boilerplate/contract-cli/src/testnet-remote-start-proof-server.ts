@@ -25,10 +25,10 @@ dotenv.config({ path: path.join(projectRoot, '.env') });
 
 import { createLogger } from './logger-utils.js';
 import { run } from './cli.js';
-import { currentDir, TestnetRemoteConfig } from './config.js';
+import { currentDir, PreprodRemoteConfig } from './config.js';
 import { DockerComposeEnvironment, Wait } from 'testcontainers';
 
-const config = new TestnetRemoteConfig();
+const config = new PreprodRemoteConfig();
 const dockerEnv = new DockerComposeEnvironment(
   path.resolve(currentDir, '..'),
   'proof-server-testnet.yml',

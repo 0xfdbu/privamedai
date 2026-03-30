@@ -8,9 +8,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Enhanced deployment script for Midnight testnet:
+ * Enhanced deployment script for Midnight preprod:
  * 1. Runs npm run dev (compile and generate CLI)
- * 2. Connects to testnet and deploys the contract automatically
+ * 2. Connects to preprod and deploys the contract automatically
  */
 class MidnightDeployer {
   constructor(deployMode = 'new') {
@@ -53,7 +53,7 @@ class MidnightDeployer {
   }
 
   /**
-   * Check prerequisites for testnet deployment
+   * Check prerequisites for preprod deployment
    */
   async checkPrerequisites() {
     console.log('🔍 Checking prerequisites...\n');
@@ -83,21 +83,21 @@ class MidnightDeployer {
     console.log('   📁 Working directory:', this.projectRoot);
     console.log('   📝 Compiles contract and generates CLI\n');
     
-    console.log('2️⃣ npm run testnet-remote');
+    console.log('2️⃣ npm run preprod-remote');
     console.log('   📁 Working directory:', this.cliDir);
-    console.log('   📝 Connects to testnet and deploys contract\n');
+    console.log('   📝 Connects to preprod and deploys contract\n');
     
     console.log('💡 Run without --dry-run to execute these commands');
   }
 
   /**
-   * Main deployment workflow for testnet
+   * Main deployment workflow for preprod
    */
   async deploy() {
     try {
       const modeText = this.deployMode === 'join' ? 'Joining Existing Contract' : 'Deploying New Contract';
       
-      console.log(`🚀 Starting Midnight Contract ${modeText} on testnet...\n`);
+      console.log(`🚀 Starting Midnight Contract ${modeText} on preprod...\n`);
       
       // Check prerequisites
       const prereqsOk = await this.checkPrerequisites();
@@ -107,11 +107,11 @@ class MidnightDeployer {
       
       console.log('📋 Deployment Steps:');
       console.log('   1. 🔨 Compile contract and generate CLI');
-      console.log('   2. 🌐 Connect to testnet');
+      console.log('   2. 🌐 Connect to preprod');
       if (this.deployMode === 'join') {
-        console.log('   3. 🔗 Join existing contract on testnet');
+        console.log('   3. 🔗 Join existing contract on preprod');
       } else {
-        console.log('   3. 📦 Deploy new contract to testnet');
+        console.log('   3. 📦 Deploy new contract to preprod');
       }
       console.log('   4. 🎯 Launch interactive CLI\n');
 
@@ -123,19 +123,19 @@ class MidnightDeployer {
         'Compiling contract and generating CLI'
       );
 
-      // Step 2 & 3 & 4: Run testnet-remote (connects to testnet, deploys, and launches CLI)
+      // Step 2 & 3 & 4: Run preprod-remote (connects to preprod, deploys, and launches CLI)
       await this.runCommand(
         'npm', 
-        ['run', 'testnet-remote'], 
+        ['run', 'preprod-remote'], 
         this.cliDir,
-        'Connecting to testnet and deploying contract',
+        'Connecting to preprod and deploying contract',
         { 
           AUTO_DEPLOY: 'true',
           DEPLOY_MODE: this.deployMode || 'new'
         }
       );
 
-      console.log(`\n🎉 ${modeText} on testnet completed successfully!`);
+      console.log(`\n🎉 ${modeText} on preprod completed successfully!`);
       console.log('💡 The interactive CLI should now be running.');
       if (this.deployMode === 'join') {
         console.log('   You can now interact with the existing contract.');
@@ -146,8 +146,8 @@ class MidnightDeployer {
     } catch (error) {
       console.error('\n❌ Deployment failed:', error.message);
       console.error('\n🔧 Troubleshooting:');
-      console.error('   - Check your testnet connection');
-      console.error('   - Verify your wallet has sufficient testnet balance');
+      console.error('   - Check your preprod connection');
+      console.error('   - Verify your wallet has sufficient preprod balance');
       console.error('   - Check that your .compact contract file exists');
       console.error('   - Verify npm dependencies are installed');
       console.error('   - Ensure WALLET_SEED is set in .env file (or will be prompted)\n');
@@ -163,24 +163,24 @@ class MidnightDeployer {
 🌙 Midnight Contract Deployment Tool - Testnet Only
 
 Usage:
-  npm run deploy                         Deploy new contract to testnet
-  npm run deploy:new                     Deploy new contract to testnet (same as above)
-  npm run deploy:join                    Join existing contract on testnet
-  npm run wallet                         Interactive testnet deployment
+  npm run deploy                         Deploy new contract to preprod
+  npm run deploy:new                     Deploy new contract to preprod (same as above)
+  npm run deploy:join                    Join existing contract on preprod
+  npm run wallet                         Interactive preprod deployment
   npm run deploy -- --dry-run            Show what commands would be executed
   npm run deploy -- --help               Show this help message
 
 What this does:
   1. Compiles your .compact contract
   2. Generates TypeScript types and CLI
-  3. Connects to Midnight testnet
+  3. Connects to Midnight preprod
   4. Deploys/joins your contract automatically
   5. Launches an interactive CLI for testing
 
 Requirements:
   - Node.js 18+
   - .compact contract file in project root
-  - Wallet with testnet funds
+  - Wallet with preprod funds
 
 Environment Variables:
   - WALLET_SEED: Set your wallet seed phrase to skip manual entry
@@ -191,9 +191,9 @@ Setup for automated deployment:
   3. Run deployment commands without prompts
 
 Examples:
-  npm run deploy                         # Deploy new contract to testnet
-  npm run deploy:join                    # Join existing contract on testnet
-  npm run wallet                         # Interactive testnet CLI
+  npm run deploy                         # Deploy new contract to preprod
+  npm run deploy:join                    # Join existing contract on preprod
+  npm run wallet                         # Interactive preprod CLI
 `);
   }
 }

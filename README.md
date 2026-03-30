@@ -22,7 +22,7 @@ priva-cred/
 - **3 circuits**: `issueCredential`, `verifyCredential`, `revokeCredential`
 - **Witness functions** for private credential data (never touches chain)
 - **midnight.js SDK** for wallet + proof generation
-- **Lace Beta wallet** (testnet)
+- **Lace Beta wallet** (preprod)
 
 ---
 
@@ -124,7 +124,7 @@ Marks a credential as `REVOKED` (only the original issuer can call this).
 - [x] Working issue → prove → verify flow
 - [x] Zero raw data ever on-chain
 - [x] Clean 3-portal UI
-- [ ] Deployed on testnet
+- [ ] Deployed on preprod
 - [ ] 60-second demo video
 
 ---

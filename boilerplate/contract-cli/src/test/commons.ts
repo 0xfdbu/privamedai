@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { type Config, StandaloneConfig, currentDir, TestnetRemoteConfig } from '../config';
+import { type Config, StandaloneConfig, currentDir, PreprodRemoteConfig } from '../config';
 import {
   DockerComposeEnvironment,
   GenericContainer,
@@ -67,7 +67,7 @@ export function parseArgs(required: string[]): TestConfiguration {
     }
   }
 
-  let cfg: Config = new TestnetRemoteConfig();
+  let cfg: Config = new PreprodRemoteConfig();
   let env = '';
   let psMode = 'undeployed';
   let cacheFileName = '';
@@ -79,7 +79,7 @@ export function parseArgs(required: string[]): TestConfiguration {
     }
     switch (env) {
       case 'testnet':
-        cfg = new TestnetRemoteConfig();
+        cfg = new PreprodRemoteConfig();
         psMode = 'testnet';
         cacheFileName = `${seed.substring(0, 7)}-${psMode}.state`;
         break;
