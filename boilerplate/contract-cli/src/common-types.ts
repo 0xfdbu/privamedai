@@ -1,4 +1,4 @@
-import { contracts, type CounterPrivateState } from '@midnight-ntwrk/contract';
+import { contracts, type PrivaCredPrivateState } from '@midnight-ntwrk/contract';
 import type { ImpureCircuitId, MidnightProviders } from '@midnight-ntwrk/midnight-js-types';
 import type { DeployedContract, FoundContract } from '@midnight-ntwrk/midnight-js-contracts';
 
@@ -13,13 +13,13 @@ const getContractModule = () => {
 
 const contractModule = getContractModule();
 
-export type { CounterPrivateState };
-export type CounterCircuits = ImpureCircuitId<typeof contractModule.Contract>;
+export type { PrivaCredPrivateState };
+export type PrivaCredCircuits = ImpureCircuitId<typeof contractModule.Contract>;
 
-export const CounterPrivateStateId = 'counterPrivateState';
+export const PrivaCredPrivateStateId = 'privacredPrivateState';
 
-export type CounterProviders = MidnightProviders<CounterCircuits, typeof CounterPrivateStateId, CounterPrivateState>;
+export type PrivaCredProviders = MidnightProviders<PrivaCredCircuits, typeof PrivaCredPrivateStateId, PrivaCredPrivateState>;
 
-export type CounterContract = typeof contractModule.Contract;
+export type PrivaCredContract = typeof contractModule.Contract;
 
-export type DeployedCounterContract = DeployedContract<CounterContract> | FoundContract<CounterContract>;
+export type DeployedPrivaCredContract = DeployedContract<PrivaCredContract> | FoundContract<PrivaCredContract>;

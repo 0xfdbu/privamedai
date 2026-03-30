@@ -1,6 +1,6 @@
-// Enhanced API wrapper for Counter Contract
-// Generated on: 2025-06-13T22:15:31.852Z
-// Auto-generated from counter.compact
+// Enhanced API wrapper for PrivaCred Contract
+// Generated on: 2026-03-30T19:08:46.876Z
+// Auto-generated from PrivaCred.compact
 
 import { type Logger } from 'pino';
 import { ContractAnalyzer } from './contract-analyzer.js';
@@ -87,101 +87,85 @@ export class EnhancedContractAPI {
 
   // Dynamic function mapping based on contract analysis
   /**
-   * Execute increment function
+   * Execute issueCredential function
    */
-  async increment(...args: any[]): Promise<any> {
-    return await (originalApi as any).increment(...args);
+  async issueCredential(...args: any[]): Promise<any> {
+    return await (originalApi as any).issueCredential(...args);
   }
   /**
-   * Execute vote_for function
+   * Execute verifyCredential function
    */
-  async vote_for(...args: any[]): Promise<any> {
-    return await (originalApi as any).vote_for(...args);
+  async verifyCredential(...args: any[]): Promise<any> {
+    return await (originalApi as any).verifyCredential(...args);
   }
   /**
-   * Execute get_vote_count function
+   * Execute revokeCredential function
    */
-  async get_vote_count(...args: any[]): Promise<any> {
-    return await (originalApi as any).get_vote_count(...args);
-  }
-  /**
-   * Execute public_key_vote function
-   */
-  async public_key_vote(...args: any[]): Promise<any> {
-    return await (originalApi as any).public_key_vote(...args);
+  async revokeCredential(...args: any[]): Promise<any> {
+    return await (originalApi as any).revokeCredential(...args);
   }
 }
 
 // Export contract metadata for reference
 export const CONTRACT_METADATA = {
-  name: 'Counter Contract',
-  fileName: 'counter.compact',
-  generatedAt: '2025-06-13T22:15:31.852Z',
+  name: 'PrivaCred Contract',
+  fileName: 'PrivaCred.compact',
+  generatedAt: '2026-03-30T19:08:46.876Z',
   functions: [
   {
-    "name": "increment",
-    "parameters": [],
+    "name": "issueCredential",
+    "parameters": [
+      {
+        "name": "commitment",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "issuer",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "claimHash",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "expiry",
+        "type": "Uint<64>"
+      }
+    ],
     "returnType": "[]",
     "readOnly": false
   },
   {
-    "name": "vote_for",
+    "name": "verifyCredential",
     "parameters": [
       {
-        "name": "secret_key",
-        "type": "Bytes<3>"
-      },
+        "name": "commitment",
+        "type": "Bytes<32>"
+      }
+    ],
+    "returnType": "Boolean",
+    "readOnly": true
+  },
+  {
+    "name": "revokeCredential",
+    "parameters": [
       {
-        "name": "index",
-        "type": "Uint<8>"
+        "name": "commitment",
+        "type": "Bytes<32>"
       }
     ],
     "returnType": "[]",
     "readOnly": false
-  },
-  {
-    "name": "get_vote_count",
-    "parameters": [
-      {
-        "name": "index",
-        "type": "Uint<8>"
-      }
-    ],
-    "returnType": "Uint<64>",
-    "readOnly": true
-  },
-  {
-    "name": "public_key_vote",
-    "parameters": [
-      {
-        "name": "sk",
-        "type": "Bytes<3>"
-      },
-      {
-        "name": "instance",
-        "type": "Bytes<3>"
-      }
-    ],
-    "returnType": "Bytes<32>",
-    "readOnly": true
   }
 ],
   ledgerState: [
   {
-    "name": "round",
-    "type": "Counter"
+    "name": "credentials",
+    "type": "Map<Bytes<32>, Credential>"
   },
   {
-    "name": "votesA",
+    "name": "roundCounter",
     "type": "Counter"
-  },
-  {
-    "name": "votesB",
-    "type": "Counter"
-  },
-  {
-    "name": "items",
-    "type": "Set<Bytes<32>>"
   }
 ],
   witnesses: []

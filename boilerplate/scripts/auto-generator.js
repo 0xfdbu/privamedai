@@ -609,9 +609,9 @@ class CompactContractParser {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   const config = {
-    contractSourceDir: path.resolve(__dirname, '..', 'contract', 'src'),
-    contractBuildDir: path.resolve(__dirname, '..', 'contract', 'dist'),
-    cliSourceDir: path.resolve(__dirname, '..', 'contract-cli'),
+    contractSourceDir: path.resolve(__dirname, '..', '..', 'contract', 'src'),
+    contractBuildDir: path.resolve(__dirname, '..', '..', 'contract', 'dist'),
+    cliSourceDir: path.resolve(__dirname, '..', '..', 'boilerplate', 'contract-cli'),
     contractFileName: null, // Auto-detect any .compact file
     verbose: process.argv.includes('--verbose') || process.argv.includes('-v')
   };

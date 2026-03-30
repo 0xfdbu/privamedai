@@ -56,7 +56,7 @@ class CLIAutoGenerator {
     // Generated on: ${new Date().toISOString()}
     // DO NOT EDIT MANUALLY - This file is auto-generated
 
-    import { type CounterProviders, type DeployedCounterContract } from './common-types.js';
+    import { type PrivaCredProviders, type DeployedPrivaCredContract } from './common-types.js';
     import { type FinalizedTxData } from '@midnight-ntwrk/midnight-js-types';
     import { type Logger } from 'pino';
 
@@ -110,7 +110,7 @@ class CLIAutoGenerator {
    * @param contract - The deployed contract instance
   ${func.parameters.map((p: any) => `   * @param ${p.name} - ${p.type} parameter`).join('\n')}
     */
-    async ${func.name}(contract: DeployedCounterContract${paramList ? `, ${paramList}` : ''}): ${returnType} {
+    async ${func.name}(contract: DeployedPrivaCredContract${paramList ? `, ${paramList}` : ''}): ${returnType} {
       this.logger.info(\`🔧 Executing ${func.name}...\`);
       
       try {

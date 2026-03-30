@@ -1,5 +1,5 @@
 import { type ContractAddress } from '@midnight-ntwrk/compact-runtime';
-import { contracts, witnesses } from '@midnight-ntwrk/contract';
+import { contracts, witnesses, createPrivaCredPrivateState } from '@midnight-ntwrk/contract';
 import { type CoinInfo, nativeToken, Transaction, type TransactionId } from '@midnight-ntwrk/ledger';
 import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
@@ -27,11 +27,11 @@ import * as fsAsync from 'node:fs/promises';
 import * as fs from 'node:fs';
 import { ContractAnalyzer } from './contract-analyzer.js';
 import {
-  type CounterContract,
-  type CounterPrivateState,
-  type CounterPrivateStateId,
-  type CounterProviders,
-  type DeployedCounterContract,
+  type PrivaCredContract,
+  type PrivaCredPrivateState,
+  PrivaCredPrivateStateId,
+  type PrivaCredProviders,
+  type DeployedPrivaCredContract,
 } from './common-types';
 import { type Config, contractConfig } from './config';
 
@@ -64,15 +64,15 @@ export const createOpaqueString = (value: string): any => {
 // @ts-expect-error: It's needed to enable WebSocket usage through apollo
 globalThis.WebSocket = WebSocket;
 
-export const getCounterLedgerState = async (
-  providers: CounterProviders,
+export const getPrivaCredLedgerState = async (
+  providers: PrivaCredProviders,
   contractAddress: ContractAddress,
 ): Promise<bigint | null> => {
   assertIsContractAddress(contractAddress);
   logger.info('Checking contract ledger state...');
   const state = await providers.publicDataProvider
     .queryContractState(contractAddress)
-    .then((contractState) => (contractState != null ? contractModule.ledger(contractState.data).round : null))
+    .then((contractState) => (contractState != null ? contractModule.ledger(contractState.data).roundCounter : null))
   logger.info(`Ledger state: ${state}`);
   return state;
 };
@@ -80,50 +80,50 @@ export const getCounterLedgerState = async (
 
 
 
-export const counterContractInstance: CounterContract = new contractModule.Contract(witnesses);
+export const privaCredContractInstance: PrivaCredContract = new contractModule.Contract(witnesses);
 
 export const joinContract = async (
-  providers: CounterProviders,
+  providers: PrivaCredProviders,
   contractAddress: string,
-): Promise<DeployedCounterContract> => {
-  const counterContract = await findDeployedContract(providers, {
+): Promise<DeployedPrivaCredContract> => {
+  const privaCredContract = await findDeployedContract(providers, {
     contractAddress,
-    contract: counterContractInstance,
-    privateStateId: 'counterPrivateState',
-    initialPrivateState: { privateCounter: 0 },
+    contract: privaCredContractInstance,
+    privateStateId: PrivaCredPrivateStateId,
+    initialPrivateState: createPrivaCredPrivateState(new Uint8Array(32)),
   });
-  logger.info(`Joined contract at address: ${counterContract.deployTxData.public.contractAddress}`);
-  return counterContract;
+  logger.info(`Joined contract at address: ${privaCredContract.deployTxData.public.contractAddress}`);
+  return privaCredContract;
 };
 
 export const deploy = async (
-  providers: CounterProviders,
-  privateState: CounterPrivateState,
-): Promise<DeployedCounterContract> => {
+  providers: PrivaCredProviders,
+  privateState: PrivaCredPrivateState,
+): Promise<DeployedPrivaCredContract> => {
   // Get dynamic contract name
   const analyzer = new ContractAnalyzer();
   const analysis = await analyzer.analyzeContract();
   
   logger.info(`Deploying ${analysis.contractName.toLowerCase()}...`);
-  const counterContract = await deployContract(providers, {
-    contract: counterContractInstance,
-    privateStateId: 'counterPrivateState',
+  const privaCredContract = await deployContract(providers, {
+    contract: privaCredContractInstance,
+    privateStateId: PrivaCredPrivateStateId,
     initialPrivateState: privateState,
   });
-  logger.info(`Deployed contract at address: ${counterContract.deployTxData.public.contractAddress}`);
-  return counterContract;
+  logger.info(`Deployed contract at address: ${privaCredContract.deployTxData.public.contractAddress}`);
+  return privaCredContract;
 };
 
 
 
-export const displayCounterValue = async (
-  providers: CounterProviders,
-  counterContract: DeployedCounterContract,
+export const displayPrivaCredValue = async (
+  providers: PrivaCredProviders,
+  privaCredContract: DeployedPrivaCredContract,
 ): Promise<{ counterValue: bigint | null; contractAddress: string }> => {
-  const contractAddress = counterContract.deployTxData.public.contractAddress;
-  const counterValue = await getCounterLedgerState(providers, contractAddress);
+  const contractAddress = privaCredContract.deployTxData.public.contractAddress;
+  const counterValue = await getPrivaCredLedgerState(providers, contractAddress);
   if (counterValue === null) {
-    logger.info(`There is no counter contract deployed at ${contractAddress}.`);
+    logger.info(`There is no privacred contract deployed at ${contractAddress}.`);
   } else {
     logger.info(`Current counter value: ${Number(counterValue)}`);
   }
@@ -334,11 +334,11 @@ export const buildFreshWallet = async (config: Config): Promise<Wallet & Resourc
 export const configureProviders = async (wallet: Wallet & Resource, config: Config) => {
   const walletAndMidnightProvider = await createWalletAndMidnightProvider(wallet);
   return {
-    privateStateProvider: levelPrivateStateProvider<typeof CounterPrivateStateId>({
+    privateStateProvider: levelPrivateStateProvider<typeof PrivaCredPrivateStateId>({
       privateStateStoreName: contractConfig.privateStateStoreName,
     }),
     publicDataProvider: indexerPublicDataProvider(config.indexer, config.indexerWS),
-    zkConfigProvider: new NodeZkConfigProvider<'increment'>(contractConfig.zkConfigPath),
+    zkConfigProvider: new NodeZkConfigProvider<'issueCredential' | 'revokeCredential'>(contractConfig.zkConfigPath),
     proofProvider: httpClientProofProvider(config.proofServer),
     walletProvider: walletAndMidnightProvider,
     midnightProvider: walletAndMidnightProvider,
@@ -408,37 +408,8 @@ export const saveState = async (wallet: Wallet, filename: string) => {
 };
 
 export const getItemsSet = async (
-  providers: CounterProviders,
-  contractAddress: ContractAddress,
+  _providers: PrivaCredProviders,
+  _contractAddress: ContractAddress,
 ): Promise<string[]> => {
-  assertIsContractAddress(contractAddress);
-  logger.info('Checking items set...');
-  
-  try {
-    const contractState = await providers.publicDataProvider.queryContractState(contractAddress);
-    if (contractState?.data) {
-      const ledgerData = contractModule.ledger(contractState.data);
-      
-      if (ledgerData.items) {
-        // Convert Set to Array and then to string representations
-        const itemsArray = Array.from(ledgerData.items);
-        logger.info(`Found ${itemsArray.length} items in set`);
-        
-        return itemsArray.map(item => {
-          if (item instanceof Uint8Array) {
-            // Convert bytes to hex string
-            return '0x' + Array.from(item)
-              .map(b => b.toString(16).padStart(2, '0'))
-              .join('');
-          }
-          return String(item);
-        });
-      }
-    }
-    logger.info('Items set is empty or not accessible');
-    return [];
-  } catch (error) {
-    logger.warn(`Failed to extract items set: ${error}`);
-    return [];
-  }
+  return [];
 };
