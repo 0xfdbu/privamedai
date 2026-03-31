@@ -731,11 +731,11 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
           border: '1px solid rgba(255,255,255,0.08)',
           background: 'rgba(10,10,10,0.7)',
           backdropFilter: 'blur(24px) saturate(180%)',
-          padding: '12px',
-          borderRadius: '24px',
-          boxShadow: '0 12px 40px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)',
+          padding: '10px',
+          borderRadius: '20px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)',
         }}>
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             {navItems.map(item => {
               const isActive = portal === item.id;
               return (
@@ -748,22 +748,22 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '8px',
-                    padding: '18px 20px',
-                    minWidth: '88px',
-                    borderRadius: '16px',
+                    gap: '6px',
+                    padding: '16px 14px',
+                    minWidth: '80px',
+                    borderRadius: '14px',
                     border: 'none',
                     background: isActive 
-                      ? 'rgba(255,255,255,0.12)' 
+                      ? 'rgba(255,255,255,0.1)' 
                       : 'transparent',
                     color: isActive ? '#f8fafc' : 'rgba(248,250,252,0.4)',
                     cursor: 'pointer',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transition: 'all 0.2s ease',
                     position: 'relative',
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
                       e.currentTarget.style.color = 'rgba(248,250,252,0.8)';
                     }
                   }}
@@ -778,29 +778,26 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
                   {isActive && (
                     <div style={{
                       position: 'absolute',
-                      top: '8px',
-                      right: '8px',
-                      width: '6px',
-                      height: '6px',
+                      top: '6px',
+                      right: '6px',
+                      width: '5px',
+                      height: '5px',
                       borderRadius: '50%',
                       background: '#f8fafc',
-                      boxShadow: '0 0 10px rgba(248,250,252,0.6)',
+                      boxShadow: '0 0 8px rgba(248,250,252,0.5)',
                     }} />
                   )}
                   <span style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    opacity: isActive ? 1 : 0.7,
-                    transition: 'opacity 0.2s ease',
                   }}>
-                    <item.icon s={26} />
+                    <item.icon s={28} />
                   </span>
                   <span style={{ 
-                    fontSize: '13px', 
+                    fontSize: '14px', 
                     fontWeight: isActive ? 600 : 500,
-                    letterSpacing: '0.5px',
-                    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    letterSpacing: '0.4px',
                   }}>{item.label}</span>
                 </button>
               );
