@@ -25,6 +25,9 @@ import { ShieldedWallet } from '@midnight-ntwrk/wallet-sdk-shielded';
 import { createKeystore, InMemoryTransactionHistoryStorage, PublicKey, UnshieldedWallet } from '@midnight-ntwrk/wallet-sdk-unshielded-wallet';
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
 
+// Import PrivaMedAI witnesses
+import { witnesses, createPrivaMedAIPrivateState, type PrivaMedAIPrivateState } from '../contract/src/witnesses-privamedai.js';
+
 // Enable WebSocket for GraphQL subscriptions
 // @ts-expect-error Required for wallet sync
 globalThis.WebSocket = WebSocket;
@@ -168,8 +171,8 @@ async function createProviders(walletCtx: any, zkConfigPath: string) {
   const zkConfigProvider = new NodeZkConfigProvider(zkConfigPath);
 
   return {
-    privateStateProvider: levelPrivateStateProvider({
-      privateStateStoreName: 'privamedai-test-txs-v3',
+    privateStateProvider: levelPrivateStateProvider<PrivaMedAIPrivateState>({
+      privateStateStoreName: 'privamedai-test-txs-v4',
       walletProvider,
       privateStoragePasswordProvider: async () => 'PrivaMedAI-Test-Store-2025!',
       accountId: walletProvider.getCoinPublicKey(),
@@ -224,11 +227,7 @@ async function main() {
   log('📦 Loading contract...');
   const PrivaMedAIModule = await import(pathToFileURL(path.join(zkConfigPath, 'contract', 'index.js')).href);
   const compiledContract = CompiledContract.make('privamedai', PrivaMedAIModule.Contract).pipe(
-    CompiledContract.withWitnesses({
-      local_secret_key: (...args: any[]) => new Uint8Array(32),
-      get_credential_data: (...args: any[]) => new TextEncoder().encode(JSON.stringify({ test: true })),
-      get_bundled_credential_data: (...args: any[]) => new TextEncoder().encode(JSON.stringify({ test: true })),
-    }),
+    CompiledContract.withWitnesses(witnesses),
     CompiledContract.withCompiledFileAssets(zkConfigPath),
   );
 
@@ -264,11 +263,19 @@ async function main() {
   // Create providers and connect to contract
   const providers = await createProviders(walletCtx, zkConfigPath);
   log(`🔗 Connecting to contract...`);
+  
+  // Create initial private state with the secret key
+  const initialPrivateState = createPrivaMedAIPrivateState(
+    Buffer.from(seed.slice(0, 64), 'hex'), // Use first 32 bytes of seed as secret key
+    new Uint8Array(32),
+    [new Uint8Array(32), new Uint8Array(32), new Uint8Array(32)]
+  );
+  
   const contract = await findDeployedContract(providers, {
     contractAddress: deployment.contractAddress,
     compiledContract,
     privateStateId: 'privaMedAITestState',
-    initialPrivateState: {},
+    initialPrivateState,
   });
   log('✅ Connected to contract!\n');
 
