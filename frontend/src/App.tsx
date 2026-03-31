@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './styles/theme.css';
-import { WalletProvider, useWallet } from './hooks/WalletContext';
+import { WalletProvider, useWallet, VALID_NETWORKS } from './hooks/WalletContext';
 import { createHash } from 'crypto';
 
 // ============================================================================
@@ -148,12 +148,69 @@ const Alert = ({ type = 'info', children, onClose }: any) => {
 // Login Screen with Lace Wallet
 // ============================================================================
 
+function NetworkSelector({ onSelect, onCancel }: { onSelect: (network: string) => void; onCancel: () => void }) {
+  return (
+    <div style={{ marginTop: '20px' }}>
+      <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+        Your wallet is configured for a specific network. Please select which network your wallet is using:
+      </p>
+      <div style={{ display: 'grid', gap: '8px' }}>
+        {VALID_NETWORKS.map((network) => (
+          <button
+            key={network.id}
+            onClick={() => onSelect(network.id)}
+            style={{
+              padding: '12px 16px',
+              background: 'var(--surface-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              color: 'var(--text)',
+              fontSize: '14px',
+              cursor: 'pointer',
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: '600' }}>{network.name}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{network.description}</div>
+            </div>
+            <Icons.Check s={16} />
+          </button>
+        ))}
+      </div>
+      <Button variant="ghost" onClick={onCancel} style={{ marginTop: '12px', width: '100%' }}>
+        Cancel
+      </Button>
+    </div>
+  );
+}
+
 function LoginScreen({ onConnect }: { onConnect: () => Promise<void> }) {
-  const { isConnecting, error } = useWallet();
+  const { isConnecting, error, showNetworkSelector, connectWithNetwork, hideNetworkSelector } = useWallet();
+  const [showManualSelector, setShowManualSelector] = useState(false);
 
   const handleConnect = async () => {
     await onConnect();
   };
+
+  const handleNetworkSelect = async (networkId: string) => {
+    await connectWithNetwork(networkId);
+  };
+
+  const handleManualSelect = () => {
+    setShowManualSelector(true);
+  };
+
+  const handleCancel = () => {
+    setShowManualSelector(false);
+    hideNetworkSelector();
+  };
+
+  // Show network selector if auto-detect failed or user wants manual selection
+  const shouldShowSelector = showNetworkSelector || showManualSelector;
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
@@ -162,26 +219,43 @@ function LoginScreen({ onConnect }: { onConnect: () => Promise<void> }) {
         <h1 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>PrivaMedAI</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '28px' }}>Healthcare Credentials on Midnight Network</p>
 
-        <div style={{ marginBottom: '20px' }}>
-          <Button 
-            onClick={handleConnect} 
-            loading={isConnecting}
-            icon={Icons.Lock}
-            style={{ width: '100%', padding: '14px' }}
-          >
-            {isConnecting ? 'Connecting...' : 'Connect Wallet'}
-          </Button>
-        </div>
+        {!shouldShowSelector ? (
+          <>
+            <div style={{ marginBottom: '20px' }}>
+              <Button 
+                onClick={handleConnect} 
+                loading={isConnecting}
+                icon={Icons.Lock}
+                style={{ width: '100%', padding: '14px' }}
+              >
+                {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+              </Button>
+            </div>
 
-        {error && (
-          <Alert type="error" onClose={() => {}}>
-            {error}
-          </Alert>
+            <div style={{ marginBottom: '16px' }}>
+              <Button 
+                variant="secondary"
+                onClick={handleManualSelect}
+                disabled={isConnecting}
+                style={{ width: '100%' }}
+              >
+                Select Network Manually
+              </Button>
+            </div>
+
+            {error && (
+              <Alert type="error" onClose={() => {}}>
+                {error}
+              </Alert>
+            )}
+
+            <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(99,102,241,0.1)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              <Icons.Alert /> Requires Midnight Lace wallet with tNight tokens
+            </div>
+          </>
+        ) : (
+          <NetworkSelector onSelect={handleNetworkSelect} onCancel={handleCancel} />
         )}
-
-        <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(99,102,241,0.1)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          <Icons.Alert /> Requires Midnight Lace wallet with tNight tokens
-        </div>
       </Card>
     </div>
   );
