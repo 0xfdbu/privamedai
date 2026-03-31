@@ -719,7 +719,7 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
       {/* Floating Sidebar */}
       <aside className="sidebar-lg" style={{
         position: 'fixed',
-        left: '16px',
+        left: '20px',
         top: '50%',
         transform: 'translateY(-50%)',
         display: 'none',
@@ -728,13 +728,14 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
         pointerEvents: 'auto',
       }}>
         <div style={{
-          border: '1px solid rgba(255,255,255,0.05)',
-          background: 'rgba(23,23,23,0.3)',
-          backdropFilter: 'blur(12px)',
-          padding: '8px',
-          borderRadius: '16px',
+          border: '1px solid rgba(255,255,255,0.06)',
+          background: 'rgba(15,15,15,0.6)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          padding: '10px',
+          borderRadius: '20px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
         }}>
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {navItems.map(item => {
               const isActive = portal === item.id;
               return (
@@ -747,31 +748,58 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '4px',
-                    padding: '12px 16px',
-                    minWidth: '72px',
-                    borderRadius: '12px',
+                    gap: '6px',
+                    padding: '14px 16px',
+                    minWidth: '76px',
+                    borderRadius: '14px',
                     border: 'none',
-                    background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
-                    color: isActive ? '#f8fafc' : 'rgba(248,250,252,0.5)',
+                    background: isActive 
+                      ? 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.15) 100%)' 
+                      : 'transparent',
+                    color: isActive ? '#f8fafc' : 'rgba(248,250,252,0.45)',
                     cursor: 'pointer',
-                    transition: 'all 0.2s ease',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    position: 'relative',
+                    overflow: 'hidden',
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
-                      e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                      e.currentTarget.style.color = '#f8fafc';
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                      e.currentTarget.style.color = 'rgba(248,250,252,0.85)';
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!isActive) {
                       e.currentTarget.style.background = 'transparent';
-                      e.currentTarget.style.color = 'rgba(248,250,252,0.5)';
+                      e.currentTarget.style.color = 'rgba(248,250,252,0.45)';
                     }
                   }}
                 >
-                  <item.icon s={20} />
-                  <span style={{ fontSize: '10px', fontWeight: 500 }}>{item.label}</span>
+                  {/* Active indicator glow */}
+                  {isActive && (
+                    <div style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: '14px',
+                      border: '1px solid rgba(99,102,241,0.4)',
+                      pointerEvents: 'none',
+                    }} />
+                  )}
+                  <span style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    filter: isActive ? 'drop-shadow(0 0 8px rgba(99,102,241,0.5))' : 'none',
+                    transition: 'filter 0.25s ease',
+                  }}>
+                    <item.icon s={22} />
+                  </span>
+                  <span style={{ 
+                    fontSize: '11px', 
+                    fontWeight: isActive ? 600 : 500,
+                    letterSpacing: '0.3px',
+                    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  }}>{item.label}</span>
                 </button>
               );
             })}
