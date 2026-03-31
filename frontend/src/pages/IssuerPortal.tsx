@@ -1,392 +1,380 @@
-import { useState } from 'react';
-import { usePrivaMedAIContract } from '../hooks/usePrivaMedAIContract';
-import { Buffer } from 'buffer';
+/**
+ * Issuer Portal Page
+ * Issue and manage healthcare credentials
+ */
+
+import React, { useState, useCallback } from 'react';
 import { createHash } from 'crypto';
+import { usePrivaMedAIContract } from '../hooks/usePrivaMedAIContract';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  Input,
+  Select,
+  Badge,
+  Alert,
+} from '../components/ui';
+import {
+  IconPlus,
+  IconTrash,
+  IconCheck,
+  IconLoader,
+  IconKey,
+  IconLock,
+} from '../components/icons';
+import {
+  ContractState,
+  CredentialFormData,
+  IssuedCredential,
+  ClaimType,
+  TransactionStatus,
+} from '../types';
 
-interface CredentialForm {
-  subject: string;
-  claimType: string;
-  claimValue: string;
-  expiryDays: number;
+interface IssuerPortalProps {
+  seed: string;
+  contractState: ContractState;
+  isAdmin: boolean;
 }
 
-interface IssuedCredential {
-  commitment: string;
-  claimType: string;
-  claimValue: string;
-  credentialData: string;
-  txId?: string;
-  timestamp: number;
-}
+const CLAIM_TYPE_OPTIONS = [
+  { value: 'age', label: 'Age Verification' },
+  { value: 'vaccination', label: 'Vaccination Record' },
+  { value: 'insurance', label: 'Insurance Coverage' },
+  { value: 'medical_degree', label: 'Medical Degree' },
+  { value: 'license', label: 'Medical License' },
+  { value: 'clearance', label: 'Health Clearance' },
+];
 
-export default function IssuerPortal({ seed }: { seed: string }) {
-  const [form, setForm] = useState<CredentialForm>({
+// Generate 32-byte credential data
+const generateCredentialData = (claimType: string, claimValue: string): string => {
+  const str = `${claimType}:${claimValue}`;
+  const hash = createHash('sha256').update(str).digest();
+  return '0x' + hash.toString('hex');
+};
+
+// Generate claim hash
+const generateClaimHash = (credentialData: string): string => {
+  const data = Buffer.from(credentialData.replace('0x', ''), 'hex');
+  const hash = createHash('sha256').update(data).digest();
+  return '0x' + hash.toString('hex');
+};
+
+// Generate commitment
+const generateCommitment = (data: object): string => {
+  const str = JSON.stringify(data) + Date.now();
+  const hash = createHash('sha256').update(str).digest();
+  return '0x' + hash.toString('hex');
+};
+
+export const IssuerPortal: React.FC<IssuerPortalProps> = ({
+  seed,
+  contractState,
+  isAdmin,
+}) => {
+  const [activeTab, setActiveTab] = useState<'issue' | 'manage'>('issue');
+  const [formData, setFormData] = useState<CredentialFormData>({
     subject: '',
-    claimType: 'age',
+    claimType: 'vaccination',
     claimValue: '',
     expiryDays: 365,
   });
-  const [status, setStatus] = useState<string>('');
   const [issuedCreds, setIssuedCreds] = useState<IssuedCredential[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [activeTab, setActiveTab] = useState<'issue' | 'manage'>('issue');
+  const [txStatus, setTxStatus] = useState<TransactionStatus>('idle');
+  const [txError, setTxError] = useState<string>('');
+  const [txSuccess, setTxSuccess] = useState<string>('');
 
-  const { 
-    state, 
-    error, 
-    walletAddress: _walletAddress, 
-    adminKey: _adminKey,
-    isAdmin,
-    initialize,
-    registerIssuer: _registerIssuer,
+  const {
     issueCredential,
-    batchIssueCredentials: _batchIssueCredentials,
     revokeCredential,
-    updateIssuerStatus: _updateIssuerStatus,
-    contractAddress 
+    initialize,
   } = usePrivaMedAIContract(seed);
 
-  // Generate 32-byte credential data from claim
-  const generateCredentialData = (claimType: string, claimValue: string): string => {
-    const str = `${claimType}:${claimValue}`;
-    // Create 32 bytes by hashing and taking first 32 bytes
-    const hash = createHash('sha256').update(str).digest();
-    return '0x' + hash.toString('hex');
-  };
+  const isReady = contractState === 'ready';
 
-  const generateClaimHash = (credentialData: string): string => {
-    // claimHash is the persistentHash of credentialData
-    // For simplicity, we use SHA-256 (matches contract's persistentHash for single element)
-    const data = Buffer.from(credentialData.replace('0x', ''), 'hex');
-    const hash = createHash('sha256').update(data).digest();
-    return '0x' + hash.toString('hex');
-  };
+  const handleIssue = useCallback(async () => {
+    if (!isReady) return;
 
-  const generateCommitment = (data: any) => {
-    // Generate unique commitment based on data + timestamp
-    const str = JSON.stringify(data) + Date.now();
-    const hash = createHash('sha256').update(str).digest();
-    return '0x' + hash.toString('hex');
-  };
-
-  const handleInitialize = async () => {
-    if (!isAdmin) {
-      setStatus('❌ Only the admin can initialize the contract');
-      return;
-    }
-    setIsSubmitting(true);
-    setStatus('Initializing contract...');
-    try {
-      const txId = await initialize();
-      setStatus(`✅ Contract initialized! TX: ${txId.slice(0, 40)}...`);
-    } catch (e: any) {
-      setStatus(`❌ Error: ${e.message || 'Initialization failed'}`);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleIssue = async () => {
-    if (state !== 'ready') {
-      setStatus('❌ Contract not ready yet. Please wait...');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setStatus('Generating credential...');
+    setTxStatus('pending');
+    setTxError('');
+    setTxSuccess('');
 
     try {
-      // Generate credential data (32 bytes)
-      const credentialData = generateCredentialData(form.claimType, form.claimValue);
+      const credentialData = generateCredentialData(formData.claimType, formData.claimValue);
       const claimHash = generateClaimHash(credentialData);
       const commitment = generateCommitment({
-        subject: form.subject,
-        claimType: form.claimType,
-        claimValue: form.claimValue,
+        subject: formData.subject,
+        claimType: formData.claimType,
+        claimValue: formData.claimValue,
       });
-
-      setStatus('Submitting transaction to Midnight network...');
 
       const txId = await issueCredential(
         commitment,
         claimHash,
-        form.expiryDays
+        formData.expiryDays
       );
 
       const newCred: IssuedCredential = {
+        ...formData,
         commitment,
-        claimType: form.claimType,
-        claimValue: form.claimValue,
         credentialData,
+        claimHash,
         txId,
         timestamp: Date.now(),
       };
 
       setIssuedCreds((prev) => [newCred, ...prev]);
-      setStatus(`✅ Credential issued! Transaction: ${txId.slice(0, 40)}...`);
+      setTxSuccess(`Credential issued successfully! TX: ${txId.slice(0, 40)}...`);
+      setTxStatus('success');
 
-      // Save to localStorage for demo
-      const existing = JSON.parse(localStorage.getItem('privamedai_credentials') || '[]');
-      localStorage.setItem('privamedai_credentials', JSON.stringify([newCred, ...existing]));
-    } catch (e: any) {
-      console.error('Issue error:', e);
-      setStatus(`❌ Error: ${e.message || 'Transaction failed'}`);
-    } finally {
-      setIsSubmitting(false);
+      // Reset form
+      setFormData((prev) => ({ ...prev, claimValue: '', subject: '' }));
+    } catch (err: any) {
+      setTxError(err.message || 'Failed to issue credential');
+      setTxStatus('error');
     }
-  };
+  }, [formData, isReady, issueCredential]);
 
-  const handleRevoke = async (commitment: string) => {
-    if (state !== 'ready') {
-      setStatus('❌ Contract not ready');
-      return;
-    }
+  const handleRevoke = useCallback(async (commitment: string) => {
+    if (!isReady) return;
 
-    setIsSubmitting(true);
-    setStatus('Revoking credential...');
+    setTxStatus('pending');
+    setTxError('');
 
     try {
       const txId = await revokeCredential(commitment);
-      setStatus(`✅ Credential revoked! TX: ${txId.slice(0, 40)}...`);
-    } catch (e: any) {
-      setStatus(`❌ Error: ${e.message || 'Revoke failed'}`);
-    } finally {
-      setIsSubmitting(false);
+      setTxSuccess(`Credential revoked! TX: ${txId.slice(0, 40)}...`);
+      setTxStatus('success');
+    } catch (err: any) {
+      setTxError(err.message || 'Failed to revoke credential');
+      setTxStatus('error');
     }
-  };
+  }, [isReady, revokeCredential]);
 
-  const getStatusBadge = () => {
-    switch (state) {
-      case 'initializing':
-        return <span style={{ color: '#fbbf24' }}>⚙️ Initializing...</span>;
-      case 'syncing':
-        return <span style={{ color: '#60a5fa' }}>🔄 Syncing wallet...</span>;
-      case 'ready':
-        return <span style={{ color: '#4ade80' }}>✅ Ready</span>;
-      case 'error':
-        return <span style={{ color: '#f87171' }}>❌ Error: {error}</span>;
-      default:
-        return null;
+  const handleInitialize = useCallback(async () => {
+    if (!isReady || !isAdmin) return;
+
+    setTxStatus('pending');
+    setTxError('');
+
+    try {
+      const txId = await initialize();
+      setTxSuccess(`Contract initialized! TX: ${txId.slice(0, 40)}...`);
+      setTxStatus('success');
+    } catch (err: any) {
+      setTxError(err.message || 'Failed to initialize contract');
+      setTxStatus('error');
     }
-  };
+  }, [isReady, isAdmin, initialize]);
 
   return (
-    <div style={{ maxWidth: 800 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h2>🏥 PrivaMedAI - Issuer Portal</h2>
-        {getStatusBadge()}
-      </div>
-      
-      <p style={{ color: '#8888aa', marginBottom: '1rem' }}>
-        Issue and manage verifiable healthcare credentials on the Midnight preprod network.
-      </p>
-
-      {contractAddress && (
-        <div style={{ 
-          padding: '0.75rem', 
-          background: '#0f0f1a', 
-          borderRadius: '0.375rem', 
-          marginBottom: '1rem',
-          fontSize: '0.75rem',
-          color: '#6666aa',
-          wordBreak: 'break-all'
-        }}>
-          Contract: {contractAddress}
-          {isAdmin && <span style={{ color: '#4ade80', marginLeft: '0.5rem' }}>(Admin)</span>}
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-[var(--text-primary)]">Issuer Portal</h2>
+          <p className="text-[var(--text-muted)]">
+            Issue and manage verifiable healthcare credentials
+          </p>
         </div>
+        <div className="flex gap-2">
+          <Button
+            variant={activeTab === 'issue' ? 'primary' : 'secondary'}
+            onClick={() => setActiveTab('issue')}
+          >
+            <IconPlus size={16} />
+            Issue New
+          </Button>
+          <Button
+            variant={activeTab === 'manage' ? 'primary' : 'secondary'}
+            onClick={() => setActiveTab('manage')}
+          >
+            Manage ({issuedCreds.length})
+          </Button>
+        </div>
+      </div>
+
+      {/* Alerts */}
+      {txError && (
+        <Alert variant="error" onClose={() => setTxError('')}>
+          {txError}
+        </Alert>
+      )}
+      {txSuccess && (
+        <Alert variant="success" onClose={() => setTxSuccess('')}>
+          {txSuccess}
+        </Alert>
       )}
 
-      {/* Tab Navigation */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-        <button
-          onClick={() => setActiveTab('issue')}
-          style={{
-            padding: '0.5rem 1rem',
-            borderRadius: '0.375rem',
-            border: 'none',
-            cursor: 'pointer',
-            background: activeTab === 'issue' ? '#4f46e5' : '#1a1a2e',
-            color: activeTab === 'issue' ? '#fff' : '#a0a0cc',
-          }}
-        >
-          Issue Credential
-        </button>
-        <button
-          onClick={() => setActiveTab('manage')}
-          style={{
-            padding: '0.5rem 1rem',
-            borderRadius: '0.375rem',
-            border: 'none',
-            cursor: 'pointer',
-            background: activeTab === 'manage' ? '#4f46e5' : '#1a1a2e',
-            color: activeTab === 'manage' ? '#fff' : '#a0a0cc',
-          }}
-        >
-          Manage Issued
-        </button>
-      </div>
-
-      {activeTab === 'issue' && (
-        <div style={{ display: 'grid', gap: '1rem' }}>
-          {isAdmin && (
-            <div style={{ padding: '1rem', background: '#1a1a2e', borderRadius: '0.5rem', marginBottom: '1rem' }}>
-              <h4 style={{ margin: '0 0 0.5rem', color: '#a78bfa' }}>Admin Actions</h4>
-              <button
+      {/* Admin Section */}
+      {isAdmin && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-purple-500/20">
+                  <IconKey size={20} className="text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-[var(--text-primary)]">Admin Controls</h3>
+                  <p className="text-sm text-[var(--text-muted)]">
+                    Initialize contract or manage issuers
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="secondary"
                 onClick={handleInitialize}
-                disabled={isSubmitting}
-                style={{ ...buttonStyle, background: '#7c3aed', fontSize: '0.875rem' }}
+                isLoading={txStatus === 'pending'}
               >
                 Initialize Contract
-              </button>
+              </Button>
             </div>
-          )}
-
-          <label>
-            Subject Address
-            <input
-              value={form.subject}
-              onChange={(e) => setForm({ ...form, subject: e.target.value })}
-              placeholder="0x... (recipient's public key)"
-              style={inputStyle}
-              disabled={isSubmitting}
-            />
-          </label>
-
-          <label>
-            Credential Type
-            <select
-              value={form.claimType}
-              onChange={(e) => setForm({ ...form, claimType: e.target.value })}
-              style={inputStyle}
-              disabled={isSubmitting}
-            >
-              <option value="age">Age Verification</option>
-              <option value="vaccination">Vaccination Record</option>
-              <option value="insurance">Insurance Coverage</option>
-              <option value="medical_degree">Medical Degree</option>
-              <option value="license">Medical License</option>
-              <option value="clearance">Health Clearance</option>
-            </select>
-          </label>
-
-          <label>
-            Claim Value
-            <input
-              value={form.claimValue}
-              onChange={(e) => setForm({ ...form, claimValue: e.target.value })}
-              placeholder="e.g. 21, Pfizer-COVID-19, Active, MD"
-              style={inputStyle}
-              disabled={isSubmitting}
-            />
-          </label>
-
-          <label>
-            Expiry (days)
-            <input
-              type="number"
-              value={form.expiryDays}
-              onChange={(e) => setForm({ ...form, expiryDays: Number(e.target.value) })}
-              style={inputStyle}
-              min={1}
-              max={3650}
-              disabled={isSubmitting}
-            />
-          </label>
-
-          <button 
-            onClick={handleIssue} 
-            style={{ ...buttonStyle, opacity: isSubmitting || state !== 'ready' ? 0.6 : 1 }}
-            disabled={isSubmitting || state !== 'ready'}
-          >
-            {isSubmitting ? '⏳ Issuing...' : 'Issue Credential'}
-          </button>
-          
-          {status && (
-            <div style={{ 
-              padding: '0.75rem', 
-              background: status.startsWith('✅') ? '#064e3b' : status.startsWith('❌') ? '#450a0a' : '#1a1a2e',
-              borderRadius: '0.375rem',
-              color: status.startsWith('✅') ? '#86efac' : status.startsWith('❌') ? '#fca5a5' : '#e0e0ff',
-              fontSize: '0.875rem',
-              whiteSpace: 'pre-wrap',
-            }}>
-              {status}
-            </div>
-          )}
-        </div>
+          </CardContent>
+        </Card>
       )}
 
+      {/* Issue Form */}
+      {activeTab === 'issue' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Issue New Credential</CardTitle>
+            <CardDescription>
+              Create a verifiable healthcare credential for a subject
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid gap-6">
+              <Input
+                label="Subject Address"
+                placeholder="0x... (recipient's public key)"
+                value={formData.subject}
+                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                disabled={!isReady || txStatus === 'pending'}
+              />
+
+              <Select
+                label="Credential Type"
+                options={CLAIM_TYPE_OPTIONS}
+                value={formData.claimType}
+                onChange={(e) => setFormData({ ...formData, claimType: e.target.value as ClaimType })}
+                disabled={!isReady || txStatus === 'pending'}
+              />
+
+              <Input
+                label="Claim Value"
+                placeholder="e.g., COVID-19-Pfizer, MD-12345, 21"
+                value={formData.claimValue}
+                onChange={(e) => setFormData({ ...formData, claimValue: e.target.value })}
+                disabled={!isReady || txStatus === 'pending'}
+              />
+
+              <Input
+                label="Expiry (days)"
+                type="number"
+                min={1}
+                max={3650}
+                value={formData.expiryDays}
+                onChange={(e) => setFormData({ ...formData, expiryDays: parseInt(e.target.value) })}
+                disabled={!isReady || txStatus === 'pending'}
+              />
+            </div>
+
+            <Button
+              onClick={handleIssue}
+              isLoading={txStatus === 'pending'}
+              disabled={!isReady || !formData.subject || !formData.claimValue}
+              fullWidth
+            >
+              {txStatus === 'pending' ? (
+                <>
+                  <IconLoader size={16} />
+                  Issuing Credential...
+                </>
+              ) : (
+                <>
+                  <IconLock size={16} />
+                  Issue Credential
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Manage Credentials */}
       {activeTab === 'manage' && (
-        <div>
-          <h3>Recently Issued Credentials</h3>
+        <div className="space-y-4">
           {issuedCreds.length === 0 ? (
-            <div style={{ padding: '2rem', background: '#111122', borderRadius: '0.5rem', textAlign: 'center', color: '#6666aa' }}>
-              <p>No credentials issued yet in this session.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              {issuedCreds.map((c, i) => (
-                <div key={i} style={{ background: '#111122', padding: '0.75rem', borderRadius: '0.375rem', border: '1px solid #2a2a3e' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                    <strong style={{ textTransform: 'capitalize', color: '#a78bfa' }}>{c.claimType.replace('_', ' ')}</strong>
-                    <span style={{ color: '#6666aa', fontSize: '0.75rem' }}>
-                      {new Date(c.timestamp).toLocaleString()}
-                    </span>
-                  </div>
-                  <div style={{ color: '#a0a0cc', marginBottom: '0.5rem' }}>{c.claimValue}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#6666aa', wordBreak: 'break-all', marginBottom: '0.5rem' }}>
-                    Commitment: {c.commitment}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: '#4ade80', wordBreak: 'break-all', marginBottom: '0.5rem' }}>
-                    Credential Data (for verification): {c.credentialData}
-                  </div>
-                  {c.txId && (
-                    <div style={{ fontSize: '0.75rem', color: '#8888aa', marginBottom: '0.5rem' }}>
-                      TX: {c.txId.slice(0, 40)}...
-                    </div>
-                  )}
-                  <button
-                    onClick={() => handleRevoke(c.commitment)}
-                    disabled={isSubmitting}
-                    style={{
-                      padding: '0.25rem 0.5rem',
-                      borderRadius: '0.25rem',
-                      border: '1px solid #dc2626',
-                      background: '#450a0a',
-                      color: '#fca5a5',
-                      cursor: 'pointer',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    Revoke
-                  </button>
+            <Card>
+              <CardContent className="p-12 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--bg-tertiary)] flex items-center justify-center">
+                  <IconKey size={32} className="text-[var(--text-muted)]" />
                 </div>
-              ))}
-            </div>
+                <h3 className="text-lg font-medium text-[var(--text-primary)] mb-2">
+                  No Credentials Issued
+                </h3>
+                <p className="text-[var(--text-muted)] mb-4">
+                  Issue your first credential to see it here
+                </p>
+                <Button variant="secondary" onClick={() => setActiveTab('issue')}>
+                  Issue Credential
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            issuedCreds.map((cred, index) => (
+              <Card key={index}>
+                <CardContent className="p-6">
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="success">
+                          <IconCheck size={12} />
+                          Active
+                        </Badge>
+                        <span className="text-sm text-[var(--text-muted)]">
+                          {new Date(cred.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                      
+                      <h3 className="font-semibold text-[var(--text-primary)] capitalize">
+                        {cred.claimType.replace('_', ' ')}
+                      </h3>
+                      <p className="text-[var(--text-secondary)]">{cred.claimValue}</p>
+                      
+                      <div className="font-mono text-xs text-[var(--text-muted)] break-all">
+                        <span className="text-[var(--text-secondary)]">Commitment:</span> {cred.commitment}
+                      </div>
+                      
+                      {cred.txId && (
+                        <div className="font-mono text-xs text-green-500">
+                          TX: {cred.txId.slice(0, 50)}...
+                        </div>
+                      )}
+                    </div>
+
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => handleRevoke(cred.commitment)}
+                      isLoading={txStatus === 'pending'}
+                    >
+                      <IconTrash size={14} />
+                      Revoke
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
           )}
         </div>
       )}
     </div>
   );
-}
-
-const inputStyle: React.CSSProperties = {
-  display: 'block',
-  width: '100%',
-  marginTop: '0.25rem',
-  padding: '0.5rem',
-  borderRadius: '0.375rem',
-  border: '1px solid #2a2a3e',
-  background: '#111122',
-  color: '#e0e0ff',
 };
 
-const buttonStyle: React.CSSProperties = {
-  padding: '0.75rem 1rem',
-  borderRadius: '0.375rem',
-  border: 'none',
-  background: '#4f46e5',
-  color: '#fff',
-  fontWeight: 600,
-  cursor: 'pointer',
-};
+export default IssuerPortal;

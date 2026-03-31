@@ -1,11 +1,26 @@
-import { useState } from 'react';
-import { WalletProvider, useWallet } from './hooks/WalletContext';
-import IssuerPortal from './pages/IssuerPortal';
-import UserPortal from './pages/UserPortal';
-import VerifierPortal from './pages/VerifierPortal';
+/**
+ * PrivaMedAI Application
+ * Main entry point with wallet connection and portal routing
+ */
 
-function WalletConnect({ onConnect }: { onConnect: (seed: string) => void }) {
+import React, { useState } from 'react';
+import { WalletProvider, useWallet } from './hooks/WalletContext';
+import { usePrivaMedAIContract } from './hooks/usePrivaMedAIContract';
+import { MainLayout } from './components/layout';
+import { Button, Card, CardContent, Input, Alert } from './components/ui';
+import { IconWallet, IconKey, IconLoader, IconArrowRight } from './components/icons';
+import { IssuerPortal } from './pages/IssuerPortal';
+import { UserPortal } from './pages/UserPortal';
+import { VerifierPortal } from './pages/VerifierPortal';
+import { PortalType } from './types';
+
+// ============================================================================
+// Wallet Connection Screen
+// ============================================================================
+
+const WalletConnect: React.FC<{ onConnect: (seed: string) => void }> = ({ onConnect }) => {
   const [seed, setSeed] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleConnect = () => {
     if (seed.trim().length === 64) {
@@ -16,197 +31,159 @@ function WalletConnect({ onConnect }: { onConnect: (seed: string) => void }) {
   };
 
   const generateRandom = () => {
+    setIsGenerating(true);
     const bytes = new Uint8Array(32);
     crypto.getRandomValues(bytes);
     const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
     setSeed(hex);
+    setIsGenerating(false);
   };
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center',
-      background: '#0a0a0f',
-      color: '#e0e0ff',
-      padding: '2rem'
-    }}>
-      <div style={{ 
-        maxWidth: 500, 
-        width: '100%',
-        background: '#111122',
-        borderRadius: '1rem',
-        padding: '2rem',
-        border: '1px solid #2a2a3e'
-      }}>
-        <h1 style={{ 
-          margin: '0 0 0.5rem', 
-          fontSize: '1.75rem',
-          background: 'linear-gradient(90deg, #a78bfa, #60a5fa)', 
-          WebkitBackgroundClip: 'text', 
-          WebkitTextFillColor: 'transparent' 
-        }}>
-          🏥 PrivaMedAI
-        </h1>
-        <p style={{ color: '#8888aa', marginBottom: '0.5rem' }}>
-          Enterprise Healthcare Credentials on Midnight
-        </p>
-        <p style={{ color: '#6666aa', fontSize: '0.75rem', marginBottom: '2rem' }}>
-          Privacy-first verifiable credentials for hospitals, clinics, and healthcare providers
-        </p>
-
-        <div style={{ display: 'grid', gap: '1rem' }}>
-          <label>
-            Wallet Seed (64 hex chars)
-            <textarea
-              value={seed}
-              onChange={(e) => setSeed(e.target.value)}
-              placeholder="Enter your wallet seed..."
-              rows={3}
-              style={{
-                width: '100%',
-                marginTop: '0.5rem',
-                padding: '0.75rem',
-                borderRadius: '0.5rem',
-                border: '1px solid #2a2a3e',
-                background: '#0a0a0f',
-                color: '#e0e0ff',
-                fontFamily: 'monospace',
-                fontSize: '0.875rem',
-                resize: 'none',
-              }}
-            />
-          </label>
-
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              onClick={handleConnect}
-              style={{
-                flex: 1,
-                padding: '0.75rem',
-                borderRadius: '0.5rem',
-                border: 'none',
-                background: '#4f46e5',
-                color: '#fff',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Connect Wallet
-            </button>
-            <button
-              onClick={generateRandom}
-              style={{
-                padding: '0.75rem 1rem',
-                borderRadius: '0.5rem',
-                border: '1px solid #2a2a3e',
-                background: '#1a1a2e',
-                color: '#a0a0cc',
-                cursor: 'pointer',
-              }}
-            >
-              🎲 Generate
-            </button>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[var(--bg-primary)]">
+      <Card className="w-full max-w-md">
+        <CardContent className="p-8">
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+              <IconWallet size={32} className="text-white" />
+            </div>
+            <h1 className="text-2xl font-bold gradient-text mb-2">PrivaMedAI</h1>
+            <p className="text-[var(--text-muted)] text-sm">
+              Enterprise Healthcare Credentials on Midnight
+            </p>
           </div>
-        </div>
 
-        <div style={{ marginTop: '2rem', padding: '1rem', background: '#0f0f1a', borderRadius: '0.5rem' }}>
-          <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.875rem' }}>⚠️ Important</h4>
-          <p style={{ margin: 0, fontSize: '0.75rem', color: '#8888aa' }}>
-            Your wallet must be funded with tNight tokens from the{' '}
-            <a href="https://faucet.preprod.midnight.network/" target="_blank" rel="noopener" style={{ color: '#60a5fa' }}>
-              Midnight preprod faucet
-            </a>
-            . The local proof server must also be running on port 6300.
-          </p>
-        </div>
+          {/* Seed Input */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
+                Wallet Seed <span className="text-[var(--text-muted)]">(64 hex characters)</span>
+              </label>
+              <textarea
+                value={seed}
+                onChange={(e) => setSeed(e.target.value)}
+                placeholder="Enter your wallet seed..."
+                rows={3}
+                className="input textarea font-mono text-sm"
+              />
+              <div className="mt-2 flex justify-between text-xs text-[var(--text-muted)]">
+                <span>{seed.length}/64 characters</span>
+                {seed.length === 64 && (
+                  <span className="text-green-500 flex items-center gap-1">
+                    <IconCheck size={12} /> Valid
+                  </span>
+                )}
+              </div>
+            </div>
 
-        <div style={{ marginTop: '1rem', padding: '1rem', background: '#1a1a2e', borderRadius: '0.5rem' }}>
-          <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.875rem', color: '#a78bfa' }}>🔒 Privacy Features</h4>
-          <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.75rem', color: '#8888aa' }}>
-            <li>Zero-knowledge proofs for credential verification</li>
-            <li>Private health data never leaves your device</li>
-            <li>On-chain verification without data exposure</li>
-          </ul>
-        </div>
-      </div>
+            {/* Actions */}
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={generateRandom}
+                isLoading={isGenerating}
+                className="flex-1"
+              >
+                Generate
+              </Button>
+              <Button
+                onClick={handleConnect}
+                disabled={seed.length !== 64}
+                rightIcon={<IconArrowRight size={16} />}
+                className="flex-1"
+              >
+                Connect
+              </Button>
+            </div>
+          </div>
+
+          {/* Info */}
+          <div className="mt-8 space-y-3">
+            <Alert variant="info">
+              Your wallet must be funded with tNight tokens from the{' '}
+              <a
+                href="https://faucet.preprod.midnight.network/"
+                target="_blank"
+                rel="noopener"
+                className="underline"
+              >
+                Midnight preprod faucet
+              </a>
+            </Alert>
+            <Alert variant="warning">
+              The local proof server must be running on port 6300
+            </Alert>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
-}
+};
 
-function MainApp() {
+// ============================================================================
+// Main Application
+// ============================================================================
+
+const MainApp: React.FC = () => {
   const { seed, isConnected, connect, disconnect } = useWallet();
-  const [activePortal, setActivePortal] = useState<'issuer' | 'user' | 'verifier'>('issuer');
+  const [activePortal, setActivePortal] = useState<PortalType>('issuer');
+  
+  const {
+    state: contractState,
+    error: contractError,
+    walletAddress,
+    isAdmin,
+  } = usePrivaMedAIContract(seed || '');
 
   if (!isConnected || !seed) {
     return <WalletConnect onConnect={connect} />;
   }
 
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', minHeight: '100vh', background: '#0a0a0f', color: '#e0e0ff' }}>
-      <header style={{ padding: '1rem 2rem', borderBottom: '1px solid #1a1a2e', background: '#0f0f1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', background: 'linear-gradient(90deg, #a78bfa, #60a5fa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            🏥 PrivaMedAI
-          </h1>
-          <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: '#8888aa' }}>
-            Enterprise Healthcare Credentials on Midnight
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <span style={{ color: '#4ade80', fontSize: '0.875rem' }}>● Connected</span>
-          <button
-            onClick={disconnect}
-            style={{
-              padding: '0.5rem 1rem',
-              borderRadius: '0.375rem',
-              border: '1px solid #2a2a3e',
-              background: '#1a1a2e',
-              color: '#a0a0cc',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-            }}
-          >
-            Disconnect
-          </button>
-        </div>
-      </header>
-
-      <nav style={{ display: 'flex', gap: '0.5rem', padding: '1rem 2rem', background: '#0f0f1a' }}>
-        {(['issuer', 'user', 'verifier'] as const).map((portal) => (
-          <button
-            key={portal}
-            onClick={() => setActivePortal(portal)}
-            style={{
-              padding: '0.5rem 1rem',
-              borderRadius: '0.375rem',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: 500,
-              textTransform: 'capitalize',
-              background: activePortal === portal ? '#4f46e5' : '#1a1a2e',
-              color: activePortal === portal ? '#fff' : '#a0a0cc',
-            }}
-          >
-            {portal === 'issuer' ? '🏥 Issuer' : portal === 'user' ? '👤 User' : '🔍 Verifier'} Portal
-          </button>
-        ))}
-      </nav>
-
-      <main style={{ padding: '2rem' }}>
-        {activePortal === 'issuer' && <IssuerPortal seed={seed} />}
-        {activePortal === 'user' && <UserPortal seed={seed} />}
-        {activePortal === 'verifier' && <VerifierPortal seed={seed} />}
-      </main>
-    </div>
+    <MainLayout
+      contractState={contractState}
+      contractError={contractError}
+      walletAddress={walletAddress}
+      activePortal={activePortal}
+      onPortalChange={setActivePortal}
+      onDisconnect={disconnect}
+    >
+      <div className="animate-fade-in">
+        {activePortal === 'issuer' && (
+          <IssuerPortal
+            seed={seed}
+            contractState={contractState}
+            isAdmin={isAdmin}
+          />
+        )}
+        {activePortal === 'user' && (
+          <UserPortal
+            seed={seed}
+            contractState={contractState}
+          />
+        )}
+        {activePortal === 'verifier' && (
+          <VerifierPortal
+            seed={seed}
+            contractState={contractState}
+          />
+        )}
+      </div>
+    </MainLayout>
   );
-}
+};
 
-export default function App() {
+// ============================================================================
+// Root Application
+// ============================================================================
+
+const App: React.FC = () => {
   return (
     <WalletProvider>
       <MainApp />
     </WalletProvider>
   );
-}
+};
+
+export default App;
