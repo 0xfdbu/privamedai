@@ -623,24 +623,93 @@ function Layout({ children, state, address, portal, setPortal, onDisconnect }: a
   return (
     <div style={{ minHeight: '100vh' }}>
       {/* Header */}
-      <header style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '60px', background: 'rgba(7,7,9,0.9)', backdropFilter: 'blur(10px)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px', zIndex: 100 }}>
+      <header style={{ 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        height: '60px', 
+        background: 'rgba(7,7,9,0.8)', 
+        backdropFilter: 'blur(20px)', 
+        borderBottom: '1px solid rgba(248,250,252,0.06)', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        padding: '0 24px', 
+        zIndex: 100 
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ width: '36px', height: '36px', background: 'var(--gradient-primary)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>P</div>
-          <span style={{ fontWeight: '700' }}>PrivaMedAI</span>
+          {/* Hide logo on desktop since it's in sidebar */}
+          <div className="header-logo" style={{ width: '36px', height: '36px', background: 'var(--gradient-primary)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>P</div>
+          <span style={{ fontWeight: '700', color: '#f8fafc' }}>PrivaMedAI</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {address && (
-            <code style={{ fontSize: '12px', color: 'var(--text-muted)', background: 'var(--surface)', padding: '6px 12px', borderRadius: '6px' }}>
+            <code style={{ 
+              fontSize: '12px', 
+              color: 'rgba(248,250,252,0.7)', 
+              background: 'rgba(248,250,252,0.08)', 
+              padding: '8px 14px', 
+              borderRadius: '20px',
+              border: '1px solid rgba(248,250,252,0.1)',
+              fontFamily: 'monospace'
+            }}>
               {address.slice(0, 6)}...{address.slice(-4)}
             </code>
           )}
-          <Button variant="ghost" onClick={onDisconnect}>Disconnect</Button>
+          <Button variant="ghost" onClick={onDisconnect} style={{ color: 'rgba(248,250,252,0.8)' }}>Disconnect</Button>
         </div>
       </header>
 
-      {/* Sidebar */}
-      <aside style={{ position: 'fixed', left: 0, top: '60px', bottom: 0, width: '240px', background: 'var(--surface)', borderRight: '1px solid var(--border)', padding: '16px', display: 'none' }} className="sidebar-lg">
-        <nav>
+      {/* Floating Sidebar */}
+      <aside className="sidebar-lg" style={{
+        position: 'fixed',
+        left: '16px',
+        top: '76px',
+        width: '220px',
+        maxHeight: 'calc(100vh - 100px)',
+        background: '#070707',
+        borderRadius: '16px',
+        padding: '20px',
+        display: 'none',
+        flexDirection: 'column',
+        gap: '8px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+        border: '1px solid rgba(255,255,255,0.06)',
+        zIndex: 90,
+        overflow: 'hidden',
+      }}>
+        {/* Logo/Brand */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px', 
+          marginBottom: '24px',
+          paddingBottom: '16px',
+          borderBottom: '1px solid rgba(248,250,252,0.08)'
+        }}>
+          <div style={{ 
+            width: '36px', 
+            height: '36px', 
+            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', 
+            borderRadius: '10px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            fontWeight: 'bold',
+            color: '#f8fafc',
+            fontSize: '16px'
+          }}>P</div>
+          <span style={{ 
+            fontWeight: '700', 
+            color: '#f8fafc',
+            fontSize: '16px',
+            letterSpacing: '-0.3px'
+          }}>PrivaMed</span>
+        </div>
+
+        {/* Navigation */}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
           {navItems.map(item => (
             <button
               key={item.id}
@@ -649,26 +718,90 @@ function Layout({ children, state, address, portal, setPortal, onDisconnect }: a
                 width: '100%',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '10px',
-                padding: '10px 14px',
-                marginBottom: '6px',
-                borderRadius: '8px',
+                gap: '12px',
+                padding: '12px 14px',
+                borderRadius: '10px',
                 border: 'none',
-                background: portal === item.id ? 'var(--primary)' : 'transparent',
-                color: portal === item.id ? 'white' : 'var(--text)',
+                background: portal === item.id ? 'rgba(248,250,252,0.1)' : 'transparent',
+                color: portal === item.id ? '#f8fafc' : 'rgba(248,250,252,0.6)',
                 fontSize: '14px',
-                fontWeight: '500',
+                fontWeight: portal === item.id ? '600' : '500',
                 cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                position: 'relative',
+              }}
+              onMouseEnter={(e) => {
+                if (portal !== item.id) {
+                  e.currentTarget.style.background = 'rgba(248,250,252,0.05)';
+                  e.currentTarget.style.color = '#f8fafc';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (portal !== item.id) {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'rgba(248,250,252,0.6)';
+                }
               }}
             >
-              <item.icon /> {item.label}
+              <span style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                width: '28px',
+                height: '28px',
+                borderRadius: '8px',
+                background: portal === item.id ? 'rgba(99,102,241,0.2)' : 'transparent',
+                transition: 'all 0.2s ease',
+              }}>
+                <item.icon s={16} />
+              </span>
+              {item.label}
+              {portal === item.id && (
+                <div style={{
+                  position: 'absolute',
+                  right: '10px',
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: '#6366f1',
+                }} />
+              )}
             </button>
           ))}
         </nav>
-        <div style={{ position: 'absolute', bottom: '16px', left: '16px', right: '16px', padding: '12px', background: 'var(--bg)', borderRadius: '8px' }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Status</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: state === 'ready' ? 'var(--success)' : state === 'error' ? 'var(--error)' : 'var(--warning)', animation: state === 'syncing' ? 'pulse 1.5s infinite' : undefined }} />
+
+        {/* Status Card */}
+        <div style={{ 
+          marginTop: 'auto',
+          padding: '14px', 
+          background: 'rgba(248,250,252,0.05)', 
+          borderRadius: '12px',
+          border: '1px solid rgba(248,250,252,0.06)',
+        }}>
+          <div style={{ 
+            fontSize: '11px', 
+            color: 'rgba(248,250,252,0.5)', 
+            marginBottom: '8px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            fontWeight: '600'
+          }}>Network Status</div>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            fontSize: '13px',
+            color: '#f8fafc',
+            fontWeight: '500'
+          }}>
+            <div style={{ 
+              width: '8px', 
+              height: '8px', 
+              borderRadius: '50%', 
+              background: state === 'ready' ? '#10b981' : state === 'error' ? '#ef4444' : '#f59e0b',
+              boxShadow: state === 'ready' ? '0 0 8px #10b981' : state === 'error' ? '0 0 8px #ef4444' : '0 0 8px #f59e0b',
+              animation: state === 'syncing' ? 'pulse 1.5s infinite' : undefined 
+            }} />
             {state === 'ready' ? 'Connected' : state === 'error' ? 'Error' : 'Syncing'}
           </div>
         </div>
@@ -691,9 +824,14 @@ function Layout({ children, state, address, portal, setPortal, onDisconnect }: a
 
       <style>{`
         @media (min-width: 1024px) {
-          .sidebar-lg { display: block !important; }
+          .sidebar-lg { display: flex !important; }
           .mobile-nav { display: none !important; }
-          main { margin-left: 240px !important; margin-bottom: 20px !important; max-width: 900px !important; }
+          main { margin-left: 270px !important; margin-bottom: 20px !important; max-width: 900px !important; }
+          .header-logo { display: none !important; }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
         }
       `}</style>
     </div>
