@@ -5,8 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { webcrypto } from 'node:crypto';
 import { generateRandomSeed, HDWallet, Roles } from '@midnight-ntwrk/wallet-sdk-hd';
-import { UnshieldedAddress } from '@midnight-ntwrk/wallet-sdk-address-format';
-import nacl from 'tweetnacl';
+import { createKeystore } from '@midnight-ntwrk/wallet-sdk-unshielded-wallet';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,15 +29,14 @@ class WalletKeyGenerator {
       throw new Error('Failed to generate HD wallet from seed');
     }
 
-    const dustResult = wallet.hdWallet.selectAccount(0).selectRole(Roles.Dust).deriveKeyAt(0);
-    if (dustResult.type !== 'keyDerived') {
-      throw new Error('Failed to derive dust key');
+    const result = wallet.hdWallet.selectAccount(0).selectRoles([Roles.Zswap, Roles.NightExternal, Roles.Dust]).deriveKeysAt(0);
+    if (result.type !== 'keysDerived') {
+      throw new Error('Failed to derive keys');
     }
 
-    const dustKeypair = nacl.sign.keyPair.fromSeed(dustResult.key);
-    const unshieldedAddr = new UnshieldedAddress(dustKeypair.publicKey);
-    const bech32 = UnshieldedAddress.codec.encode('preprod', unshieldedAddr);
-    return bech32.asString();
+    const keystore = createKeystore(result.keys[Roles.NightExternal], 'preprod');
+    const address = keystore.getBech32Address();
+    return typeof address === 'string' ? address : address.asString();
   }
 
   updateEnvFile(seed, address = null) {

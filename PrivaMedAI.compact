@@ -1,0 +1,434 @@
+pragma language_version >= 0.22.0 && <= 0.22.0;
+
+import CompactStandardLibrary;
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PrivaMed AI - Enterprise Verifiable Health Credentials Platform
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMERATIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export enum CredentialStatus {
+  VALID,
+  REVOKED
+}
+
+export enum IssuerStatus {
+  PENDING,
+  ACTIVE,
+  SUSPENDED,
+  REVOKED
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STRUCTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export struct Credential {
+  issuer: Bytes<32>,
+  claimHash: Bytes<32>,
+  expiry: Uint<64>,
+  status: CredentialStatus
+}
+
+export struct Issuer {
+  publicKey: Bytes<32>,
+  status: IssuerStatus,
+  nameHash: Bytes<32>,
+  credentialCount: Uint<64>
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEDGERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export ledger credentials: Map<Bytes<32>, Credential>;
+export ledger issuerRegistry: Map<Bytes<32>, Issuer>;
+export ledger admin: Map<Bytes<1>, Bytes<32>>;
+export ledger roundCounter: Counter;
+export ledger totalCredentialsIssued: Counter;
+export ledger totalVerificationsPerformed: Counter;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WITNESSES
+// ─────────────────────────────────────────────────────────────────────────────
+
+witness local_secret_key(): Bytes<32>;
+witness get_credential_data(): Bytes<32>;
+witness get_bundled_credential_data(index: Uint<8>): Bytes<32>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PURE FUNCTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+pure circuit get_public_key(sk: Bytes<32>): Bytes<32> {
+  return persistentHash<Vector<2, Bytes<32>>>([pad(32, "privamed:pk:"), sk]);
+}
+
+pure circuit is_active_issuer(issuer: Issuer): Boolean {
+  return issuer.status == IssuerStatus.ACTIVE;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN FUNCTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export circuit initialize(initialAdmin: Bytes<32>): [] {
+  const d_initialAdmin = disclose(initialAdmin);
+  admin.insert(pad(1, "a"), d_initialAdmin);
+  roundCounter.increment(1);
+}
+
+export circuit getAdmin(): Bytes<32> {
+  return admin.lookup(pad(1, "a"));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ISSUER REGISTRY
+// ─────────────────────────────────────────────────────────────────────────────
+
+export circuit registerIssuer(
+  issuerPubKey: Bytes<32>,
+  nameHash: Bytes<32>
+): [] {
+  const d_issuerPubKey = disclose(issuerPubKey);
+  const d_nameHash = disclose(nameHash);
+  
+  const sk = local_secret_key();
+  const caller = get_public_key(sk);
+  const adminKey = admin.lookup(pad(1, "a"));
+  assert(disclose(caller == adminKey), "Only admin can register issuers");
+  
+  assert(!issuerRegistry.member(d_issuerPubKey), "Issuer already registered");
+  
+  const newIssuer = Issuer {
+    publicKey: d_issuerPubKey,
+    status: IssuerStatus.ACTIVE,
+    nameHash: d_nameHash,
+    credentialCount: 0
+  };
+  
+  issuerRegistry.insert(d_issuerPubKey, newIssuer);
+  roundCounter.increment(1);
+}
+
+export circuit updateIssuerStatus(
+  issuerPubKey: Bytes<32>,
+  newStatus: IssuerStatus
+): [] {
+  const d_issuerPubKey = disclose(issuerPubKey);
+  const d_newStatus = disclose(newStatus);
+  
+  const sk = local_secret_key();
+  const caller = get_public_key(sk);
+  const adminKey = admin.lookup(pad(1, "a"));
+  assert(disclose(caller == adminKey), "Only admin can update issuer status");
+  
+  assert(issuerRegistry.member(d_issuerPubKey), "Issuer not found");
+  
+  const issuer = issuerRegistry.lookup(d_issuerPubKey);
+  const updatedIssuer = Issuer {
+    publicKey: issuer.publicKey,
+    status: d_newStatus,
+    nameHash: issuer.nameHash,
+    credentialCount: issuer.credentialCount
+  };
+  
+  issuerRegistry.insert(d_issuerPubKey, updatedIssuer);
+  roundCounter.increment(1);
+}
+
+export circuit getIssuerInfo(issuerPubKey: Bytes<32>): Issuer {
+  const d_issuerPubKey = disclose(issuerPubKey);
+  assert(issuerRegistry.member(d_issuerPubKey), "Issuer not found");
+  return issuerRegistry.lookup(d_issuerPubKey);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CREDENTIAL LIFECYCLE
+// ─────────────────────────────────────────────────────────────────────────────
+
+export circuit issueCredential(
+  commitment: Bytes<32>,
+  issuerPubKey: Bytes<32>,
+  claimHash: Bytes<32>,
+  expiry: Uint<64>
+): [] {
+  const d_commitment = disclose(commitment);
+  const d_issuerPubKey = disclose(issuerPubKey);
+  const d_claimHash = disclose(claimHash);
+  const d_expiry = disclose(expiry);
+  
+  assert(!credentials.member(d_commitment), "Credential already exists");
+  
+  assert(issuerRegistry.member(d_issuerPubKey), "Issuer not registered");
+  const issuer = issuerRegistry.lookup(d_issuerPubKey);
+  assert(disclose(is_active_issuer(issuer)), "Issuer not active");
+  
+  const sk = local_secret_key();
+  const caller = get_public_key(sk);
+  assert(disclose(caller == d_issuerPubKey), "Only registered issuer can issue");
+  
+  const credential = Credential {
+    issuer: d_issuerPubKey,
+    claimHash: d_claimHash,
+    expiry: d_expiry,
+    status: CredentialStatus.VALID
+  };
+  
+  credentials.insert(d_commitment, credential);
+  
+  const updatedIssuer = Issuer {
+    publicKey: issuer.publicKey,
+    status: issuer.status,
+    nameHash: issuer.nameHash,
+    credentialCount: issuer.credentialCount
+  };
+  issuerRegistry.insert(d_issuerPubKey, updatedIssuer);
+  
+  totalCredentialsIssued.increment(1);
+  roundCounter.increment(1);
+}
+
+export circuit batchIssue3Credentials(
+  commitment1: Bytes<32>,
+  claimHash1: Bytes<32>,
+  expiry1: Uint<64>,
+  commitment2: Bytes<32>,
+  claimHash2: Bytes<32>,
+  expiry2: Uint<64>,
+  commitment3: Bytes<32>,
+  claimHash3: Bytes<32>,
+  expiry3: Uint<64>
+): [] {
+  const sk = local_secret_key();
+  const caller = get_public_key(sk);
+  const d_caller = disclose(caller);
+  
+  assert(issuerRegistry.member(d_caller), "Issuer not registered");
+  const issuer = issuerRegistry.lookup(d_caller);
+  assert(disclose(is_active_issuer(issuer)), "Issuer not active");
+  
+  const d_commitment1 = disclose(commitment1);
+  const d_claimHash1 = disclose(claimHash1);
+  const d_expiry1 = disclose(expiry1);
+  assert(!credentials.member(d_commitment1), "Credential 1 exists");
+  const credential1 = Credential {
+    issuer: d_caller,
+    claimHash: d_claimHash1,
+    expiry: d_expiry1,
+    status: CredentialStatus.VALID
+  };
+  credentials.insert(d_commitment1, credential1);
+  totalCredentialsIssued.increment(1);
+  
+  const d_commitment2 = disclose(commitment2);
+  const d_claimHash2 = disclose(claimHash2);
+  const d_expiry2 = disclose(expiry2);
+  assert(!credentials.member(d_commitment2), "Credential 2 exists");
+  const credential2 = Credential {
+    issuer: d_caller,
+    claimHash: d_claimHash2,
+    expiry: d_expiry2,
+    status: CredentialStatus.VALID
+  };
+  credentials.insert(d_commitment2, credential2);
+  totalCredentialsIssued.increment(1);
+  
+  const d_commitment3 = disclose(commitment3);
+  const d_claimHash3 = disclose(claimHash3);
+  const d_expiry3 = disclose(expiry3);
+  assert(!credentials.member(d_commitment3), "Credential 3 exists");
+  const credential3 = Credential {
+    issuer: d_caller,
+    claimHash: d_claimHash3,
+    expiry: d_expiry3,
+    status: CredentialStatus.VALID
+  };
+  credentials.insert(d_commitment3, credential3);
+  totalCredentialsIssued.increment(1);
+  
+  const updatedIssuer = Issuer {
+    publicKey: issuer.publicKey,
+    status: issuer.status,
+    nameHash: issuer.nameHash,
+    credentialCount: issuer.credentialCount
+  };
+  issuerRegistry.insert(d_caller, updatedIssuer);
+  
+  roundCounter.increment(1);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VERIFICATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+export circuit verifyCredential(commitment: Bytes<32>): Boolean {
+  const d_commitment = disclose(commitment);
+  
+  assert(credentials.member(d_commitment), "Credential not found");
+  
+  const credential = credentials.lookup(d_commitment);
+  assert(disclose(credential.status == CredentialStatus.VALID), "Credential revoked");
+  
+  // Note: expiry check can be added here if needed
+  // const currentTime = roundCounter.value;
+  // assert(disclose(credential.expiry > currentTime), "Credential expired");
+  
+  assert(issuerRegistry.member(credential.issuer), "Issuer not found");
+  const issuer = issuerRegistry.lookup(credential.issuer);
+  assert(disclose(is_active_issuer(issuer)), "Issuer not active");
+  
+  const privateData = get_credential_data();
+  const computedHash = persistentHash<Vector<1, Bytes<32>>>([privateData]);
+  assert(disclose(computedHash == credential.claimHash), "Hash mismatch");
+  
+  totalVerificationsPerformed.increment(1);
+  return true;
+}
+
+export circuit bundledVerify3Credentials(
+  commitment1: Bytes<32>,
+  commitment2: Bytes<32>,
+  commitment3: Bytes<32>
+): Boolean {
+  const d_commitment1 = disclose(commitment1);
+  const d_commitment2 = disclose(commitment2);
+  const d_commitment3 = disclose(commitment3);
+  
+  assert(credentials.member(d_commitment1), "Credential 1 not found");
+  const cred1 = credentials.lookup(d_commitment1);
+  assert(disclose(cred1.status == CredentialStatus.VALID), "Credential 1 revoked");
+  assert(issuerRegistry.member(cred1.issuer), "Credential 1 issuer not found");
+  const issuer1 = issuerRegistry.lookup(cred1.issuer);
+  assert(disclose(is_active_issuer(issuer1)), "Credential 1 issuer not active");
+  const privateData1 = get_bundled_credential_data(0);
+  const computedHash1 = persistentHash<Vector<1, Bytes<32>>>([privateData1]);
+  assert(disclose(computedHash1 == cred1.claimHash), "Credential 1 hash mismatch");
+  
+  assert(credentials.member(d_commitment2), "Credential 2 not found");
+  const cred2 = credentials.lookup(d_commitment2);
+  assert(disclose(cred2.status == CredentialStatus.VALID), "Credential 2 revoked");
+  assert(issuerRegistry.member(cred2.issuer), "Credential 2 issuer not found");
+  const issuer2 = issuerRegistry.lookup(cred2.issuer);
+  assert(disclose(is_active_issuer(issuer2)), "Credential 2 issuer not active");
+  const privateData2 = get_bundled_credential_data(1);
+  const computedHash2 = persistentHash<Vector<1, Bytes<32>>>([privateData2]);
+  assert(disclose(computedHash2 == cred2.claimHash), "Credential 2 hash mismatch");
+  
+  assert(credentials.member(d_commitment3), "Credential 3 not found");
+  const cred3 = credentials.lookup(d_commitment3);
+  assert(disclose(cred3.status == CredentialStatus.VALID), "Credential 3 revoked");
+  assert(issuerRegistry.member(cred3.issuer), "Credential 3 issuer not found");
+  const issuer3 = issuerRegistry.lookup(cred3.issuer);
+  assert(disclose(is_active_issuer(issuer3)), "Credential 3 issuer not active");
+  const privateData3 = get_bundled_credential_data(2);
+  const computedHash3 = persistentHash<Vector<1, Bytes<32>>>([privateData3]);
+  assert(disclose(computedHash3 == cred3.claimHash), "Credential 3 hash mismatch");
+  
+  totalVerificationsPerformed.increment(1);
+  return true;
+}
+
+export circuit bundledVerify2Credentials(
+  commitment1: Bytes<32>,
+  commitment2: Bytes<32>
+): Boolean {
+  const d_commitment1 = disclose(commitment1);
+  const d_commitment2 = disclose(commitment2);
+  
+  assert(credentials.member(d_commitment1), "Credential 1 not found");
+  const cred1 = credentials.lookup(d_commitment1);
+  assert(disclose(cred1.status == CredentialStatus.VALID), "Credential 1 revoked");
+  assert(issuerRegistry.member(cred1.issuer), "Credential 1 issuer not found");
+  const issuer1 = issuerRegistry.lookup(cred1.issuer);
+  assert(disclose(is_active_issuer(issuer1)), "Credential 1 issuer not active");
+  const privateData1 = get_bundled_credential_data(0);
+  const computedHash1 = persistentHash<Vector<1, Bytes<32>>>([privateData1]);
+  assert(disclose(computedHash1 == cred1.claimHash), "Credential 1 hash mismatch");
+  
+  assert(credentials.member(d_commitment2), "Credential 2 not found");
+  const cred2 = credentials.lookup(d_commitment2);
+  assert(disclose(cred2.status == CredentialStatus.VALID), "Credential 2 revoked");
+  assert(issuerRegistry.member(cred2.issuer), "Credential 2 issuer not found");
+  const issuer2 = issuerRegistry.lookup(cred2.issuer);
+  assert(disclose(is_active_issuer(issuer2)), "Credential 2 issuer not active");
+  const privateData2 = get_bundled_credential_data(1);
+  const computedHash2 = persistentHash<Vector<1, Bytes<32>>>([privateData2]);
+  assert(disclose(computedHash2 == cred2.claimHash), "Credential 2 hash mismatch");
+  
+  totalVerificationsPerformed.increment(1);
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REVOCATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+export circuit revokeCredential(commitment: Bytes<32>): [] {
+  const d_commitment = disclose(commitment);
+  
+  assert(credentials.member(d_commitment), "Credential not found");
+  
+  const credential = credentials.lookup(d_commitment);
+  
+  const sk = local_secret_key();
+  const caller = get_public_key(sk);
+  assert(disclose(caller == credential.issuer), "Only issuer can revoke");
+  assert(disclose(credential.status == CredentialStatus.VALID), "Already revoked");
+  
+  const revokedCredential = Credential {
+    issuer: credential.issuer,
+    claimHash: credential.claimHash,
+    expiry: credential.expiry,
+    status: CredentialStatus.REVOKED
+  };
+  
+  credentials.insert(d_commitment, revokedCredential);
+  roundCounter.increment(1);
+}
+
+export circuit adminRevokeCredential(
+  commitment: Bytes<32>,
+  reasonHash: Bytes<32>
+): [] {
+  const d_commitment = disclose(commitment);
+  const d_reasonHash = disclose(reasonHash);
+  
+  const sk = local_secret_key();
+  const caller = get_public_key(sk);
+  const adminKey = admin.lookup(pad(1, "a"));
+  assert(disclose(caller == adminKey), "Only admin can emergency revoke");
+  
+  assert(credentials.member(d_commitment), "Credential not found");
+  
+  const credential = credentials.lookup(d_commitment);
+  
+  const revokedCredential = Credential {
+    issuer: credential.issuer,
+    claimHash: credential.claimHash,
+    expiry: credential.expiry,
+    status: CredentialStatus.REVOKED
+  };
+  
+  credentials.insert(d_commitment, revokedCredential);
+  roundCounter.increment(1);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QUERY FUNCTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export circuit checkCredentialStatus(commitment: Bytes<32>): CredentialStatus {
+  const d_commitment = disclose(commitment);
+  
+  assert(credentials.member(d_commitment), "Credential not found");
+  
+  const credential = credentials.lookup(d_commitment);
+  
+  // Note: expiry check can be added here
+  // For now, return the stored status
+  return credential.status;
+}

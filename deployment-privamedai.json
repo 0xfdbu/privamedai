@@ -1,0 +1,13 @@
+{
+  "contractAddress": "01564850a0766e3e89550d3c9ad19e2616ac0b38da84834ea15b085c91806193",
+  "network": "preprod",
+  "contractName": "PrivaMedAI",
+  "deployedAt": "2026-03-31T14:02:02.623Z",
+  "features": [
+    "Issuer Registry with governance",
+    "Batch credential issuance",
+    "Bundled verification (2 and 3 credentials)",
+    "Admin emergency revocation",
+    "Credential status queries"
+  ]
+}
