@@ -21,6 +21,7 @@ const CONFIG = {
   indexer: 'https://indexer.preprod.midnight.network/api/v3/graphql',
   indexerWS: 'wss://indexer.preprod.midnight.network/api/v3/graphql/ws',
   node: 'https://rpc.preprod.midnight.network',
+  nodeWS: 'wss://rpc.preprod.midnight.network',
   proofServer: 'http://127.0.0.1:6300',
 };
 
@@ -98,7 +99,7 @@ export function usePrivaMedAIContract(seed: string) {
           networkId,
           indexerClientConnection: { indexerHttpUrl: CONFIG.indexer, indexerWsUrl: CONFIG.indexerWS },
           provingServerUrl: new URL(CONFIG.proofServer),
-          relayURL: new URL(CONFIG.node.replace(/^http/, 'ws')),
+          relayURL: new URL(CONFIG.nodeWS),
         };
 
         const wallet = await WalletFacade.init({
