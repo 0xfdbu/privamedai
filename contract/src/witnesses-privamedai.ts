@@ -1,5 +1,4 @@
 import { WitnessContext } from '@midnight-ntwrk/compact-runtime';
-import { Ledger } from './managed/PrivaMedAI/contract/index.js';
 
 export type PrivaMedAIPrivateState = {
   readonly secretKey: Uint8Array;
@@ -17,10 +16,11 @@ export const createPrivaMedAIPrivateState = (
   bundledCredentialData,
 });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const witnesses = {
   local_secret_key: ({
     privateState,
-  }: WitnessContext<typeof Ledger, PrivaMedAIPrivateState>): [
+  }: WitnessContext<any, PrivaMedAIPrivateState>): [
     PrivaMedAIPrivateState,
     Uint8Array,
   ] => {
@@ -29,7 +29,7 @@ export const witnesses = {
   
   get_credential_data: ({
     privateState,
-  }: WitnessContext<typeof Ledger, PrivaMedAIPrivateState>): [
+  }: WitnessContext<any, PrivaMedAIPrivateState>): [
     PrivaMedAIPrivateState,
     Uint8Array,
   ] => {
@@ -39,7 +39,7 @@ export const witnesses = {
   get_bundled_credential_data: ({
     privateState,
     args,
-  }: WitnessContext<typeof Ledger, PrivaMedAIPrivateState> & { args: [number] }): [
+  }: WitnessContext<any, PrivaMedAIPrivateState> & { args: [number] }): [
     PrivaMedAIPrivateState,
     Uint8Array,
   ] => {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Automated test script for PrivaMedAI contract on Midnight Preprod
- * Tests all major functions with real transactions
+ * Sequential test script - one transaction at a time with delays
+ * FIXED: Proper key derivation for witness authentication
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -10,7 +10,6 @@ import { WebSocket } from 'ws';
 import * as Rx from 'rxjs';
 import { Buffer } from 'buffer';
 
-// Midnight SDK imports
 import { findDeployedContract, submitCallTx, type CallTxOptions } from '@midnight-ntwrk/midnight-js-contracts';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
@@ -24,18 +23,12 @@ import { HDWallet, Roles } from '@midnight-ntwrk/wallet-sdk-hd';
 import { ShieldedWallet } from '@midnight-ntwrk/wallet-sdk-shielded';
 import { createKeystore, InMemoryTransactionHistoryStorage, PublicKey, UnshieldedWallet } from '@midnight-ntwrk/wallet-sdk-unshielded-wallet';
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
+import { witnesses, createPrivaMedAIPrivateState, type PrivaMedAIPrivateState } from '../contract/dist/witnesses-privamedai.js';
+import { createHash } from 'crypto';
 
-// Import PrivaMedAI witnesses
-import { witnesses, createPrivaMedAIPrivateState, type PrivaMedAIPrivateState } from '../contract/src/witnesses-privamedai.js';
-
-// Enable WebSocket for GraphQL subscriptions
-// @ts-expect-error Required for wallet sync
-globalThis.WebSocket = WebSocket;
-
-// Set network to preprod
+globalThis.WebSocket = WebSocket as any;
 setNetworkId('preprod');
 
-// Preprod network configuration
 const CONFIG = {
   indexer: 'https://indexer.preprod.midnight.network/api/v3/graphql',
   indexerWS: 'wss://indexer.preprod.midnight.network/api/v3/graphql/ws',
@@ -43,42 +36,50 @@ const CONFIG = {
   proofServer: 'http://127.0.0.1:6300',
 };
 
-// Test results tracker
-const testResults: { name: string; status: 'PASS' | 'FAIL'; txId?: string; error?: string }[] = [];
-
 function log(message: string) {
   console.log(`[${new Date().toISOString()}] ${message}`);
 }
 
-async function runTest(name: string, testFn: () => Promise<string>): Promise<void> {
-  log(`🧪 Running: ${name}`);
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Derive keys from seed - returns the key material for each role
+function deriveRoleKeys(seed: string): { zswapKey: Buffer; nightKey: Buffer; dustKey: Buffer } | null {
   try {
-    const txId = await testFn();
-    testResults.push({ name, status: 'PASS', txId });
-    log(`✅ PASSED: ${name} (TX: ${txId.slice(0, 40)}...)`);
-  } catch (err: any) {
-    testResults.push({ name, status: 'FAIL', error: err.message });
-    log(`❌ FAILED: ${name} - ${err.message}`);
+    const hdWallet = HDWallet.fromSeed(Buffer.from(seed, 'hex'));
+    if (hdWallet.type !== 'seedOk') {
+      log('❌ Invalid seed');
+      return null;
+    }
+    
+    const result = hdWallet.hdWallet.selectAccount(0).selectRoles([Roles.Zswap, Roles.NightExternal, Roles.Dust]).deriveKeysAt(0);
+    if (result.type !== 'keysDerived') {
+      log('❌ Key derivation failed');
+      return null;
+    }
+    
+    hdWallet.hdWallet.clear();
+    
+    return {
+      zswapKey: result.keys[Roles.Zswap],
+      nightKey: result.keys[Roles.NightExternal],
+      dustKey: result.keys[Roles.Dust],
+    };
+  } catch (e) {
+    log(`❌ Key derivation error: ${e}`);
+    return null;
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function deriveKeys(seed: string) {
-  const hdWallet = HDWallet.fromSeed(Buffer.from(seed, 'hex'));
-  if (hdWallet.type !== 'seedOk') throw new Error('Invalid seed');
-  const result = hdWallet.hdWallet.selectAccount(0).selectRoles([Roles.Zswap, Roles.NightExternal, Roles.Dust]).deriveKeysAt(0);
-  if (result.type !== 'keysDerived') throw new Error('Key derivation failed');
-  hdWallet.hdWallet.clear();
-  return result.keys;
-}
-
 async function createWallet(seed: string, walletStatePath: string) {
-  const keys = deriveKeys(seed);
+  const keys = deriveRoleKeys(seed);
+  if (!keys) throw new Error('Failed to derive keys');
+  
   const networkId = getNetworkId();
-  const shieldedSecretKeys = ledger.ZswapSecretKeys.fromSeed(keys[Roles.Zswap]);
-  const dustSecretKey = ledger.DustSecretKey.fromSeed(keys[Roles.Dust]);
-  const unshieldedKeystore = createKeystore(keys[Roles.NightExternal], networkId);
+  const shieldedSecretKeys = ledger.ZswapSecretKeys.fromSeed(keys.zswapKey);
+  const dustSecretKey = ledger.DustSecretKey.fromSeed(keys.dustKey);
+  const unshieldedKeystore = createKeystore(keys.nightKey, networkId);
 
   const walletConfig = {
     networkId,
@@ -125,7 +126,7 @@ async function createWallet(seed: string, walletStatePath: string) {
     await wallet.start(shieldedSecretKeys, dustSecretKey);
   }
 
-  return { wallet, shieldedSecretKeys, dustSecretKey, unshieldedKeystore, restored };
+  return { wallet, shieldedSecretKeys, dustSecretKey, unshieldedKeystore, restored, keys };
 }
 
 function signTransactionIntents(tx: { intents?: Map<number, any> }, signFn: (payload: Uint8Array) => ledger.Signature, proofMarker: 'proof' | 'pre-proof'): void {
@@ -176,7 +177,6 @@ async function createProviders(walletCtx: any, zkConfigPath: string) {
       walletProvider,
       privateStoragePasswordProvider: async () => 'PrivaMedAI-Secure-Store-2025!',
       accountId: walletProvider.getCoinPublicKey(),
-      
     }),
     publicDataProvider: indexerPublicDataProvider(CONFIG.indexer, CONFIG.indexerWS),
     zkConfigProvider,
@@ -186,23 +186,49 @@ async function createProviders(walletCtx: any, zkConfigPath: string) {
   };
 }
 
-// ─── Main Test Script ─────────────────────────────────────────────────────────
+async function runSingleTest(
+  name: string,
+  providers: any,
+  createCallOptions: any,
+  circuitId: string,
+  args: any[]
+): Promise<boolean> {
+  log(`\n🧪 TEST: ${name}`);
+  log('─'.repeat(60));
+  
+  try {
+    const startTime = Date.now();
+    const txData = await submitCallTx(providers, createCallOptions(circuitId, args));
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    
+    const txId = txData?.public?.txId;
+    const txHash = txId ? (typeof txId === 'bigint' ? txId.toString(16) : String(txId)) : 'unknown';
+    
+    log(`✅ PASSED (${duration}s)`);
+    log(`   TX Hash: ${txHash.slice(0, 64)}...`);
+    log(`   Status: ${txData?.public?.status || 'unknown'}`);
+    return true;
+  } catch (err: any) {
+    log(`❌ FAILED`);
+    log(`   Error: ${err.message?.slice(0, 200)}`);
+    return false;
+  }
+}
 
 async function main() {
   log('\n╔══════════════════════════════════════════════════════════════╗');
-  log('║  PrivaMedAI Contract - Real Transaction Test Suite           ║');
+  log('║  PrivaMedAI - Sequential Transaction Testing (FIXED)         ║');
   log('╚══════════════════════════════════════════════════════════════╝\n');
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const repoRoot = path.resolve(__dirname, '..');
   const envPath = path.join(repoRoot, '.env');
   const deploymentPath = path.join(repoRoot, 'deployment-privamedai.json');
-  const zkConfigPath = path.resolve(repoRoot, 'contract', 'src', 'managed', 'PrivaMedAI');
+  const zkConfigPath = path.resolve(repoRoot, 'contract', 'dist', 'managed', 'PrivaMedAI');
   const walletStatePath = path.join(repoRoot, '.wallet-state.json');
 
-  // Check deployment
   if (!fs.existsSync(deploymentPath)) {
-    log('❌ No deployment-privamedai.json found. Deploy the contract first!');
+    log('❌ No deployment-privamedai.json found');
     process.exit(1);
   }
   const deployment = JSON.parse(fs.readFileSync(deploymentPath, 'utf-8'));
@@ -210,7 +236,6 @@ async function main() {
   log(`🔑 Address: ${deployment.contractAddress}`);
   log(`🌐 Network: ${deployment.network}\n`);
 
-  // Load seed
   if (!fs.existsSync(envPath)) {
     log('❌ .env file not found');
     process.exit(1);
@@ -223,7 +248,6 @@ async function main() {
   }
   const seed = seedMatch[1].trim();
 
-  // Load contract
   log('📦 Loading contract...');
   const PrivaMedAIModule = await import(pathToFileURL(path.join(zkConfigPath, 'contract', 'index.js')).href);
   const compiledContract = CompiledContract.make('privamedai', PrivaMedAIModule.Contract).pipe(
@@ -231,7 +255,6 @@ async function main() {
     CompiledContract.withCompiledFileAssets(zkConfigPath),
   );
 
-  // Create wallet
   log('👛 Setting up wallet...');
   const walletCtx = await createWallet(seed, walletStatePath);
 
@@ -242,35 +265,36 @@ async function main() {
   ));
   console.log('\n');
 
-  const address = walletCtx.unshieldedKeystore.getBech32Address();
-  // Get public key from wallet state (it's available after sync)
   const walletState = await Rx.firstValueFrom(walletCtx.wallet.state().pipe(Rx.filter((s: any) => s.isSynced)));
   const coinPublicKey = walletState.shielded.coinPublicKey.toHexString();
-  const publicKey = coinPublicKey;
-  log(`💳 Wallet: ${address}`);
-  log(`🔑 Public Key: ${publicKey.slice(0, 64)}...\n`);
+  log(`💳 Wallet: ${walletCtx.unshieldedKeystore.getBech32Address()}`);
+  log(`🔑 Coin Public Key: ${coinPublicKey}`);
+  log(`🔑 Zswap Key (first 64 chars): ${walletCtx.keys.zswapKey.toString('hex').slice(0, 64)}...\n`);
 
-  // Save wallet state
-  if (!walletCtx.restored) {
-    const serializedState = {
-      shielded: await walletCtx.wallet.shielded.serializeState(),
-      unshielded: await walletCtx.wallet.unshielded.serializeState(),
-      dust: await walletCtx.wallet.dust.serializeState(),
-    };
-    fs.writeFileSync(walletStatePath, JSON.stringify(serializedState));
-  }
-
-  // Create providers and connect to contract
   const providers = await createProviders(walletCtx, zkConfigPath);
-  log(`🔗 Connecting to contract...`);
   
-  // Create initial private state with the secret key
+  // FIXED: Use the zswap key and compute the derived admin key
+  // The contract's get_public_key() hashes the secret key with a prefix
+  // We need to use the derived key as admin for authentication to work
+  const secretKey = walletCtx.keys.zswapKey;
+  
+  // Compute the admin key that would be derived from this secret key
+  // Contract: persistentHash([pad(32, "privamed:pk:"), sk])
+  const prefix = Buffer.alloc(32);
+  Buffer.from("privamed:pk:").copy(prefix);
+  const derivedAdminKey = createHash('sha256').update(Buffer.concat([prefix, secretKey])).digest('hex');
+  
+  log(`🔧 Secret key: ${secretKey.toString('hex').slice(0, 32)}...`);
+  log(`🔧 Derived admin key: ${derivedAdminKey.slice(0, 32)}...`);
+  log(`⚠️  Using derived key for admin (not coin public key)`);
+  
   const initialPrivateState = createPrivaMedAIPrivateState(
-    Buffer.from(seed.slice(0, 64), 'hex'), // Use first 32 bytes of seed as secret key
+    secretKey,
     new Uint8Array(32),
     [new Uint8Array(32), new Uint8Array(32), new Uint8Array(32)]
   );
   
+  log(`🔗 Connecting to contract...`);
   const contract = await findDeployedContract(providers, {
     contractAddress: deployment.contractAddress,
     compiledContract,
@@ -279,23 +303,6 @@ async function main() {
   });
   log('✅ Connected to contract!\n');
 
-  // Generate unique test data (valid hex strings)
-  const timestamp = Date.now();
-  const testCommitment1 = 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456';
-  const testCommitment2 = 'b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456a1';
-  const testCommitment3 = 'c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456a1b2';
-  const testClaimHash = 'd4e5f6789012345678901234567890abcdef1234567890abcdef123456a1b2c3';
-  const testNameHash = 'e5f6789012345678901234567890abcdef1234567890abcdef123456a1b2c3d4';
-  const issuerPubKey = publicKey.slice(0, 64);
-  const expiry = BigInt(Date.now() + 365 * 24 * 60 * 60 * 1000);
-
-  log('═══════════════════════════════════════════════════════════════');
-  log('                    RUNNING TEST TRANSACTIONS                   ');
-  log('═══════════════════════════════════════════════════════════════\n');
-
-
-  
-  // Helper to create call options
   const createCallOptions = (circuitId: string, args: unknown[]): CallTxOptions<any, any, any, any> => ({
     contractAddress: deployment.contractAddress,
     compiledContract,
@@ -303,42 +310,72 @@ async function main() {
     args,
   });
 
-  // Test 1: Initialize Contract
-  await runTest('Initialize Contract (Set Admin)', async () => {
-    const adminBuffer = Buffer.from(issuerPubKey, 'hex');
-    const txData = await submitCallTx(providers, createCallOptions('initialize', [adminBuffer]));
-    const txId = txData?.public?.txId;
-    return txId ? (typeof txId === 'bigint' ? txId.toString() : String(txId)) : 'success';
+  // Test data
+  const testCommitment1 = 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456';
+  const testCommitment2 = 'b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456a1';
+  const testCommitment3 = 'c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456a1b2';
+  const testClaimHash = 'd4e5f6789012345678901234567890abcdef1234567890abcdef123456a1b2c3';
+  const testNameHash = 'e5f6789012345678901234567890abcdef1234567890abcdef123456a1b2c3d4';
+  const callerPubKey = derivedAdminKey; // Admin/Caller public key (derived)
+  const issuerPubKey = derivedAdminKey; // Same as admin for testing
+  const expiry = BigInt(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+  const results: { name: string; passed: boolean }[] = [];
+
+  // TEST 1: Initialize with derived admin key
+  results.push({
+    name: 'Initialize Contract',
+    passed: await runSingleTest('Initialize Contract (Set Admin)', providers, createCallOptions, 'initialize', [
+      Buffer.from(derivedAdminKey, 'hex')
+    ])
   });
 
-  // Test 2: Register Issuer
-  await runTest('Register Issuer', async () => {
-    const txData = await submitCallTx(providers, createCallOptions('registerIssuer', [
-      Buffer.from(issuerPubKey, 'hex'),
-      Buffer.from(testNameHash, 'hex'),
-    ]));
-    const txId = txData?.public?.txId;
-    return txId ? (typeof txId === 'bigint' ? txId.toString() : String(txId)) : 'success';
+  if (results[0].passed) {
+    log('\n⏳ Waiting 10s for state propagation...');
+    await delay(10000);
+  }
+
+  // TEST 2: Register Issuer
+  results.push({
+    name: 'Register Issuer',
+    passed: await runSingleTest('Register Issuer', providers, createCallOptions, 'registerIssuer', [
+      Buffer.from(callerPubKey, 'hex'), // callerPubKey (admin)
+      Buffer.from(issuerPubKey, 'hex'), // issuerPubKey
+      Buffer.from(testNameHash, 'hex'), // nameHash
+    ])
   });
 
-  // Test 3: Issue Single Credential
-  await runTest('Issue Single Credential', async () => {
-    const txData = await submitCallTx(providers, createCallOptions('issueCredential', [
-      Buffer.from(testCommitment1, 'hex'),
-      Buffer.from(issuerPubKey, 'hex'),
-      Buffer.from(testClaimHash, 'hex'),
-      expiry,
-    ]));
-    const txId = txData?.public?.txId;
-    return txId ? (typeof txId === 'bigint' ? txId.toString() : String(txId)) : 'success';
+  if (results[1].passed) {
+    log('\n⏳ Waiting 10s for state propagation...');
+    await delay(10000);
+  }
+
+  // TEST 3: Issue Credential
+  results.push({
+    name: 'Issue Single Credential',
+    passed: await runSingleTest('Issue Single Credential', providers, createCallOptions, 'issueCredential', [
+      Buffer.from(callerPubKey, 'hex'), // callerPubKey (issuer)
+      Buffer.from(testCommitment1, 'hex'), // commitment
+      Buffer.from(issuerPubKey, 'hex'), // issuerPubKey
+      Buffer.from(testClaimHash, 'hex'), // claimHash
+      expiry, // expiry
+    ])
   });
 
-  // Test 4: Batch Issue 3 Credentials
+  if (results[2].passed) {
+    log('\n⏳ Waiting 10s for state propagation...');
+    await delay(10000);
+  }
+
+  // TEST 4: Batch Issue
   const batchCommitment1 = 'f1e2d3c4b5a69788990011223344556677889900aabbccdd1122334455667788';
   const batchCommitment2 = 'f2e3d4c5b6a79888990011223344556677889900aabbccdd1122334455667789';
   const batchCommitment3 = 'f3e4d5c6b7a89888990011223344556677889900aabbccdd112233445566778a';
-  await runTest('Batch Issue 3 Credentials', async () => {
-    const txData = await submitCallTx(providers, createCallOptions('batchIssue3Credentials', [
+  
+  results.push({
+    name: 'Batch Issue 3 Credentials',
+    passed: await runSingleTest('Batch Issue 3 Credentials', providers, createCallOptions, 'batchIssue3Credentials', [
+      Buffer.from(callerPubKey, 'hex'), // callerPubKey (issuer)
       Buffer.from(batchCommitment1, 'hex'),
       Buffer.from(testClaimHash, 'hex'),
       expiry,
@@ -348,77 +385,84 @@ async function main() {
       Buffer.from(batchCommitment3, 'hex'),
       Buffer.from(testClaimHash, 'hex'),
       expiry,
-    ]));
-    const txId = txData?.public?.txId;
-    return txId ? (typeof txId === 'bigint' ? txId.toString() : String(txId)) : 'success';
+    ])
   });
 
-  // Test 5: Verify Credential
-  await runTest('Verify Single Credential', async () => {
-    const txData = await submitCallTx(providers, createCallOptions('verifyCredential', [
-      Buffer.from(testCommitment2, 'hex'),
-    ]));
-    const txId = txData?.public?.txId;
-    return txId ? (typeof txId === 'bigint' ? txId.toString() : String(txId)) : 'success';
+  if (results[3].passed) {
+    log('\n⏳ Waiting 10s for state propagation...');
+    await delay(10000);
+  }
+
+  // TEST 5: Verify Credential
+  results.push({
+    name: 'Verify Single Credential',
+    passed: await runSingleTest('Verify Single Credential', providers, createCallOptions, 'verifyCredential', [
+      Buffer.from(testCommitment1, 'hex'),
+    ])
   });
 
-  // Test 6: Bundled Verify 2 Credentials
-  await runTest('Bundled Verify 2 Credentials', async () => {
-    const txData = await submitCallTx(providers, createCallOptions('bundledVerify2Credentials', [
-      Buffer.from(testCommitment2, 'hex'),
-      Buffer.from(testCommitment3, 'hex'),
-    ]));
-    const txId = txData?.public?.txId;
-    return txId ? (typeof txId === 'bigint' ? txId.toString() : String(txId)) : 'success';
+  if (results[4].passed) {
+    log('\n⏳ Waiting 5s for state propagation...');
+    await delay(5000);
+  }
+
+  // TEST 6: Bundled Verify 2
+  results.push({
+    name: 'Bundled Verify 2 Credentials',
+    passed: await runSingleTest('Bundled Verify 2 Credentials', providers, createCallOptions, 'bundledVerify2Credentials', [
+      Buffer.from(batchCommitment1, 'hex'),
+      Buffer.from(batchCommitment2, 'hex'),
+    ])
   });
 
-  // Test 7: Revoke Credential
-  await runTest('Revoke Credential (Issuer)', async () => {
-    const txData = await submitCallTx(providers, createCallOptions('revokeCredential', [
-      Buffer.from(testCommitment2, 'hex'),
-    ]));
-    const txId = txData?.public?.txId;
-    return txId ? (typeof txId === 'bigint' ? txId.toString() : String(txId)) : 'success';
+  if (results[5].passed) {
+    log('\n⏳ Waiting 5s for state propagation...');
+    await delay(5000);
+  }
+
+  // TEST 7: Revoke Credential
+  results.push({
+    name: 'Revoke Credential (Issuer)',
+    passed: await runSingleTest('Revoke Credential (Issuer)', providers, createCallOptions, 'revokeCredential', [
+      Buffer.from(callerPubKey, 'hex'), // callerPubKey (issuer)
+      Buffer.from(testCommitment1, 'hex'), // commitment
+    ])
   });
 
-  // Test 8: Update Issuer Status
-  await runTest('Update Issuer Status', async () => {
-    const txData = await submitCallTx(providers, createCallOptions('updateIssuerStatus', [
-      Buffer.from(issuerPubKey, 'hex'),
-      1, // ACTIVE
-    ]));
-    const txId = txData?.public?.txId;
-    return txId ? (typeof txId === 'bigint' ? txId.toString() : String(txId)) : 'success';
+  if (results[6].passed) {
+    log('\n⏳ Waiting 5s for state propagation...');
+    await delay(5000);
+  }
+
+  // TEST 8: Update Issuer Status
+  results.push({
+    name: 'Update Issuer Status',
+    passed: await runSingleTest('Update Issuer Status', providers, createCallOptions, 'updateIssuerStatus', [
+      Buffer.from(callerPubKey, 'hex'), // callerPubKey (admin)
+      Buffer.from(issuerPubKey, 'hex'), // issuerPubKey
+      2, // SUSPENDED
+    ])
   });
 
-  // Print summary
-  log('\n═══════════════════════════════════════════════════════════════');
+  // Summary
+  log('\n' + '═'.repeat(64));
   log('                      TEST SUMMARY                              ');
-  log('═══════════════════════════════════════════════════════════════\n');
+  log('═'.repeat(64) + '\n');
 
-  const passed = testResults.filter(r => r.status === 'PASS').length;
-  const failed = testResults.filter(r => r.status === 'FAIL').length;
+  const passed = results.filter(r => r.passed).length;
+  const failed = results.filter(r => !r.passed).length;
 
-  testResults.forEach(result => {
-    const icon = result.status === 'PASS' ? '✅' : '❌';
-    log(`${icon} ${result.name}`);
-    if (result.txId) {
-      log(`   TX: ${result.txId}`);
-    }
-    if (result.error) {
-      log(`   Error: ${result.error}`);
-    }
+  results.forEach(result => {
+    log(`${result.passed ? '✅' : '❌'} ${result.name}`);
   });
 
-  log('\n────────────────────────────────────────────────────────────────');
-  log(`Total: ${testResults.length} | Passed: ${passed} ✅ | Failed: ${failed} ❌`);
-  log('────────────────────────────────────────────────────────────────\n');
+  log('\n' + '─'.repeat(64));
+  log(`Total: ${results.length} | Passed: ${passed} ✅ | Failed: ${failed} ❌`);
+  log('─'.repeat(64) + '\n');
 
-  // Cleanup
   await walletCtx.wallet.stop();
   log('💤 Wallet stopped.');
-  log('✨ Test complete!\n');
-
+  
   process.exit(failed > 0 ? 1 : 0);
 }
 

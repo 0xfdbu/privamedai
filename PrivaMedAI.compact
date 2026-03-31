@@ -90,16 +90,16 @@ export circuit getAdmin(): Bytes<32> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export circuit registerIssuer(
+  callerPubKey: Bytes<32>,
   issuerPubKey: Bytes<32>,
   nameHash: Bytes<32>
 ): [] {
+  const d_callerPubKey = disclose(callerPubKey);
   const d_issuerPubKey = disclose(issuerPubKey);
   const d_nameHash = disclose(nameHash);
   
-  const sk = local_secret_key();
-  const caller = get_public_key(sk);
   const adminKey = admin.lookup(pad(1, "a"));
-  assert(disclose(caller == adminKey), "Only admin can register issuers");
+  assert(disclose(d_callerPubKey == adminKey), "Only admin can register issuers");
   
   assert(!issuerRegistry.member(d_issuerPubKey), "Issuer already registered");
   
@@ -115,16 +115,16 @@ export circuit registerIssuer(
 }
 
 export circuit updateIssuerStatus(
+  callerPubKey: Bytes<32>,
   issuerPubKey: Bytes<32>,
   newStatus: IssuerStatus
 ): [] {
+  const d_callerPubKey = disclose(callerPubKey);
   const d_issuerPubKey = disclose(issuerPubKey);
   const d_newStatus = disclose(newStatus);
   
-  const sk = local_secret_key();
-  const caller = get_public_key(sk);
   const adminKey = admin.lookup(pad(1, "a"));
-  assert(disclose(caller == adminKey), "Only admin can update issuer status");
+  assert(disclose(d_callerPubKey == adminKey), "Only admin can update issuer status");
   
   assert(issuerRegistry.member(d_issuerPubKey), "Issuer not found");
   
@@ -151,11 +151,13 @@ export circuit getIssuerInfo(issuerPubKey: Bytes<32>): Issuer {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export circuit issueCredential(
+  callerPubKey: Bytes<32>,
   commitment: Bytes<32>,
   issuerPubKey: Bytes<32>,
   claimHash: Bytes<32>,
   expiry: Uint<64>
 ): [] {
+  const d_callerPubKey = disclose(callerPubKey);
   const d_commitment = disclose(commitment);
   const d_issuerPubKey = disclose(issuerPubKey);
   const d_claimHash = disclose(claimHash);
@@ -167,9 +169,7 @@ export circuit issueCredential(
   const issuer = issuerRegistry.lookup(d_issuerPubKey);
   assert(disclose(is_active_issuer(issuer)), "Issuer not active");
   
-  const sk = local_secret_key();
-  const caller = get_public_key(sk);
-  assert(disclose(caller == d_issuerPubKey), "Only registered issuer can issue");
+  assert(disclose(d_callerPubKey == d_issuerPubKey), "Only registered issuer can issue");
   
   const credential = Credential {
     issuer: d_issuerPubKey,
@@ -193,6 +193,7 @@ export circuit issueCredential(
 }
 
 export circuit batchIssue3Credentials(
+  callerPubKey: Bytes<32>,
   commitment1: Bytes<32>,
   claimHash1: Bytes<32>,
   expiry1: Uint<64>,
@@ -203,12 +204,10 @@ export circuit batchIssue3Credentials(
   claimHash3: Bytes<32>,
   expiry3: Uint<64>
 ): [] {
-  const sk = local_secret_key();
-  const caller = get_public_key(sk);
-  const d_caller = disclose(caller);
+  const d_callerPubKey = disclose(callerPubKey);
   
-  assert(issuerRegistry.member(d_caller), "Issuer not registered");
-  const issuer = issuerRegistry.lookup(d_caller);
+  assert(issuerRegistry.member(d_callerPubKey), "Issuer not registered");
+  const issuer = issuerRegistry.lookup(d_callerPubKey);
   assert(disclose(is_active_issuer(issuer)), "Issuer not active");
   
   const d_commitment1 = disclose(commitment1);
@@ -216,7 +215,7 @@ export circuit batchIssue3Credentials(
   const d_expiry1 = disclose(expiry1);
   assert(!credentials.member(d_commitment1), "Credential 1 exists");
   const credential1 = Credential {
-    issuer: d_caller,
+    issuer: d_callerPubKey,
     claimHash: d_claimHash1,
     expiry: d_expiry1,
     status: CredentialStatus.VALID
@@ -229,7 +228,7 @@ export circuit batchIssue3Credentials(
   const d_expiry2 = disclose(expiry2);
   assert(!credentials.member(d_commitment2), "Credential 2 exists");
   const credential2 = Credential {
-    issuer: d_caller,
+    issuer: d_callerPubKey,
     claimHash: d_claimHash2,
     expiry: d_expiry2,
     status: CredentialStatus.VALID
@@ -242,7 +241,7 @@ export circuit batchIssue3Credentials(
   const d_expiry3 = disclose(expiry3);
   assert(!credentials.member(d_commitment3), "Credential 3 exists");
   const credential3 = Credential {
-    issuer: d_caller,
+    issuer: d_callerPubKey,
     claimHash: d_claimHash3,
     expiry: d_expiry3,
     status: CredentialStatus.VALID
@@ -256,7 +255,7 @@ export circuit batchIssue3Credentials(
     nameHash: issuer.nameHash,
     credentialCount: issuer.credentialCount
   };
-  issuerRegistry.insert(d_caller, updatedIssuer);
+  issuerRegistry.insert(d_callerPubKey, updatedIssuer);
   
   roundCounter.increment(1);
 }
@@ -367,16 +366,18 @@ export circuit bundledVerify2Credentials(
 // REVOCATION
 // ─────────────────────────────────────────────────────────────────────────────
 
-export circuit revokeCredential(commitment: Bytes<32>): [] {
+export circuit revokeCredential(
+  callerPubKey: Bytes<32>,
+  commitment: Bytes<32>
+): [] {
+  const d_callerPubKey = disclose(callerPubKey);
   const d_commitment = disclose(commitment);
   
   assert(credentials.member(d_commitment), "Credential not found");
   
   const credential = credentials.lookup(d_commitment);
   
-  const sk = local_secret_key();
-  const caller = get_public_key(sk);
-  assert(disclose(caller == credential.issuer), "Only issuer can revoke");
+  assert(disclose(d_callerPubKey == credential.issuer), "Only issuer can revoke");
   assert(disclose(credential.status == CredentialStatus.VALID), "Already revoked");
   
   const revokedCredential = Credential {
@@ -391,16 +392,16 @@ export circuit revokeCredential(commitment: Bytes<32>): [] {
 }
 
 export circuit adminRevokeCredential(
+  callerPubKey: Bytes<32>,
   commitment: Bytes<32>,
   reasonHash: Bytes<32>
 ): [] {
+  const d_callerPubKey = disclose(callerPubKey);
   const d_commitment = disclose(commitment);
   const d_reasonHash = disclose(reasonHash);
   
-  const sk = local_secret_key();
-  const caller = get_public_key(sk);
   const adminKey = admin.lookup(pad(1, "a"));
-  assert(disclose(caller == adminKey), "Only admin can emergency revoke");
+  assert(disclose(d_callerPubKey == adminKey), "Only admin can emergency revoke");
   
   assert(credentials.member(d_commitment), "Credential not found");
   

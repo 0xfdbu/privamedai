@@ -1,8 +1,8 @@
 {
-  "contractAddress": "01564850a0766e3e89550d3c9ad19e2616ac0b38da84834ea15b085c91806193",
+  "contractAddress": "4d77ad64901ce46fba2f0589ab7171180f0e2b4ee2bfca5f43c9dd56ae92e297",
   "network": "preprod",
   "contractName": "PrivaMedAI",
-  "deployedAt": "2026-03-31T14:02:02.623Z",
+  "deployedAt": "2026-03-31T15:49:14.581Z",
   "features": [
     "Issuer Registry with governance",
     "Batch credential issuance",

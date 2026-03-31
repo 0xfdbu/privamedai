@@ -27,6 +27,7 @@ import { HDWallet, Roles } from '@midnight-ntwrk/wallet-sdk-hd';
 import { ShieldedWallet } from '@midnight-ntwrk/wallet-sdk-shielded';
 import { createKeystore, InMemoryTransactionHistoryStorage, PublicKey, UnshieldedWallet } from '@midnight-ntwrk/wallet-sdk-unshielded-wallet';
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
+import { witnesses, createPrivaMedAIPrivateState, type PrivaMedAIPrivateState } from '../contract/src/witnesses-privamedai.js';
 
 // Enable WebSocket for GraphQL subscriptions
 // @ts-expect-error Required for wallet sync
@@ -169,13 +170,21 @@ async function createProviders(walletCtx: any, zkConfigPath: string) {
   };
 }
 
-async function joinContract(providers: any, contractAddress: string, PrivaMedAIContract: any, privateStateId: string) {
+async function joinContract(providers: any, contractAddress: string, PrivaMedAIContract: any, privateStateId: string, seed: string) {
   console.log(`🔗 Connecting to contract at ${contractAddress.slice(0, 40)}...`);
+  
+  // Create proper initial private state with required fields
+  const initialPrivateState = createPrivaMedAIPrivateState(
+    Buffer.from(seed.slice(0, 64), 'hex'), // Use first 32 bytes of seed as secret key
+    new Uint8Array(32),
+    [new Uint8Array(32), new Uint8Array(32), new Uint8Array(32)]
+  );
+  
   const contract = await findDeployedContract(providers, {
     contractAddress,
     compiledContract: PrivaMedAIContract,
     privateStateId,
-    initialPrivateState: {},
+    initialPrivateState,
   });
   console.log('✅ Successfully connected to contract!\n');
   return contract;
@@ -253,11 +262,7 @@ async function main() {
   console.log('📦 Loading contract...');
   const PrivaMedAIModule = await import(pathToFileURL(path.join(zkConfigPath, 'contract', 'index.js')).href);
   const compiledContract = CompiledContract.make('privamedai', PrivaMedAIModule.Contract).pipe(
-    CompiledContract.withWitnesses({
-      local_secret_key: (...args: any[]) => new Uint8Array(32),
-      get_credential_data: (...args: any[]) => new TextEncoder().encode(JSON.stringify({ test: true })),
-      get_bundled_credential_data: (...args: any[]) => new TextEncoder().encode(JSON.stringify({ test: true })),
-    }),
+    CompiledContract.withWitnesses(witnesses),
     CompiledContract.withCompiledFileAssets(zkConfigPath),
   );
 
@@ -287,7 +292,7 @@ async function main() {
 
   // Create providers and connect to contract
   const providers = await createProviders(walletCtx, zkConfigPath);
-  const contract = await joinContract(providers, deployment.contractAddress, compiledContract, 'privaMedAICliState');
+  const contract = await joinContract(providers, deployment.contractAddress, compiledContract, 'privaMedAICliState', seed);
 
   const rli = createInterface({ input: stdin, output: stdout });
 
