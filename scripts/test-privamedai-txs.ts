@@ -286,10 +286,18 @@ async function main() {
   log('                    RUNNING TEST TRANSACTIONS                   ');
   log('═══════════════════════════════════════════════════════════════\n');
 
+  // Debug log the values
+  log(`🔍 Debug: issuerPubKey = ${issuerPubKey}`);
+  log(`🔍 Debug: issuerPubKey length = ${issuerPubKey.length}`);
+  log(`🔍 Debug: testCommitment1 = ${testCommitment1}`);
+  
   // Test 1: Initialize Contract
   await runTest('Initialize Contract (Set Admin)', async () => {
+    log(`🔍 Inside test: issuerPubKey = ${issuerPubKey}`);
+    const adminBuffer = Buffer.from(issuerPubKey, 'hex');
+    log(`🔍 Buffer created, length = ${adminBuffer.length}`);
     const tx = await submitCallTx(providers, contract, 'initialize', {
-      initialAdmin: Buffer.from(issuerPubKey, 'hex'),
+      initialAdmin: adminBuffer,
     });
     return tx.txId;
   });
