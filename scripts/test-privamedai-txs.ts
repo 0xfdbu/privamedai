@@ -169,7 +169,7 @@ async function createProviders(walletCtx: any, zkConfigPath: string) {
 
   return {
     privateStateProvider: levelPrivateStateProvider({
-      privateStateStoreName: 'privamedai-test-private-state',
+      privateStateStoreName: 'privamedai-test-txs-v2',
       walletProvider,
       privateStoragePasswordProvider: async () => 'PrivaMedAI-Test-Store-2025!',
       accountId: walletProvider.getCoinPublicKey(),
