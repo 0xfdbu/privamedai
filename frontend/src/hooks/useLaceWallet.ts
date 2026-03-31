@@ -59,7 +59,7 @@ export function useLaceWallet() {
   });
 
   // Connect to Lace wallet
-  const connectWallet = useCallback(async (preferredNetworkId: string = 'preprod') => {
+  const connectWallet = useCallback(async (preferredNetworkId: string = 'PreProd') => {
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
     try {
@@ -75,7 +75,13 @@ export function useLaceWallet() {
       console.log('Found wallet with API version:', initialAPI.apiVersion);
 
       // Try different networks if the preferred one fails
-      const networks = [preferredNetworkId, 'preview', 'preprod', 'mainnet'];
+      // Note: The wallet expects specific network ID formats. Based on the NetworkId enum,
+      // the correct format appears to be PascalCase: PreProd, Preview, MainNet, etc.
+      const networks = [
+        preferredNetworkId, 
+        'PreProd', 'Preview', 'MainNet', 'TestNet', 'DevNet',  // PascalCase (enum format)
+        'preprod', 'preview', 'mainnet', 'testnet', 'devnet',  // lowercase
+      ];
       let connectedAPI = null;
       let successfulNetwork = '';
       let lastError = null;
