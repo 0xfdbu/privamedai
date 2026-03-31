@@ -728,14 +728,14 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
         pointerEvents: 'auto',
       }}>
         <div style={{
-          border: '1px solid rgba(255,255,255,0.06)',
-          background: 'rgba(15,15,15,0.6)',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          padding: '10px',
-          borderRadius: '20px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          background: 'rgba(10,10,10,0.7)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+          padding: '12px',
+          borderRadius: '24px',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)',
         }}>
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {navItems.map(item => {
               const isActive = portal === item.id;
               return (
@@ -748,56 +748,58 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px',
-                    padding: '14px 16px',
-                    minWidth: '76px',
-                    borderRadius: '14px',
+                    gap: '8px',
+                    padding: '18px 20px',
+                    minWidth: '88px',
+                    borderRadius: '16px',
                     border: 'none',
                     background: isActive 
-                      ? 'linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.15) 100%)' 
+                      ? 'rgba(255,255,255,0.12)' 
                       : 'transparent',
-                    color: isActive ? '#f8fafc' : 'rgba(248,250,252,0.45)',
+                    color: isActive ? '#f8fafc' : 'rgba(248,250,252,0.4)',
                     cursor: 'pointer',
-                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                     position: 'relative',
-                    overflow: 'hidden',
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
                       e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                      e.currentTarget.style.color = 'rgba(248,250,252,0.85)';
+                      e.currentTarget.style.color = 'rgba(248,250,252,0.8)';
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!isActive) {
                       e.currentTarget.style.background = 'transparent';
-                      e.currentTarget.style.color = 'rgba(248,250,252,0.45)';
+                      e.currentTarget.style.color = 'rgba(248,250,252,0.4)';
                     }
                   }}
                 >
-                  {/* Active indicator glow */}
+                  {/* Active indicator */}
                   {isActive && (
                     <div style={{
                       position: 'absolute',
-                      inset: 0,
-                      borderRadius: '14px',
-                      border: '1px solid rgba(99,102,241,0.4)',
-                      pointerEvents: 'none',
+                      top: '8px',
+                      right: '8px',
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: '#f8fafc',
+                      boxShadow: '0 0 10px rgba(248,250,252,0.6)',
                     }} />
                   )}
                   <span style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    filter: isActive ? 'drop-shadow(0 0 8px rgba(99,102,241,0.5))' : 'none',
-                    transition: 'filter 0.25s ease',
+                    opacity: isActive ? 1 : 0.7,
+                    transition: 'opacity 0.2s ease',
                   }}>
-                    <item.icon s={22} />
+                    <item.icon s={26} />
                   </span>
                   <span style={{ 
-                    fontSize: '11px', 
+                    fontSize: '13px', 
                     fontWeight: isActive ? 600 : 500,
-                    letterSpacing: '0.3px',
+                    letterSpacing: '0.5px',
                     fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                   }}>{item.label}</span>
                 </button>
