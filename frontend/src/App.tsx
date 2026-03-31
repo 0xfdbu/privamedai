@@ -734,15 +734,30 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
       </nav>
 
       {/* Main */}
-      <main style={{ marginTop: '60px', marginBottom: '70px', padding: '20px', maxWidth: '800px', marginLeft: 'auto', marginRight: 'auto' }}>
-        {children}
+      <main style={{ 
+        marginTop: '60px', 
+        marginBottom: '70px', 
+        padding: '24px',
+        display: 'flex',
+        justifyContent: 'center',
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: '1280px', // max-w-7xl
+        }}>
+          {children}
+        </div>
       </main>
 
       <style>{`
         @media (min-width: 1024px) {
           .sidebar-lg { display: flex !important; }
           .mobile-nav { display: none !important; }
-          main { margin-left: 270px !important; margin-bottom: 20px !important; max-width: 900px !important; }
+          main { 
+            margin-left: 120px !important; 
+            margin-bottom: 20px !important;
+            padding: 32px 40px !important;
+          }
           .header-logo { display: none !important; }
         }
         @keyframes pulse {
@@ -762,12 +777,28 @@ function MainApp() {
 
   return (
     <Layout address="Connected" portal={portal} setPortal={setPortal} onDisconnect={disconnect}>
-      <div style={{ textAlign: 'center', padding: '40px' }}>
-        <h2>Wallet Connected! 🎉</h2>
-        <p>Your Midnight Lace wallet is now connected.</p>
-        <p style={{ color: 'var(--text-muted)', marginTop: '20px' }}>
-          Contract integration coming soon...
-        </p>
+      <div style={{ 
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '60vh',
+        textAlign: 'center',
+      }}>
+        <div style={{
+          width: '100%',
+          maxWidth: '1280px',
+        }}>
+          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '16px' }}>
+            Wallet Connected! 🎉
+          </h2>
+          <p style={{ fontSize: '16px', color: 'var(--text-secondary)' }}>
+            Your Midnight Lace wallet is now connected.
+          </p>
+          <p style={{ color: 'var(--text-muted)', marginTop: '20px' }}>
+            Contract integration coming soon...
+          </p>
+        </div>
       </div>
     </Layout>
   );
