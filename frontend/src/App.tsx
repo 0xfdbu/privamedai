@@ -622,44 +622,99 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
 
   return (
     <div style={{ minHeight: '100vh' }}>
-      {/* Header */}
-      <header style={{ 
-        position: 'fixed', 
-        top: 0, 
-        left: 0, 
-        right: 0, 
-        height: '60px', 
-        background: 'rgba(7,7,9,0.8)', 
-        backdropFilter: 'blur(20px)', 
-        borderBottom: '1px solid rgba(248,250,252,0.06)', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between', 
-        padding: '0 24px', 
-        zIndex: 100 
+      {/* Floating Header */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        display: 'flex',
+        justifyContent: 'center',
+        padding: '12px 20px',
+        zIndex: 100,
+        pointerEvents: 'none',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {/* Hide logo on desktop since it's in sidebar */}
-          <div className="header-logo" style={{ width: '36px', height: '36px', background: 'var(--gradient-primary)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>P</div>
-          <span style={{ fontWeight: '700', color: '#f8fafc' }}>PrivaMedAI</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {address && (
-            <code style={{ 
-              fontSize: '12px', 
-              color: 'rgba(248,250,252,0.7)', 
-              background: 'rgba(248,250,252,0.08)', 
-              padding: '8px 14px', 
-              borderRadius: '20px',
-              border: '1px solid rgba(248,250,252,0.1)',
-              fontFamily: 'monospace'
-            }}>
-              {address.slice(0, 6)}...{address.slice(-4)}
-            </code>
-          )}
-          <Button variant="ghost" onClick={onDisconnect} style={{ color: 'rgba(248,250,252,0.8)' }}>Disconnect</Button>
-        </div>
-      </header>
+        <header style={{ 
+          width: '100%',
+          maxWidth: '1280px',
+          height: '56px', 
+          background: 'rgba(23,23,23,0.8)', 
+          backdropFilter: 'blur(20px) saturate(180%)', 
+          borderRadius: '16px',
+          border: '1px solid rgba(255,255,255,0.08)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.3)',
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          padding: '0 16px',
+          pointerEvents: 'auto',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <span style={{ 
+              fontWeight: '800', 
+              color: '#f8fafc',
+              fontSize: '18px',
+              letterSpacing: '2px',
+              textTransform: 'uppercase',
+              fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+              background: 'linear-gradient(135deg, #f8fafc 0%, #a5b4fc 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>PRIAMED</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {address && (
+              <div style={{ 
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '13px', 
+                color: 'rgba(248,250,252,0.8)', 
+                background: 'rgba(255,255,255,0.06)', 
+                padding: '6px 12px', 
+                borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.08)',
+                fontFamily: 'monospace',
+                fontWeight: 500,
+              }}>
+                <div style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: '#10b981',
+                  boxShadow: '0 0 6px #10b981',
+                }} />
+                {address.slice(0, 6)}...{address.slice(-4)}
+              </div>
+            )}
+            <button 
+              onClick={onDisconnect}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(255,255,255,0.05)',
+                color: 'rgba(248,250,252,0.8)',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                e.currentTarget.style.color = '#f8fafc';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                e.currentTarget.style.color = 'rgba(248,250,252,0.8)';
+              }}
+            >
+              Disconnect
+            </button>
+          </div>
+        </header>
+      </div>
 
       {/* Floating Sidebar */}
       <aside className="sidebar-lg" style={{
@@ -736,7 +791,7 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
 
       {/* Main */}
       <main style={{ 
-        marginTop: '60px', 
+        marginTop: '80px', 
         marginBottom: '70px', 
         padding: '24px',
         display: 'flex',
@@ -758,9 +813,14 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
             margin-left: auto !important;
             margin-right: auto !important;
             margin-bottom: 20px !important;
+            margin-top: 80px !important;
             padding: 32px 40px !important;
           }
-          .header-logo { display: none !important; }
+        }
+        @media (max-width: 1023px) {
+          main {
+            margin-top: 80px !important;
+          }
         }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
