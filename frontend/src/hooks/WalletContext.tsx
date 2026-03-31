@@ -26,16 +26,43 @@ const NETWORK_CONFIG = {
     indexerUri: 'https://indexer.preprod.midnight.network/api/v3/graphql',
     indexerWsUri: 'wss://indexer.preprod.midnight.network/api/v3/graphql/ws',
     proofServerUri: 'http://localhost:6300',
+    networkId: 'preprod',
   },
   preview: {
     indexerUri: 'https://indexer.preview.midnight.network/api/v3/graphql',
     indexerWsUri: 'wss://indexer.preview.midnight.network/api/v3/graphql/ws',
     proofServerUri: 'http://localhost:6300',
+    networkId: 'preview',
   },
   mainnet: {
     indexerUri: 'https://indexer.mainnet.midnight.network/api/v4/graphql',
     indexerWsUri: 'wss://indexer.mainnet.midnight.network/api/v4/graphql/ws',
     proofServerUri: 'http://localhost:6300',
+    networkId: 'mainnet',
+  },
+  testnet: {
+    indexerUri: 'https://indexer.testnet-02.midnight.network/api/v1/graphql',
+    indexerWsUri: 'wss://indexer.testnet-02.midnight.network/api/v1/graphql/ws',
+    proofServerUri: 'http://localhost:6300',
+    networkId: 'testnet',
+  },
+  devnet: {
+    indexerUri: 'https://indexer.devnet.midnight.network/api/v3/graphql',
+    indexerWsUri: 'wss://indexer.devnet.midnight.network/api/v3/graphql/ws',
+    proofServerUri: 'http://localhost:6300',
+    networkId: 'devnet',
+  },
+  qanet: {
+    indexerUri: 'https://indexer.qanet.dev.midnight.network/api/v3/graphql',
+    indexerWsUri: 'wss://indexer.qanet.dev.midnight.network/api/v3/graphql/ws',
+    proofServerUri: 'http://localhost:6300',
+    networkId: 'qanet',
+  },
+  undeployed: {
+    indexerUri: 'http://localhost:8088/api/v1/graphql',
+    indexerWsUri: 'ws://localhost:8088/api/v1/graphql/ws',
+    proofServerUri: 'http://localhost:6300',
+    networkId: 'undeployed',
   },
 };
 
