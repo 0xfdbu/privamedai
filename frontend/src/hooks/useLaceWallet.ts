@@ -59,7 +59,7 @@ export function useLaceWallet() {
   });
 
   // Connect to Lace wallet
-  const connectWallet = useCallback(async (preferredNetworkId: string = 'PreProd') => {
+  const connectWallet = useCallback(async (preferredNetworkId: string = 'preprod') => {
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
     try {
@@ -75,12 +75,10 @@ export function useLaceWallet() {
       console.log('Found wallet with API version:', initialAPI.apiVersion);
 
       // Try different networks if the preferred one fails
-      // Note: The wallet expects specific network ID formats. Based on the NetworkId enum,
-      // the correct format appears to be PascalCase: PreProd, Preview, MainNet, etc.
+      // Valid networks per wallet: mainnet, testnet, devnet, qanet, undeployed, preview, preprod
       const networks = [
         preferredNetworkId, 
-        'PreProd', 'Preview', 'MainNet', 'TestNet', 'DevNet',  // PascalCase (enum format)
-        'preprod', 'preview', 'mainnet', 'testnet', 'devnet',  // lowercase
+        'preprod', 'preview', 'mainnet', 'testnet', 'devnet', 'qanet', 'undeployed'
       ];
       let connectedAPI = null;
       let successfulNetwork = '';
@@ -94,10 +92,13 @@ export function useLaceWallet() {
           console.log(`✅ Successfully connected with network: ${networkId}`);
           break;
         } catch (e: any) {
-          console.log(`Failed to connect with ${networkId}:`, e.message);
+          console.log(`Failed to connect with ${networkId}:`, e.message || e.reason);
           lastError = e;
-          // If it's a network mismatch, try next network
-          if (e.message?.includes('Network ID mismatch') || e.reason?.includes('Network ID mismatch')) {
+          // If it's a network mismatch or invalid network ID, try next network
+          const errorText = (e.message || e.reason || '').toLowerCase();
+          if (errorText.includes('network id mismatch') || 
+              errorText.includes('invalid network id') ||
+              e.code === 'InvalidRequest') {
             continue;
           }
           // For other errors, throw immediately
