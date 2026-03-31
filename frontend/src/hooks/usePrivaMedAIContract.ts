@@ -351,12 +351,24 @@ export function usePrivaMedAIContract(seed: string) {
 
 // Helper functions
 function deriveKeys(seed: string) {
-  const hdWallet = HDWallet.fromSeed(Buffer.from(seed, 'hex'));
+  // Convert hex string to Uint8Array
+  const seedBytes = hexToBytes(seed);
+  const hdWallet = HDWallet.fromSeed(Buffer.from(seedBytes));
   if (hdWallet.type !== 'seedOk') throw new Error('Invalid seed');
   const result = hdWallet.hdWallet.selectAccount(0).selectRoles([Roles.Zswap, Roles.NightExternal, Roles.Dust]).deriveKeysAt(0);
   if (result.type !== 'keysDerived') throw new Error('Key derivation failed');
   hdWallet.hdWallet.clear();
   return result.keys;
+}
+
+// Convert hex string to Uint8Array
+function hexToBytes(hex: string): Uint8Array {
+  if (hex.length % 2 !== 0) throw new Error('Invalid hex string length');
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
+  }
+  return bytes;
 }
 
 function signTransactionIntents(tx: { intents?: Map<number, any> }, signFn: (payload: Uint8Array) => ledger.Signature, proofMarker: 'proof' | 'pre-proof'): void {

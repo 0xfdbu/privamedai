@@ -163,7 +163,9 @@ function LoginScreen({ onConnect }: { onConnect: (s: string) => void }) {
   const generate = () => {
     const arr = new Uint8Array(32);
     crypto.getRandomValues(arr);
-    setSeed(Array.from(arr, b => b.toString(16).padStart(2, '0')).join(''));
+    // Ensure proper hex encoding with leading zeros
+    const hex = Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+    setSeed(hex.toLowerCase());
   };
 
   return (

@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     wasm(),
     nodePolyfills({
-      include: ['crypto', 'buffer', 'process', 'stream', 'util'],
+      include: ['crypto', 'buffer', 'process', 'stream', 'util', 'path'],
       globals: {
         Buffer: true,
         process: true,
@@ -21,6 +21,12 @@ export default defineConfig({
     'process.version': '"v18.0.0"',
     'process.versions.node': '"18.0.0"',
     'process.platform': '"browser"',
+  },
+  resolve: {
+    alias: {
+      // Fix WebSocket resolution for isomorphic-ws
+      'isomorphic-ws': 'isomorphic-ws/browser.js',
+    },
   },
   build: {
     target: 'esnext',
