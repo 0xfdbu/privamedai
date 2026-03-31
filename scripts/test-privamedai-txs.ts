@@ -244,8 +244,9 @@ async function main() {
   console.log('\n');
 
   const address = walletCtx.unshieldedKeystore.getBech32Address();
-  const pubKeyObj = walletCtx.unshieldedKeystore.getPublicKey();
-  const publicKey = typeof pubKeyObj === 'string' ? pubKeyObj : pubKeyObj?.asString?.() || pubKeyObj?.toString?.() || '';
+  // Get public key bytes directly from the keystore
+  const pubKeyBytes = walletCtx.unshieldedKeystore.getPublicKey().bytes;
+  const publicKey = Buffer.from(pubKeyBytes).toString('hex');
   log(`💳 Wallet: ${address}`);
   log(`🔑 Public Key: ${publicKey.slice(0, 64)}...\n`);
 
