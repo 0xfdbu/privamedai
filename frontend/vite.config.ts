@@ -28,6 +28,8 @@ export default defineConfig({
   define: {
     'global': 'globalThis',
     'process.env': {},
+    'process.version': '"v18.0.0"',
+    'process.versions': '{ node: "18.0.0" }',
   },
   build: {
     target: 'esnext',
