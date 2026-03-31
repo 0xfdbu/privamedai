@@ -1,7 +1,8 @@
 import { createContext, useContext, ReactNode } from 'react';
 import { useLaceWallet, VALID_NETWORKS, type NetworkId } from './useLaceWallet';
 
-export { useLaceWallet, VALID_NETWORKS };
+export { useLaceWallet };
+export { VALID_NETWORKS };
 export type { NetworkId };
 
 interface WalletContextType {
