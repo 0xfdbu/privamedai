@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import './styles/theme.css';
-import { WalletProvider, useWallet } from './hooks/WalletContext';
-import { usePrivaMedAIContract } from './hooks/usePrivaMedAIContract';
+import { WalletProvider, useWallet, useLaceWallet } from './hooks/WalletContext';
 import { createHash } from 'crypto';
 
 // ============================================================================
@@ -146,26 +145,15 @@ const Alert = ({ type = 'info', children, onClose }: any) => {
 };
 
 // ============================================================================
-// Login Screen
+// Login Screen with Lace Wallet
 // ============================================================================
 
-function LoginScreen({ onConnect }: { onConnect: (s: string) => void }) {
-  const [seed, setSeed] = useState('');
-  const [loading, setLoading] = useState(false);
+function LoginScreen({ onConnect }: { onConnect: () => Promise<void> }) {
+  const { isLaceInstalled, isConnecting, error, connectWallet } = useLaceWallet();
 
-  const connect = () => {
-    if (seed.length === 64) {
-      setLoading(true);
-      onConnect(seed);
-    }
-  };
-
-  const generate = () => {
-    const arr = new Uint8Array(32);
-    crypto.getRandomValues(arr);
-    // Ensure proper hex encoding with leading zeros
-    const hex = Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
-    setSeed(hex.toLowerCase());
+  const handleConnect = async () => {
+    await connectWallet();
+    onConnect();
   };
 
   return (
@@ -175,26 +163,46 @@ function LoginScreen({ onConnect }: { onConnect: (s: string) => void }) {
         <h1 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>PrivaMedAI</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '28px' }}>Healthcare Credentials on Midnight Network</p>
 
-        <Input
-          label="Wallet Seed (64 hex chars)"
-          value={seed}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSeed(e.target.value)}
-          placeholder="Enter your seed..."
-          mono
-        />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginTop: '-12px', marginBottom: '16px' }}>
-          <span>{seed.length}/64</span>
-          {seed.length === 64 && <span style={{ color: 'var(--success)' }}>Valid ✓</span>}
-        </div>
+        {!isLaceInstalled() ? (
+          <Alert type="error">
+            <div style={{ textAlign: 'left' }}>
+              <strong>Midnight Lace wallet not found</strong>
+              <p style={{ margin: '8px 0 0', fontSize: '13px' }}>
+                Please install the Midnight Lace browser extension to continue.
+              </p>
+              <a 
+                href="https://docs.midnight.network/docs/keystore-wallet/lace-wallet-extension" 
+                target="_blank" 
+                style={{ color: 'var(--primary)', fontSize: '13px' }}
+              >
+                Install Lace Wallet →
+              </a>
+            </div>
+          </Alert>
+        ) : (
+          <>
+            <div style={{ marginBottom: '20px' }}>
+              <Button 
+                onClick={handleConnect} 
+                loading={isConnecting}
+                icon={Icons.Lock}
+                style={{ width: '100%', padding: '14px' }}
+              >
+                {isConnecting ? 'Connecting...' : 'Connect Lace Wallet'}
+              </Button>
+            </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <Button variant="secondary" onClick={generate} style={{ flex: 1 }}>Generate</Button>
-          <Button onClick={connect} loading={loading} disabled={seed.length !== 64} style={{ flex: 1 }}>Connect</Button>
-        </div>
+            {error && (
+              <Alert type="error" onClose={() => {}}>
+                {error}
+              </Alert>
+            )}
 
-        <div style={{ marginTop: '24px', padding: '12px', background: 'rgba(99,102,241,0.1)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          <Icons.Alert /> Get tNight from <a href="https://faucet.preprod.midnight.network/" target="_blank" style={{ color: 'var(--primary)' }}>faucet</a>. Proof server on port 6300.
-        </div>
+            <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(99,102,241,0.1)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              <Icons.Alert /> Make sure you have tNight tokens from the <a href="https://faucet.preprod.midnight.network/" target="_blank" style={{ color: 'var(--primary)' }}>faucet</a>
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );
@@ -204,8 +212,14 @@ function LoginScreen({ onConnect }: { onConnect: (s: string) => void }) {
 // Issuer Portal
 // ============================================================================
 
-function IssuerPortal({ seed, ready }: { seed: string; ready: boolean }) {
-  const { issueCredential, revokeCredential } = usePrivaMedAIContract(seed);
+function IssuerPortal({ walletAPI: _walletAPI, serviceConfig: _serviceConfig, ready }: { walletAPI: any; serviceConfig: any; ready: boolean }) {
+  // TODO: Integrate with contract using wallet providers
+  const issueCredential = async (_commitment: string, _claimHash: string, _days: number) => {
+    return 'mock-tx-id';
+  };
+  const revokeCredential = async (_commitment: string) => {
+    return 'mock-tx-id';
+  };
   const [tab, setTab] = useState<'issue' | 'manage'>('issue');
   const [form, setForm] = useState({ subject: '', type: 'vaccination', value: '', days: 365 });
   const [issued, setIssued] = useState<any[]>([]);
@@ -304,8 +318,11 @@ function IssuerPortal({ seed, ready }: { seed: string; ready: boolean }) {
 // User Portal
 // ============================================================================
 
-function UserPortal({ seed, ready }: { seed: string; ready: boolean }) {
-  const { verifyCredential } = usePrivaMedAIContract(seed);
+function UserPortal({ walletAPI: _walletAPI, serviceConfig: _serviceConfig, ready }: { walletAPI: any; serviceConfig: any; ready: boolean }) {
+  // TODO: Integrate with contract using wallet providers
+  const verifyCredential = async (_commitment: string, _credentialData: string) => {
+    return 'mock-tx-id';
+  };
   const [creds, setCreds] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -437,8 +454,11 @@ function UserPortal({ seed, ready }: { seed: string; ready: boolean }) {
 // Verifier Portal
 // ============================================================================
 
-function VerifierPortal({ seed, ready }: { seed: string; ready: boolean }) {
-  const { verifyCredential } = usePrivaMedAIContract(seed);
+function VerifierPortal({ walletAPI: _walletAPI, serviceConfig: _serviceConfig, ready }: { walletAPI: any; serviceConfig: any; ready: boolean }) {
+  // TODO: Integrate with contract using wallet providers
+  const verifyCredential = async (_commitment: string, _credentialData: string) => {
+    return 'mock-tx-id';
+  };
   const [input, setInput] = useState('');
   const [result, setResult] = useState<{ status: string; msg: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -628,17 +648,27 @@ function Layout({ children, state, address, portal, setPortal, onDisconnect }: a
 }
 
 function MainApp() {
-  const { seed, isConnected, connect, disconnect } = useWallet();
-  const { state, walletAddress } = usePrivaMedAIContract(seed || '');
+  const { isConnected, connect, disconnect, address, walletAPI, serviceConfig } = useWallet();
   const [portal, setPortal] = useState('issuer');
+  
+  // Use placeholder state until we integrate proper contract hook
+  const [contractState, setContractState] = useState<'initializing' | 'ready' | 'error'>('initializing');
+  
+  // Effect to simulate contract initialization
+  useEffect(() => {
+    if (isConnected && walletAPI) {
+      // TODO: Initialize contract with wallet providers
+      setTimeout(() => setContractState('ready'), 1000);
+    }
+  }, [isConnected, walletAPI]);
 
-  if (!isConnected || !seed) return <LoginScreen onConnect={connect} />;
+  if (!isConnected) return <LoginScreen onConnect={connect} />;
 
   return (
-    <Layout state={state} address={walletAddress} portal={portal} setPortal={setPortal} onDisconnect={disconnect}>
-      {portal === 'issuer' && <IssuerPortal seed={seed} ready={state === 'ready'} />}
-      {portal === 'user' && <UserPortal seed={seed} ready={state === 'ready'} />}
-      {portal === 'verifier' && <VerifierPortal seed={seed} ready={state === 'ready'} />}
+    <Layout state={contractState} address={address} portal={portal} setPortal={setPortal} onDisconnect={disconnect}>
+      {portal === 'issuer' && <IssuerPortal walletAPI={walletAPI} serviceConfig={serviceConfig} ready={contractState === 'ready'} />}
+      {portal === 'user' && <UserPortal walletAPI={walletAPI} serviceConfig={serviceConfig} ready={contractState === 'ready'} />}
+      {portal === 'verifier' && <VerifierPortal walletAPI={walletAPI} serviceConfig={serviceConfig} ready={contractState === 'ready'} />}
     </Layout>
   );
 }

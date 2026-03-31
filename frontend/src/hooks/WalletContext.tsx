@@ -1,41 +1,41 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, ReactNode } from 'react';
+import { useLaceWallet } from './useLaceWallet';
+
+export { useLaceWallet };
 
 interface WalletContextType {
-  seed: string | null;
   isConnected: boolean;
-  connect: (seed: string) => void;
+  isConnecting: boolean;
+  error: string | null;
+  address: string;
+  balance: bigint | null;
+  walletAPI: any;
+  serviceConfig: any;
+  connect: () => Promise<void>;
   disconnect: () => void;
+  isLaceInstalled: () => boolean;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const [seed, setSeed] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-
-  useEffect(() => {
-    // Check localStorage for saved seed
-    const saved = localStorage.getItem('privacred_wallet_seed');
-    if (saved) {
-      setSeed(saved);
-      setIsConnected(true);
-    }
-  }, []);
-
-  const connect = (newSeed: string) => {
-    localStorage.setItem('privacred_wallet_seed', newSeed);
-    setSeed(newSeed);
-    setIsConnected(true);
-  };
-
-  const disconnect = () => {
-    localStorage.removeItem('privacred_wallet_seed');
-    setSeed(null);
-    setIsConnected(false);
+  const laceWallet = useLaceWallet();
+  
+  const value: WalletContextType = {
+    isConnected: laceWallet.isConnected,
+    isConnecting: laceWallet.isConnecting,
+    error: laceWallet.error,
+    address: laceWallet.address,
+    balance: laceWallet.balance,
+    walletAPI: laceWallet.walletAPI,
+    serviceConfig: laceWallet.serviceConfig,
+    connect: laceWallet.connectWallet,
+    disconnect: laceWallet.disconnectWallet,
+    isLaceInstalled: laceWallet.isLaceInstalled,
   };
 
   return (
-    <WalletContext.Provider value={{ seed, isConnected, connect, disconnect }}>
+    <WalletContext.Provider value={value}>
       {children}
     </WalletContext.Provider>
   );
