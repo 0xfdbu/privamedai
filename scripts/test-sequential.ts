@@ -310,11 +310,20 @@ async function main() {
     args,
   });
 
-  // Test data
+  // Test data - generate credential data that matches claimHash for verification
+  // The claimHash is computed as hash(credentialData), so we need to use consistent values
+  const credentialData1 = Buffer.from('test-credential-data-1-32bytes!', 'utf8'); // 32 bytes
+  const credentialData2 = Buffer.from('test-credential-data-2-32bytes!', 'utf8'); // 32 bytes
+  const credentialData3 = Buffer.from('test-credential-data-3-32bytes!', 'utf8'); // 32 bytes
+  
+  // Compute claimHashes as SHA-256 of credential data (approximation of persistentHash)
+  const testClaimHash1 = createHash('sha256').update(credentialData1).digest('hex');
+  const testClaimHash2 = createHash('sha256').update(credentialData2).digest('hex');
+  const testClaimHash3 = createHash('sha256').update(credentialData3).digest('hex');
+  
   const testCommitment1 = 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456';
   const testCommitment2 = 'b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456a1';
   const testCommitment3 = 'c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456a1b2';
-  const testClaimHash = 'd4e5f6789012345678901234567890abcdef1234567890abcdef123456a1b2c3';
   const testNameHash = 'e5f6789012345678901234567890abcdef1234567890abcdef123456a1b2c3d4';
   const callerPubKey = derivedAdminKey; // Admin/Caller public key (derived)
   const issuerPubKey = derivedAdminKey; // Same as admin for testing
@@ -357,7 +366,7 @@ async function main() {
       Buffer.from(callerPubKey, 'hex'), // callerPubKey (issuer)
       Buffer.from(testCommitment1, 'hex'), // commitment
       Buffer.from(issuerPubKey, 'hex'), // issuerPubKey
-      Buffer.from(testClaimHash, 'hex'), // claimHash
+      Buffer.from(testClaimHash1, 'hex'), // claimHash (matches credentialData1)
       expiry, // expiry
     ])
   });
@@ -377,13 +386,13 @@ async function main() {
     passed: await runSingleTest('Batch Issue 3 Credentials', providers, createCallOptions, 'batchIssue3Credentials', [
       Buffer.from(callerPubKey, 'hex'), // callerPubKey (issuer)
       Buffer.from(batchCommitment1, 'hex'),
-      Buffer.from(testClaimHash, 'hex'),
+      Buffer.from(testClaimHash1, 'hex'),
       expiry,
       Buffer.from(batchCommitment2, 'hex'),
-      Buffer.from(testClaimHash, 'hex'),
+      Buffer.from(testClaimHash2, 'hex'),
       expiry,
       Buffer.from(batchCommitment3, 'hex'),
-      Buffer.from(testClaimHash, 'hex'),
+      Buffer.from(testClaimHash3, 'hex'),
       expiry,
     ])
   });
@@ -393,7 +402,22 @@ async function main() {
     await delay(10000);
   }
 
-  // TEST 5: Verify Credential
+  // TEST 5: Verify Credential - need to update private state with credential data first
+  log('\n📝 Updating private state with credential data for verification...');
+  const privateStateWithCredential = createPrivaMedAIPrivateState(
+    secretKey,
+    credentialData1, // This will be returned by get_credential_data() witness
+    [credentialData1, credentialData2, credentialData3] // For bundled verification
+  );
+  
+  // Reconnect with updated private state
+  const contractWithCredential = await findDeployedContract(providers, {
+    contractAddress: deployment.contractAddress,
+    compiledContract,
+    privateStateId: 'privaMedAITestState',
+    initialPrivateState: privateStateWithCredential,
+  });
+  
   results.push({
     name: 'Verify Single Credential',
     passed: await runSingleTest('Verify Single Credential', providers, createCallOptions, 'verifyCredential', [
