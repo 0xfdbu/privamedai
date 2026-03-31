@@ -270,13 +270,13 @@ async function main() {
   });
   log('✅ Connected to contract!\n');
 
-  // Generate unique test data
+  // Generate unique test data (valid hex strings)
   const timestamp = Date.now();
-  const testCommitment1 = Buffer.from(`test_commitment_1_${timestamp}`, 'utf8').toString('hex').padEnd(64, '0').slice(0, 64);
-  const testCommitment2 = Buffer.from(`test_commitment_2_${timestamp}`, 'utf8').toString('hex').padEnd(64, '0').slice(0, 64);
-  const testCommitment3 = Buffer.from(`test_commitment_3_${timestamp}`, 'utf8').toString('hex').padEnd(64, '0').slice(0, 64);
-  const testClaimHash = Buffer.from(`claim_hash_${timestamp}`, 'utf8').toString('hex').padEnd(64, '0').slice(0, 64);
-  const testNameHash = Buffer.from(`Hospital_${timestamp}`, 'utf8').toString('hex').padEnd(64, '0').slice(0, 64);
+  const testCommitment1 = 'a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456';
+  const testCommitment2 = 'b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456a1';
+  const testCommitment3 = 'c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456a1b2';
+  const testClaimHash = 'd4e5f6789012345678901234567890abcdef1234567890abcdef123456a1b2c3';
+  const testNameHash = 'e5f6789012345678901234567890abcdef1234567890abcdef123456a1b2c3d4';
   const issuerPubKey = publicKey.slice(0, 64);
   const expiry = BigInt(Date.now() + 365 * 24 * 60 * 60 * 1000);
 
@@ -313,15 +313,18 @@ async function main() {
   });
 
   // Test 4: Batch Issue 3 Credentials
+  const batchCommitment1 = 'f1e2d3c4b5a69788990011223344556677889900aabbccdd1122334455667788';
+  const batchCommitment2 = 'f2e3d4c5b6a79888990011223344556677889900aabbccdd1122334455667789';
+  const batchCommitment3 = 'f3e4d5c6b7a89888990011223344556677889900aabbccdd112233445566778a';
   await runTest('Batch Issue 3 Credentials', async () => {
     const tx = await submitCallTx(providers, contract, 'batchIssue3Credentials', {
-      commitment1: Buffer.from(testCommitment1 + '00', 'hex').slice(0, 32),
+      commitment1: Buffer.from(batchCommitment1, 'hex'),
       claimHash1: Buffer.from(testClaimHash, 'hex'),
       expiry1: expiry,
-      commitment2: Buffer.from(testCommitment2, 'hex'),
+      commitment2: Buffer.from(batchCommitment2, 'hex'),
       claimHash2: Buffer.from(testClaimHash, 'hex'),
       expiry2: expiry,
-      commitment3: Buffer.from(testCommitment3, 'hex'),
+      commitment3: Buffer.from(batchCommitment3, 'hex'),
       claimHash3: Buffer.from(testClaimHash, 'hex'),
       expiry3: expiry,
     });
