@@ -59,7 +59,7 @@ export function useLaceWallet() {
   });
 
   // Connect to Lace wallet
-  const connectWallet = useCallback(async (networkId: string = 'preprod') => {
+  const connectWallet = useCallback(async (preferredNetworkId: string = 'preprod') => {
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
     try {
@@ -74,15 +74,41 @@ export function useLaceWallet() {
 
       console.log('Found wallet with API version:', initialAPI.apiVersion);
 
-      // Connect to the wallet
-      const connectedAPI = await initialAPI.connect(networkId);
+      // Try different networks if the preferred one fails
+      const networks = [preferredNetworkId, 'preview', 'preprod', 'mainnet'];
+      let connectedAPI = null;
+      let successfulNetwork = '';
+      let lastError = null;
+
+      for (const networkId of networks) {
+        try {
+          console.log(`Trying to connect with network: ${networkId}`);
+          connectedAPI = await initialAPI.connect(networkId);
+          successfulNetwork = networkId;
+          console.log(`✅ Successfully connected with network: ${networkId}`);
+          break;
+        } catch (e: any) {
+          console.log(`Failed to connect with ${networkId}:`, e.message);
+          lastError = e;
+          // If it's a network mismatch, try next network
+          if (e.message?.includes('Network ID mismatch') || e.reason?.includes('Network ID mismatch')) {
+            continue;
+          }
+          // For other errors, throw immediately
+          throw e;
+        }
+      }
+
+      if (!connectedAPI) {
+        throw lastError || new Error('Could not connect with any network. Please check your wallet configuration.');
+      }
       
       // Check connection status
       const status = await connectedAPI.getConnectionStatus();
       console.log('Connection status:', status);
       
       // Save connection state
-      localStorage.setItem('privamed_lace_connected', networkId);
+      localStorage.setItem('privamed_lace_connected', successfulNetwork);
       
       setState({
         isConnected: true,
@@ -91,11 +117,11 @@ export function useLaceWallet() {
         connectedAPI,
       });
 
-      console.log('✅ Connected to Midnight Lace wallet');
+      console.log(`✅ Connected to Midnight Lace wallet on ${successfulNetwork}`);
     } catch (err: any) {
       console.error('Failed to connect wallet:', err);
       
-      let errorMsg = err.message || 'Failed to connect wallet';
+      let errorMsg = err.message || err.reason || 'Failed to connect wallet';
       
       if (errorMsg.includes('not found') || errorMsg.includes('not installed')) {
         errorMsg = 'Midnight Lace wallet not found. Please install the extension and refresh the page.';
@@ -105,6 +131,8 @@ export function useLaceWallet() {
         errorMsg = 'Connection timed out. Please try again.';
       } else if (errorMsg.includes('version') || errorMsg.includes('compatible')) {
         errorMsg = 'Incompatible wallet version. Please update your Lace wallet extension.';
+      } else if (errorMsg.includes('Network ID mismatch')) {
+        errorMsg = 'Network mismatch. Your wallet is configured for a different network. Please switch networks in your Lace wallet settings.';
       }
       
       setState(prev => ({
