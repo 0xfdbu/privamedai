@@ -152,7 +152,18 @@ export function usePrivaMedAIContract(seed: string) {
         setState('ready');
       } catch (err: any) {
         console.error('Contract initialization error:', err);
-        setError(err.message || 'Failed to initialize contract');
+        let errorMsg = err.message || 'Failed to initialize contract';
+        
+        // Provide more helpful error messages for common issues
+        if (errorMsg.includes('Invalid seed')) {
+          errorMsg = 'Invalid wallet seed. Please generate a new seed and ensure it is 64 hexadecimal characters.';
+        } else if (errorMsg.includes('WebSocket') || errorMsg.includes('disconnected')) {
+          errorMsg = 'Unable to connect to Midnight network. Please check your internet connection and try again. If the issue persists, the network may be temporarily unavailable.';
+        } else if (errorMsg.includes('proof server') || errorMsg.includes('6300')) {
+          errorMsg = 'Cannot connect to proof server on port 6300. Please ensure the proof server is running (docker run -p 6300:6300 midnightnetwork/proof-server:latest).';
+        }
+        
+        setError(errorMsg);
         setState('error');
       }
     }
@@ -351,24 +362,37 @@ export function usePrivaMedAIContract(seed: string) {
 
 // Helper functions
 function deriveKeys(seed: string) {
-  // Convert hex string to Uint8Array
-  const seedBytes = hexToBytes(seed);
-  const hdWallet = HDWallet.fromSeed(Buffer.from(seedBytes));
-  if (hdWallet.type !== 'seedOk') throw new Error('Invalid seed');
+  // Validate seed format
+  if (!seed || seed.length !== 64) {
+    throw new Error(`Invalid seed length: expected 64 hex chars, got ${seed?.length || 0}`);
+  }
+  
+  // Check if seed contains only valid hex characters
+  if (!/^[0-9a-fA-F]+$/.test(seed)) {
+    throw new Error('Invalid seed format: must be hexadecimal characters only');
+  }
+  
+  // Convert hex string to Buffer (Midnight SDK expects Buffer)
+  const seedBuffer = Buffer.from(seed, 'hex');
+  
+  if (seedBuffer.length !== 32) {
+    throw new Error(`Invalid seed buffer length: expected 32 bytes, got ${seedBuffer.length}`);
+  }
+  
+  const hdWallet = HDWallet.fromSeed(seedBuffer);
+  
+  if (hdWallet.type !== 'seedOk') {
+    throw new Error('Invalid seed: HDWallet initialization failed');
+  }
+  
   const result = hdWallet.hdWallet.selectAccount(0).selectRoles([Roles.Zswap, Roles.NightExternal, Roles.Dust]).deriveKeysAt(0);
-  if (result.type !== 'keysDerived') throw new Error('Key derivation failed');
+  
+  if (result.type !== 'keysDerived') {
+    throw new Error('Key derivation failed');
+  }
+  
   hdWallet.hdWallet.clear();
   return result.keys;
-}
-
-// Convert hex string to Uint8Array
-function hexToBytes(hex: string): Uint8Array {
-  if (hex.length % 2 !== 0) throw new Error('Invalid hex string length');
-  const bytes = new Uint8Array(hex.length / 2);
-  for (let i = 0; i < hex.length; i += 2) {
-    bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-  }
-  return bytes;
 }
 
 function signTransactionIntents(tx: { intents?: Map<number, any> }, signFn: (payload: Uint8Array) => ledger.Signature, proofMarker: 'proof' | 'pre-proof'): void {

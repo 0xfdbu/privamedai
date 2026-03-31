@@ -92,7 +92,7 @@ const Badge = ({ children, color = 'green' }: any) => {
   );
 };
 
-const Input = ({ label, ...props }: any) => (
+const Input = ({ label, mono, ...props }: any) => (
   <div style={{ marginBottom: '16px' }}>
     {label && <label style={{ display: 'block', fontSize: '13px', fontWeight: '500', marginBottom: '6px', color: 'var(--text-secondary)' }}>{label}</label>}
     <input {...props} style={{
@@ -104,7 +104,7 @@ const Input = ({ label, ...props }: any) => (
       borderRadius: '8px',
       color: 'var(--text)',
       outline: 'none',
-      fontFamily: props.mono ? 'monospace' : 'inherit',
+      fontFamily: mono ? 'monospace' : 'inherit',
       ...props.style,
     }} />
   </div>
