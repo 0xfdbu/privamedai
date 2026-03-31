@@ -8,19 +8,25 @@ export default defineConfig({
     react(),
     wasm(),
     nodePolyfills({
-      include: ['crypto', 'buffer', 'process', 'stream'],
+      include: ['crypto', 'buffer', 'process', 'stream', 'util'],
+      globals: {
+        Buffer: true,
+        process: true,
+      },
     }),
   ],
   define: {
     'global': 'globalThis',
     'process.env': '{}',
+    'process.version': '"v18.0.0"',
+    'process.versions.node': '"18.0.0"',
+    'process.platform': '"browser"',
   },
   build: {
     target: 'esnext',
   },
   server: {
     port: 3000,
-    // Don't proxy WebSocket - let wallet connect directly to Midnight network
     proxy: {},
   },
 })
