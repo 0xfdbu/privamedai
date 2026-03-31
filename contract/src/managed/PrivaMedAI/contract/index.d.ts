@@ -17,9 +17,6 @@ export type Issuer = { publicKey: Uint8Array;
                      };
 
 export type Witnesses<PS> = {
-  get_credential_data(context: __compactRuntime.WitnessContext<Ledger, PS>): [PS, Uint8Array];
-  get_bundled_credential_data(context: __compactRuntime.WitnessContext<Ledger, PS>,
-                              index_0: bigint): [PS, Uint8Array];
 }
 
 export type ImpureCircuits<PS> = {
@@ -54,14 +51,20 @@ export type ImpureCircuits<PS> = {
                          claimHash3_0: Uint8Array,
                          expiry3_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   verifyCredential(context: __compactRuntime.CircuitContext<PS>,
-                   commitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
+                   commitment_0: Uint8Array,
+                   credentialData_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
   bundledVerify3Credentials(context: __compactRuntime.CircuitContext<PS>,
                             commitment1_0: Uint8Array,
+                            credentialData1_0: Uint8Array,
                             commitment2_0: Uint8Array,
-                            commitment3_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
+                            credentialData2_0: Uint8Array,
+                            commitment3_0: Uint8Array,
+                            credentialData3_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
   bundledVerify2Credentials(context: __compactRuntime.CircuitContext<PS>,
                             commitment1_0: Uint8Array,
-                            commitment2_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
+                            credentialData1_0: Uint8Array,
+                            commitment2_0: Uint8Array,
+                            credentialData2_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
   revokeCredential(context: __compactRuntime.CircuitContext<PS>,
                    callerPubKey_0: Uint8Array,
                    commitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
@@ -105,14 +108,20 @@ export type ProvableCircuits<PS> = {
                          claimHash3_0: Uint8Array,
                          expiry3_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   verifyCredential(context: __compactRuntime.CircuitContext<PS>,
-                   commitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
+                   commitment_0: Uint8Array,
+                   credentialData_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
   bundledVerify3Credentials(context: __compactRuntime.CircuitContext<PS>,
                             commitment1_0: Uint8Array,
+                            credentialData1_0: Uint8Array,
                             commitment2_0: Uint8Array,
-                            commitment3_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
+                            credentialData2_0: Uint8Array,
+                            commitment3_0: Uint8Array,
+                            credentialData3_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
   bundledVerify2Credentials(context: __compactRuntime.CircuitContext<PS>,
                             commitment1_0: Uint8Array,
-                            commitment2_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
+                            credentialData1_0: Uint8Array,
+                            commitment2_0: Uint8Array,
+                            credentialData2_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
   revokeCredential(context: __compactRuntime.CircuitContext<PS>,
                    callerPubKey_0: Uint8Array,
                    commitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;
@@ -159,14 +168,20 @@ export type Circuits<PS> = {
                          claimHash3_0: Uint8Array,
                          expiry3_0: bigint): __compactRuntime.CircuitResults<PS, []>;
   verifyCredential(context: __compactRuntime.CircuitContext<PS>,
-                   commitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
+                   commitment_0: Uint8Array,
+                   credentialData_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
   bundledVerify3Credentials(context: __compactRuntime.CircuitContext<PS>,
                             commitment1_0: Uint8Array,
+                            credentialData1_0: Uint8Array,
                             commitment2_0: Uint8Array,
-                            commitment3_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
+                            credentialData2_0: Uint8Array,
+                            commitment3_0: Uint8Array,
+                            credentialData3_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
   bundledVerify2Credentials(context: __compactRuntime.CircuitContext<PS>,
                             commitment1_0: Uint8Array,
-                            commitment2_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
+                            credentialData1_0: Uint8Array,
+                            commitment2_0: Uint8Array,
+                            credentialData2_0: Uint8Array): __compactRuntime.CircuitResults<PS, boolean>;
   revokeCredential(context: __compactRuntime.CircuitContext<PS>,
                    callerPubKey_0: Uint8Array,
                    commitment_0: Uint8Array): __compactRuntime.CircuitResults<PS, []>;

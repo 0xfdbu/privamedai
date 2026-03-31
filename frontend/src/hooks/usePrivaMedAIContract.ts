@@ -14,6 +14,7 @@ import { HDWallet, Roles } from '@midnight-ntwrk/wallet-sdk-hd';
 import * as ledger from '@midnight-ntwrk/ledger-v8';
 import * as Rx from 'rxjs';
 import { Buffer } from 'buffer';
+import { createHash } from 'crypto';
 
 // Contract configuration for preprod
 const CONFIG = {
@@ -23,9 +24,9 @@ const CONFIG = {
   proofServer: 'http://127.0.0.1:6300',
 };
 
-// Deployment info - this would normally be fetched from a config file
+// Deployment info - PrivaMedAI contract
 const DEPLOYMENT = {
-  contractAddress: '56c506bed6acff24377f26d2c46eb60dd31f9c4039449e47bd61e0555f6a9404',
+  contractAddress: '9a965779dcd16a1f1d295dc890125cc11b93a2d037a0b298a66e4b8e1f3bf187',
   network: 'preprod',
 };
 
@@ -41,13 +42,25 @@ export interface Credential {
   status: 'VALID' | 'REVOKED';
 }
 
-export function usePrivaCredContract(seed: string) {
+// Helper to compute derived admin key from zswap secret key
+function computeDerivedAdminKey(zswapKey: Uint8Array): string {
+  const prefix = new Uint8Array(32);
+  const prefixStr = new TextEncoder().encode('privamed:pk:');
+  prefix.set(prefixStr.slice(0, 32));
+  const combined = new Uint8Array(64);
+  combined.set(prefix);
+  combined.set(zswapKey, 32);
+  return createHash('sha256').update(Buffer.from(combined)).digest('hex');
+}
+
+export function usePrivaMedAIContract(seed: string) {
   const [state, setState] = useState<ContractState>('initializing');
   const [error, setError] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string>('');
-  const [balance, setBalance] = useState<string>('0');
+  const [adminKey, setAdminKey] = useState<string>('');
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const walletCtxRef = useRef<any>(null);
-  const contractRef = useRef<any>(null);
+  const compiledContractRef = useRef<any>(null);
   const providersRef = useRef<any>(null);
 
   // Initialize wallet and connect to contract
@@ -59,16 +72,18 @@ export function usePrivaCredContract(seed: string) {
         setState('initializing');
 
         // Load contract module
-        const PrivaCredModule = await import('../../../contract/src/managed/PrivaCred/contract/index.js');
+        const PrivaMedAIModule = await import('../../../contract/src/managed/PrivaMedAI/contract/index.js');
         
         // Create compiled contract
-        const compiledContract = CompiledContract.make('priva-cred', PrivaCredModule.Contract).pipe(
+        const compiledContract = CompiledContract.make('privamedai', PrivaMedAIModule.Contract).pipe(
           CompiledContract.withWitnesses({
             local_secret_key: () => new Uint8Array(32),
-            get_credential_data: () => new TextEncoder().encode(JSON.stringify({ age: 21 })),
+            get_credential_data: () => new Uint8Array(32),
+            get_bundled_credential_data: () => new Uint8Array(32),
           }),
-          CompiledContract.withCompiledFileAssets('/contract/src/managed/PrivaCred'),
+          CompiledContract.withCompiledFileAssets('/contract/src/managed/PrivaMedAI'),
         );
+        compiledContractRef.current = compiledContract;
 
         // Setup wallet
         const keys = deriveKeys(seed);
@@ -76,6 +91,8 @@ export function usePrivaCredContract(seed: string) {
         const shieldedSecretKeys = ledger.ZswapSecretKeys.fromSeed(keys[Roles.Zswap]);
         const dustSecretKey = ledger.DustSecretKey.fromSeed(keys[Roles.Dust]);
         const unshieldedKeystore = createKeystore(keys[Roles.NightExternal], networkId);
+        
+        const derivedAdminKey = computeDerivedAdminKey(keys[Roles.Zswap]);
 
         const walletConfig = {
           networkId,
@@ -112,22 +129,25 @@ export function usePrivaCredContract(seed: string) {
 
         const address = unshieldedKeystore.getBech32Address();
         setWalletAddress(typeof address === 'string' ? address : address.asString());
+        setAdminKey(derivedAdminKey);
 
-        walletCtxRef.current = { wallet, shieldedSecretKeys, dustSecretKey, unshieldedKeystore };
+        walletCtxRef.current = { wallet, shieldedSecretKeys, dustSecretKey, unshieldedKeystore, keys };
 
         // Create providers
         const providers = await createProviders(walletCtxRef.current);
         providersRef.current = providers;
 
         // Connect to deployed contract
-        const contract = await findDeployedContract(providers, {
+        await findDeployedContract(providers as any, {
           contractAddress: DEPLOYMENT.contractAddress,
           compiledContract,
-          privateStateId: 'privaCredFrontendState',
+          privateStateId: 'privaMedAIFrontendState',
           initialPrivateState: {},
         });
 
-        contractRef.current = contract;
+        // Check if user is admin - derived key should match if this wallet initialized the contract
+        setIsAdmin(true); // Will be enforced by circuit assertions if not actually admin
+        
         setState('ready');
       } catch (err: any) {
         console.error('Contract initialization error:', err);
@@ -146,63 +166,184 @@ export function usePrivaCredContract(seed: string) {
     };
   }, [seed]);
 
-  // Issue credential
+  // Helper to create call options
+  const createCallOptions = useCallback((circuitId: string, args: unknown[]) => ({
+    contractAddress: DEPLOYMENT.contractAddress,
+    compiledContract: compiledContractRef.current,
+    circuitId,
+    args,
+  }), []);
+
+  // Initialize contract (set admin)
+  const initialize = useCallback(async () => {
+    if (!providersRef.current) {
+      throw new Error('Contract not ready');
+    }
+
+    const txData = await submitCallTx(providersRef.current, createCallOptions('initialize', [
+      Buffer.from(adminKey, 'hex'),
+    ]));
+
+    return txData?.public?.txId || 'unknown';
+  }, [adminKey, createCallOptions]);
+
+  // Register issuer (admin only)
+  const registerIssuer = useCallback(async (issuerPubKey: string, nameHash: string) => {
+    if (!providersRef.current) {
+      throw new Error('Contract not ready');
+    }
+
+    const txData = await submitCallTx(providersRef.current, createCallOptions('registerIssuer', [
+      Buffer.from(adminKey, 'hex'),
+      Buffer.from(issuerPubKey.replace('0x', ''), 'hex'),
+      Buffer.from(nameHash.replace('0x', ''), 'hex'),
+    ]));
+
+    return txData?.public?.txId || 'unknown';
+  }, [adminKey, createCallOptions]);
+
+  // Issue credential (issuer only)
   const issueCredential = useCallback(async (
     commitment: string,
-    issuer: string,
     claimHash: string,
     expiryDays: number
   ) => {
-    if (!providersRef.current || !contractRef.current) {
+    if (!providersRef.current) {
       throw new Error('Contract not ready');
     }
 
     const expiry = BigInt(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
     
-    const tx = await submitCallTx(providersRef.current, contractRef.current, 'issueCredential', {
-      commitment: Buffer.from(commitment.replace('0x', ''), 'hex'),
-      issuer: Buffer.from(issuer.replace('0x', ''), 'hex'),
-      claimHash: Buffer.from(claimHash.replace('0x', ''), 'hex'),
+    const txData = await submitCallTx(providersRef.current, createCallOptions('issueCredential', [
+      Buffer.from(adminKey, 'hex'),
+      Buffer.from(commitment.replace('0x', ''), 'hex'),
+      Buffer.from(claimHash.replace('0x', ''), 'hex'),
       expiry,
-    });
+    ]));
 
-    return tx.txId;
-  }, []);
+    return txData?.public?.txId || 'unknown';
+  }, [adminKey, createCallOptions]);
 
-  // Verify credential
-  const verifyCredential = useCallback(async (commitment: string) => {
-    if (!providersRef.current || !contractRef.current) {
+  // Batch issue 3 credentials (issuer only)
+  const batchIssueCredentials = useCallback(async (
+    commitments: string[],
+    claimHashes: string[],
+    expiryDays: number
+  ) => {
+    if (!providersRef.current) {
       throw new Error('Contract not ready');
     }
 
-    const tx = await submitCallTx(providersRef.current, contractRef.current, 'verifyCredential', {
-      commitment: Buffer.from(commitment.replace('0x', ''), 'hex'),
-    });
+    if (commitments.length !== 3 || claimHashes.length !== 3) {
+      throw new Error('Batch issue requires exactly 3 credentials');
+    }
 
-    return tx.txId;
-  }, []);
+    const expiry = BigInt(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
+    
+    const txData = await submitCallTx(providersRef.current, createCallOptions('batchIssue3Credentials', [
+      Buffer.from(adminKey, 'hex'),
+      Buffer.from(commitments[0].replace('0x', ''), 'hex'),
+      Buffer.from(claimHashes[0].replace('0x', ''), 'hex'),
+      Buffer.from(commitments[1].replace('0x', ''), 'hex'),
+      Buffer.from(claimHashes[1].replace('0x', ''), 'hex'),
+      Buffer.from(commitments[2].replace('0x', ''), 'hex'),
+      Buffer.from(claimHashes[2].replace('0x', ''), 'hex'),
+      expiry,
+    ]));
 
-  // Revoke credential
+    return txData?.public?.txId || 'unknown';
+  }, [adminKey, createCallOptions]);
+
+  // Verify credential (now requires credentialData as parameter)
+  const verifyCredential = useCallback(async (
+    commitment: string,
+    credentialData: string
+  ) => {
+    if (!providersRef.current) {
+      throw new Error('Contract not ready');
+    }
+
+    const txData = await submitCallTx(providersRef.current, createCallOptions('verifyCredential', [
+      Buffer.from(commitment.replace('0x', ''), 'hex'),
+      Buffer.from(credentialData.replace('0x', ''), 'hex'),
+    ]));
+
+    return txData?.public?.txId || 'unknown';
+  }, [createCallOptions]);
+
+  // Bundled verify 2 credentials
+  const bundledVerify2 = useCallback(async (
+    commitment1: string,
+    credentialData1: string,
+    commitment2: string,
+    credentialData2: string
+  ) => {
+    if (!providersRef.current) {
+      throw new Error('Contract not ready');
+    }
+
+    const txData = await submitCallTx(providersRef.current, createCallOptions('bundledVerify2Credentials', [
+      Buffer.from(commitment1.replace('0x', ''), 'hex'),
+      Buffer.from(credentialData1.replace('0x', ''), 'hex'),
+      Buffer.from(commitment2.replace('0x', ''), 'hex'),
+      Buffer.from(credentialData2.replace('0x', ''), 'hex'),
+    ]));
+
+    return txData?.public?.txId || 'unknown';
+  }, [createCallOptions]);
+
+  // Revoke credential (issuer only)
   const revokeCredential = useCallback(async (commitment: string) => {
-    if (!providersRef.current || !contractRef.current) {
+    if (!providersRef.current) {
       throw new Error('Contract not ready');
     }
 
-    const tx = await submitCallTx(providersRef.current, contractRef.current, 'revokeCredential', {
-      commitment: Buffer.from(commitment.replace('0x', ''), 'hex'),
-    });
+    const txData = await submitCallTx(providersRef.current, createCallOptions('revokeCredential', [
+      Buffer.from(adminKey, 'hex'),
+      Buffer.from(commitment.replace('0x', ''), 'hex'),
+    ]));
 
-    return tx.txId;
+    return txData?.public?.txId || 'unknown';
+  }, [adminKey, createCallOptions]);
+
+  // Update issuer status (admin only)
+  const updateIssuerStatus = useCallback(async (issuerPubKey: string, status: number) => {
+    if (!providersRef.current) {
+      throw new Error('Contract not ready');
+    }
+
+    const txData = await submitCallTx(providersRef.current, createCallOptions('updateIssuerStatus', [
+      Buffer.from(adminKey, 'hex'),
+      Buffer.from(issuerPubKey.replace('0x', ''), 'hex'),
+      status,
+    ]));
+
+    return txData?.public?.txId || 'unknown';
+  }, [adminKey, createCallOptions]);
+
+  // Check credential status
+  const checkCredentialStatus = useCallback(async (commitment: string): Promise<number> => {
+    // Note: This would need to be implemented via a query circuit or off-chain indexer
+    // For now, we return a mock status
+    console.log('Checking status for:', commitment);
+    return 0; // 0 = VALID, 1 = REVOKED, 2 = NOT_FOUND
   }, []);
 
   return {
     state,
     error,
     walletAddress,
-    balance,
+    adminKey,
+    isAdmin,
+    initialize,
+    registerIssuer,
     issueCredential,
+    batchIssueCredentials,
     verifyCredential,
+    bundledVerify2,
     revokeCredential,
+    updateIssuerStatus,
+    checkCredentialStatus,
     contractAddress: DEPLOYMENT.contractAddress,
   };
 }
@@ -238,7 +379,7 @@ function signTransactionIntents(tx: { intents?: Map<number, any> }, signFn: (pay
 }
 
 async function createProviders(walletCtx: any) {
-  const state = await Rx.firstValueFrom(walletCtx.wallet.state().pipe(Rx.filter((s: any) => s.isSynced)));
+  const state: any = await Rx.firstValueFrom(walletCtx.wallet.state().pipe(Rx.filter((s: any) => s.isSynced)));
 
   const walletProvider = {
     getCoinPublicKey: () => state.shielded.coinPublicKey.toHexString(),
@@ -257,14 +398,13 @@ async function createProviders(walletCtx: any) {
     submitTx: (tx: any) => walletCtx.wallet.submitTransaction(tx) as any,
   };
 
-  const zkConfigPath = '/contract/src/managed/PrivaCred';
+  const zkConfigPath = '/contract/src/managed/PrivaMedAI';
   const zkConfigProvider = new NodeZkConfigProvider(zkConfigPath);
 
   return {
     privateStateProvider: levelPrivateStateProvider({
-      privateStateStoreName: 'priva-cred-frontend-private-state',
-      walletProvider,
-      privateStoragePasswordProvider: async () => 'PrivaCred-Secure-Store-2025!',
+      privateStateStoreName: 'privamedai-frontend-private-state',
+      privateStoragePasswordProvider: async () => 'PrivaMedAI-Secure-Store-2025!',
       accountId: walletProvider.getCoinPublicKey(),
     }),
     publicDataProvider: indexerPublicDataProvider(CONFIG.indexer, CONFIG.indexerWS),
@@ -272,5 +412,5 @@ async function createProviders(walletCtx: any) {
     proofProvider: httpClientProofProvider(CONFIG.proofServer, zkConfigProvider),
     walletProvider,
     midnightProvider: walletProvider,
-  };
+  } as any;
 }

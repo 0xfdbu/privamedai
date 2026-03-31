@@ -47,10 +47,13 @@ function WalletConnect({ onConnect }: { onConnect: (seed: string) => void }) {
           WebkitBackgroundClip: 'text', 
           WebkitTextFillColor: 'transparent' 
         }}>
-          🌙 PrivaCred
+          🏥 PrivaMedAI
         </h1>
-        <p style={{ color: '#8888aa', marginBottom: '2rem' }}>
-          Connect your wallet to interact with the Midnight preprod network
+        <p style={{ color: '#8888aa', marginBottom: '0.5rem' }}>
+          Enterprise Healthcare Credentials on Midnight
+        </p>
+        <p style={{ color: '#6666aa', fontSize: '0.75rem', marginBottom: '2rem' }}>
+          Privacy-first verifiable credentials for hospitals, clinics, and healthcare providers
         </p>
 
         <div style={{ display: 'grid', gap: '1rem' }}>
@@ -118,6 +121,15 @@ function WalletConnect({ onConnect }: { onConnect: (seed: string) => void }) {
             . The local proof server must also be running on port 6300.
           </p>
         </div>
+
+        <div style={{ marginTop: '1rem', padding: '1rem', background: '#1a1a2e', borderRadius: '0.5rem' }}>
+          <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.875rem', color: '#a78bfa' }}>🔒 Privacy Features</h4>
+          <ul style={{ margin: 0, paddingLeft: '1.25rem', fontSize: '0.75rem', color: '#8888aa' }}>
+            <li>Zero-knowledge proofs for credential verification</li>
+            <li>Private health data never leaves your device</li>
+            <li>On-chain verification without data exposure</li>
+          </ul>
+        </div>
       </div>
     </div>
   );
@@ -136,10 +148,10 @@ function MainApp() {
       <header style={{ padding: '1rem 2rem', borderBottom: '1px solid #1a1a2e', background: '#0f0f1a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.5rem', background: 'linear-gradient(90deg, #a78bfa, #60a5fa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            🌙 PrivaCred
+            🏥 PrivaMedAI
           </h1>
           <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: '#8888aa' }}>
-            Privacy-first verifiable credentials on Midnight
+            Enterprise Healthcare Credentials on Midnight
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -177,7 +189,7 @@ function MainApp() {
               color: activePortal === portal ? '#fff' : '#a0a0cc',
             }}
           >
-            {portal} Portal
+            {portal === 'issuer' ? '🏥 Issuer' : portal === 'user' ? '👤 User' : '🔍 Verifier'} Portal
           </button>
         ))}
       </nav>

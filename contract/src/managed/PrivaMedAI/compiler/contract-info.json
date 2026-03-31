@@ -299,6 +299,13 @@
             "type-name": "Bytes",
             "length": 32
           }
+        },
+        {
+          "name": "credentialData",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
         }
       ],
       "result-type": {
@@ -318,6 +325,13 @@
           }
         },
         {
+          "name": "credentialData1",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
           "name": "commitment2",
           "type": {
             "type-name": "Bytes",
@@ -325,7 +339,21 @@
           }
         },
         {
+          "name": "credentialData2",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
           "name": "commitment3",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
+          "name": "credentialData3",
           "type": {
             "type-name": "Bytes",
             "length": 32
@@ -349,7 +377,21 @@
           }
         },
         {
+          "name": "credentialData1",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
           "name": "commitment2",
+          "type": {
+            "type-name": "Bytes",
+            "length": 32
+          }
+        },
+        {
+          "name": "credentialData2",
           "type": {
             "type-name": "Bytes",
             "length": 32
@@ -443,31 +485,6 @@
     }
   ],
   "witnesses": [
-    {
-      "name": "get_credential_data",
-      "arguments": [
-      ],
-      "result type": {
-        "type-name": "Bytes",
-        "length": 32
-      }
-    },
-    {
-      "name": "get_bundled_credential_data",
-      "arguments": [
-        {
-          "name": "index",
-          "type": {
-            "type-name": "Uint",
-            "maxval": 255
-          }
-        }
-      ],
-      "result type": {
-        "type-name": "Bytes",
-        "length": 32
-      }
-    }
   ],
   "contracts": [
   ]

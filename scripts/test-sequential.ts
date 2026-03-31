@@ -312,9 +312,10 @@ async function main() {
 
   // Test data - generate credential data that matches claimHash for verification
   // The claimHash is computed as hash(credentialData), so we need to use consistent values
-  const credentialData1 = Buffer.from('test-credential-data-1-32bytes!', 'utf8'); // 32 bytes
-  const credentialData2 = Buffer.from('test-credential-data-2-32bytes!', 'utf8'); // 32 bytes
-  const credentialData3 = Buffer.from('test-credential-data-3-32bytes!', 'utf8'); // 32 bytes
+  // IMPORTANT: Must be exactly 32 bytes for Bytes<32> type
+  const credentialData1 = Buffer.from('test-credential-data-001-32bytes', 'utf8'); // 32 bytes
+  const credentialData2 = Buffer.from('test-credential-data-002-32bytes', 'utf8'); // 32 bytes
+  const credentialData3 = Buffer.from('test-credential-data-003-32bytes', 'utf8'); // 32 bytes
   
   // Compute claimHashes as SHA-256 of credential data (approximation of persistentHash)
   const testClaimHash1 = createHash('sha256').update(credentialData1).digest('hex');
@@ -402,26 +403,12 @@ async function main() {
     await delay(10000);
   }
 
-  // TEST 5: Verify Credential - need to update private state with credential data first
-  log('\n📝 Updating private state with credential data for verification...');
-  const privateStateWithCredential = createPrivaMedAIPrivateState(
-    secretKey,
-    credentialData1, // This will be returned by get_credential_data() witness
-    [credentialData1, credentialData2, credentialData3] // For bundled verification
-  );
-  
-  // Reconnect with updated private state
-  const contractWithCredential = await findDeployedContract(providers, {
-    contractAddress: deployment.contractAddress,
-    compiledContract,
-    privateStateId: 'privaMedAITestState',
-    initialPrivateState: privateStateWithCredential,
-  });
-  
+  // TEST 5: Verify Credential - pass credential data as parameter
   results.push({
     name: 'Verify Single Credential',
     passed: await runSingleTest('Verify Single Credential', providers, createCallOptions, 'verifyCredential', [
-      Buffer.from(testCommitment1, 'hex'),
+      Buffer.from(testCommitment1, 'hex'),  // commitment
+      credentialData1,                       // credentialData as parameter
     ])
   });
 
@@ -430,12 +417,14 @@ async function main() {
     await delay(5000);
   }
 
-  // TEST 6: Bundled Verify 2
+  // TEST 6: Bundled Verify 2 - pass credential data as parameters
   results.push({
     name: 'Bundled Verify 2 Credentials',
     passed: await runSingleTest('Bundled Verify 2 Credentials', providers, createCallOptions, 'bundledVerify2Credentials', [
-      Buffer.from(batchCommitment1, 'hex'),
-      Buffer.from(batchCommitment2, 'hex'),
+      Buffer.from(batchCommitment1, 'hex'),  // commitment1
+      credentialData1,                        // credentialData1 as parameter
+      Buffer.from(batchCommitment2, 'hex'),  // commitment2
+      credentialData2,                        // credentialData2 as parameter
     ])
   });
 

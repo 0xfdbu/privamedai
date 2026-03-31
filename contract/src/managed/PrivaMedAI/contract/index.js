@@ -117,12 +117,6 @@ export class Contract {
     if (typeof(witnesses_0) !== 'object') {
       throw new __compactRuntime.CompactError('first (witnesses) argument to Contract constructor is not an object');
     }
-    if (typeof(witnesses_0.get_credential_data) !== 'function') {
-      throw new __compactRuntime.CompactError('first (witnesses) argument to Contract constructor does not contain a function-valued field named get_credential_data');
-    }
-    if (typeof(witnesses_0.get_bundled_credential_data) !== 'function') {
-      throw new __compactRuntime.CompactError('first (witnesses) argument to Contract constructor does not contain a function-valued field named get_bundled_credential_data');
-    }
     this.witnesses = witnesses_0;
     this.circuits = {
       initialize: (...args_1) => {
@@ -518,11 +512,12 @@ export class Contract {
         return { result: result_0, context: context, proofData: partialProofData, gasCost: context.gasCost };
       },
       verifyCredential: (...args_1) => {
-        if (args_1.length !== 2) {
-          throw new __compactRuntime.CompactError(`verifyCredential: expected 2 arguments (as invoked from Typescript), received ${args_1.length}`);
+        if (args_1.length !== 3) {
+          throw new __compactRuntime.CompactError(`verifyCredential: expected 3 arguments (as invoked from Typescript), received ${args_1.length}`);
         }
         const contextOrig_0 = args_1[0];
         const commitment_0 = args_1[1];
+        const credentialData_0 = args_1[2];
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('verifyCredential',
                                      'argument 1 (as invoked from Typescript)',
@@ -537,11 +532,18 @@ export class Contract {
                                      'Bytes<32>',
                                      commitment_0)
         }
+        if (!(credentialData_0.buffer instanceof ArrayBuffer && credentialData_0.BYTES_PER_ELEMENT === 1 && credentialData_0.length === 32)) {
+          __compactRuntime.typeError('verifyCredential',
+                                     'argument 2 (argument 3 as invoked from Typescript)',
+                                     'PrivaMedAI.compact line 267 char 1',
+                                     'Bytes<32>',
+                                     credentialData_0)
+        }
         const context = { ...contextOrig_0, gasCost: __compactRuntime.emptyRunningCost() };
         const partialProofData = {
           input: {
-            value: _descriptor_0.toValue(commitment_0),
-            alignment: _descriptor_0.alignment()
+            value: _descriptor_0.toValue(commitment_0).concat(_descriptor_0.toValue(credentialData_0)),
+            alignment: _descriptor_0.alignment().concat(_descriptor_0.alignment())
           },
           output: undefined,
           publicTranscript: [],
@@ -549,51 +551,76 @@ export class Contract {
         };
         const result_0 = this._verifyCredential_0(context,
                                                   partialProofData,
-                                                  commitment_0);
+                                                  commitment_0,
+                                                  credentialData_0);
         partialProofData.output = { value: _descriptor_4.toValue(result_0), alignment: _descriptor_4.alignment() };
         return { result: result_0, context: context, proofData: partialProofData, gasCost: context.gasCost };
       },
       bundledVerify3Credentials: (...args_1) => {
-        if (args_1.length !== 4) {
-          throw new __compactRuntime.CompactError(`bundledVerify3Credentials: expected 4 arguments (as invoked from Typescript), received ${args_1.length}`);
+        if (args_1.length !== 7) {
+          throw new __compactRuntime.CompactError(`bundledVerify3Credentials: expected 7 arguments (as invoked from Typescript), received ${args_1.length}`);
         }
         const contextOrig_0 = args_1[0];
         const commitment1_0 = args_1[1];
-        const commitment2_0 = args_1[2];
-        const commitment3_0 = args_1[3];
+        const credentialData1_0 = args_1[2];
+        const commitment2_0 = args_1[3];
+        const credentialData2_0 = args_1[4];
+        const commitment3_0 = args_1[5];
+        const credentialData3_0 = args_1[6];
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('bundledVerify3Credentials',
                                      'argument 1 (as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 291 char 1',
+                                     'PrivaMedAI.compact line 290 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(commitment1_0.buffer instanceof ArrayBuffer && commitment1_0.BYTES_PER_ELEMENT === 1 && commitment1_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify3Credentials',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 291 char 1',
+                                     'PrivaMedAI.compact line 290 char 1',
                                      'Bytes<32>',
                                      commitment1_0)
         }
-        if (!(commitment2_0.buffer instanceof ArrayBuffer && commitment2_0.BYTES_PER_ELEMENT === 1 && commitment2_0.length === 32)) {
+        if (!(credentialData1_0.buffer instanceof ArrayBuffer && credentialData1_0.BYTES_PER_ELEMENT === 1 && credentialData1_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify3Credentials',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 291 char 1',
+                                     'PrivaMedAI.compact line 290 char 1',
+                                     'Bytes<32>',
+                                     credentialData1_0)
+        }
+        if (!(commitment2_0.buffer instanceof ArrayBuffer && commitment2_0.BYTES_PER_ELEMENT === 1 && commitment2_0.length === 32)) {
+          __compactRuntime.typeError('bundledVerify3Credentials',
+                                     'argument 3 (argument 4 as invoked from Typescript)',
+                                     'PrivaMedAI.compact line 290 char 1',
                                      'Bytes<32>',
                                      commitment2_0)
         }
+        if (!(credentialData2_0.buffer instanceof ArrayBuffer && credentialData2_0.BYTES_PER_ELEMENT === 1 && credentialData2_0.length === 32)) {
+          __compactRuntime.typeError('bundledVerify3Credentials',
+                                     'argument 4 (argument 5 as invoked from Typescript)',
+                                     'PrivaMedAI.compact line 290 char 1',
+                                     'Bytes<32>',
+                                     credentialData2_0)
+        }
         if (!(commitment3_0.buffer instanceof ArrayBuffer && commitment3_0.BYTES_PER_ELEMENT === 1 && commitment3_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify3Credentials',
-                                     'argument 3 (argument 4 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 291 char 1',
+                                     'argument 5 (argument 6 as invoked from Typescript)',
+                                     'PrivaMedAI.compact line 290 char 1',
                                      'Bytes<32>',
                                      commitment3_0)
+        }
+        if (!(credentialData3_0.buffer instanceof ArrayBuffer && credentialData3_0.BYTES_PER_ELEMENT === 1 && credentialData3_0.length === 32)) {
+          __compactRuntime.typeError('bundledVerify3Credentials',
+                                     'argument 6 (argument 7 as invoked from Typescript)',
+                                     'PrivaMedAI.compact line 290 char 1',
+                                     'Bytes<32>',
+                                     credentialData3_0)
         }
         const context = { ...contextOrig_0, gasCost: __compactRuntime.emptyRunningCost() };
         const partialProofData = {
           input: {
-            value: _descriptor_0.toValue(commitment1_0).concat(_descriptor_0.toValue(commitment2_0).concat(_descriptor_0.toValue(commitment3_0))),
-            alignment: _descriptor_0.alignment().concat(_descriptor_0.alignment().concat(_descriptor_0.alignment()))
+            value: _descriptor_0.toValue(commitment1_0).concat(_descriptor_0.toValue(credentialData1_0).concat(_descriptor_0.toValue(commitment2_0).concat(_descriptor_0.toValue(credentialData2_0).concat(_descriptor_0.toValue(commitment3_0).concat(_descriptor_0.toValue(credentialData3_0)))))),
+            alignment: _descriptor_0.alignment().concat(_descriptor_0.alignment().concat(_descriptor_0.alignment().concat(_descriptor_0.alignment().concat(_descriptor_0.alignment().concat(_descriptor_0.alignment())))))
           },
           output: undefined,
           publicTranscript: [],
@@ -602,44 +629,63 @@ export class Contract {
         const result_0 = this._bundledVerify3Credentials_0(context,
                                                            partialProofData,
                                                            commitment1_0,
+                                                           credentialData1_0,
                                                            commitment2_0,
-                                                           commitment3_0);
+                                                           credentialData2_0,
+                                                           commitment3_0,
+                                                           credentialData3_0);
         partialProofData.output = { value: _descriptor_4.toValue(result_0), alignment: _descriptor_4.alignment() };
         return { result: result_0, context: context, proofData: partialProofData, gasCost: context.gasCost };
       },
       bundledVerify2Credentials: (...args_1) => {
-        if (args_1.length !== 3) {
-          throw new __compactRuntime.CompactError(`bundledVerify2Credentials: expected 3 arguments (as invoked from Typescript), received ${args_1.length}`);
+        if (args_1.length !== 5) {
+          throw new __compactRuntime.CompactError(`bundledVerify2Credentials: expected 5 arguments (as invoked from Typescript), received ${args_1.length}`);
         }
         const contextOrig_0 = args_1[0];
         const commitment1_0 = args_1[1];
-        const commitment2_0 = args_1[2];
+        const credentialData1_0 = args_1[2];
+        const commitment2_0 = args_1[3];
+        const credentialData2_0 = args_1[4];
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('bundledVerify2Credentials',
                                      'argument 1 (as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 334 char 1',
+                                     'PrivaMedAI.compact line 336 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(commitment1_0.buffer instanceof ArrayBuffer && commitment1_0.BYTES_PER_ELEMENT === 1 && commitment1_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify2Credentials',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 334 char 1',
+                                     'PrivaMedAI.compact line 336 char 1',
                                      'Bytes<32>',
                                      commitment1_0)
         }
-        if (!(commitment2_0.buffer instanceof ArrayBuffer && commitment2_0.BYTES_PER_ELEMENT === 1 && commitment2_0.length === 32)) {
+        if (!(credentialData1_0.buffer instanceof ArrayBuffer && credentialData1_0.BYTES_PER_ELEMENT === 1 && credentialData1_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify2Credentials',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 334 char 1',
+                                     'PrivaMedAI.compact line 336 char 1',
+                                     'Bytes<32>',
+                                     credentialData1_0)
+        }
+        if (!(commitment2_0.buffer instanceof ArrayBuffer && commitment2_0.BYTES_PER_ELEMENT === 1 && commitment2_0.length === 32)) {
+          __compactRuntime.typeError('bundledVerify2Credentials',
+                                     'argument 3 (argument 4 as invoked from Typescript)',
+                                     'PrivaMedAI.compact line 336 char 1',
                                      'Bytes<32>',
                                      commitment2_0)
+        }
+        if (!(credentialData2_0.buffer instanceof ArrayBuffer && credentialData2_0.BYTES_PER_ELEMENT === 1 && credentialData2_0.length === 32)) {
+          __compactRuntime.typeError('bundledVerify2Credentials',
+                                     'argument 4 (argument 5 as invoked from Typescript)',
+                                     'PrivaMedAI.compact line 336 char 1',
+                                     'Bytes<32>',
+                                     credentialData2_0)
         }
         const context = { ...contextOrig_0, gasCost: __compactRuntime.emptyRunningCost() };
         const partialProofData = {
           input: {
-            value: _descriptor_0.toValue(commitment1_0).concat(_descriptor_0.toValue(commitment2_0)),
-            alignment: _descriptor_0.alignment().concat(_descriptor_0.alignment())
+            value: _descriptor_0.toValue(commitment1_0).concat(_descriptor_0.toValue(credentialData1_0).concat(_descriptor_0.toValue(commitment2_0).concat(_descriptor_0.toValue(credentialData2_0)))),
+            alignment: _descriptor_0.alignment().concat(_descriptor_0.alignment().concat(_descriptor_0.alignment().concat(_descriptor_0.alignment())))
           },
           output: undefined,
           publicTranscript: [],
@@ -648,7 +694,9 @@ export class Contract {
         const result_0 = this._bundledVerify2Credentials_0(context,
                                                            partialProofData,
                                                            commitment1_0,
-                                                           commitment2_0);
+                                                           credentialData1_0,
+                                                           commitment2_0,
+                                                           credentialData2_0);
         partialProofData.output = { value: _descriptor_4.toValue(result_0), alignment: _descriptor_4.alignment() };
         return { result: result_0, context: context, proofData: partialProofData, gasCost: context.gasCost };
       },
@@ -662,21 +710,21 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('revokeCredential',
                                      'argument 1 (as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 369 char 1',
+                                     'PrivaMedAI.compact line 373 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(callerPubKey_0.buffer instanceof ArrayBuffer && callerPubKey_0.BYTES_PER_ELEMENT === 1 && callerPubKey_0.length === 32)) {
           __compactRuntime.typeError('revokeCredential',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 369 char 1',
+                                     'PrivaMedAI.compact line 373 char 1',
                                      'Bytes<32>',
                                      callerPubKey_0)
         }
         if (!(commitment_0.buffer instanceof ArrayBuffer && commitment_0.BYTES_PER_ELEMENT === 1 && commitment_0.length === 32)) {
           __compactRuntime.typeError('revokeCredential',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 369 char 1',
+                                     'PrivaMedAI.compact line 373 char 1',
                                      'Bytes<32>',
                                      commitment_0)
         }
@@ -708,28 +756,28 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('adminRevokeCredential',
                                      'argument 1 (as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 394 char 1',
+                                     'PrivaMedAI.compact line 398 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(callerPubKey_0.buffer instanceof ArrayBuffer && callerPubKey_0.BYTES_PER_ELEMENT === 1 && callerPubKey_0.length === 32)) {
           __compactRuntime.typeError('adminRevokeCredential',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 394 char 1',
+                                     'PrivaMedAI.compact line 398 char 1',
                                      'Bytes<32>',
                                      callerPubKey_0)
         }
         if (!(commitment_0.buffer instanceof ArrayBuffer && commitment_0.BYTES_PER_ELEMENT === 1 && commitment_0.length === 32)) {
           __compactRuntime.typeError('adminRevokeCredential',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 394 char 1',
+                                     'PrivaMedAI.compact line 398 char 1',
                                      'Bytes<32>',
                                      commitment_0)
         }
         if (!(reasonHash_0.buffer instanceof ArrayBuffer && reasonHash_0.BYTES_PER_ELEMENT === 1 && reasonHash_0.length === 32)) {
           __compactRuntime.typeError('adminRevokeCredential',
                                      'argument 3 (argument 4 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 394 char 1',
+                                     'PrivaMedAI.compact line 398 char 1',
                                      'Bytes<32>',
                                      reasonHash_0)
         }
@@ -760,14 +808,14 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('checkCredentialStatus',
                                      'argument 1 (as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 425 char 1',
+                                     'PrivaMedAI.compact line 429 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(commitment_0.buffer instanceof ArrayBuffer && commitment_0.BYTES_PER_ELEMENT === 1 && commitment_0.length === 32)) {
           __compactRuntime.typeError('checkCredentialStatus',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 425 char 1',
+                                     'PrivaMedAI.compact line 429 char 1',
                                      'Bytes<32>',
                                      commitment_0)
         }
@@ -826,9 +874,6 @@ export class Contract {
     const constructorContext_0 = args_0[0];
     if (typeof(constructorContext_0) !== 'object') {
       throw new __compactRuntime.CompactError(`Contract state constructor: expected 'constructorContext' in argument 1 (as invoked from Typescript) to be an object`);
-    }
-    if (!('initialPrivateState' in constructorContext_0)) {
-      throw new __compactRuntime.CompactError(`Contract state constructor: expected 'initialPrivateState' in argument 1 (as invoked from Typescript)`);
     }
     if (!('initialZswapLocalState' in constructorContext_0)) {
       throw new __compactRuntime.CompactError(`Contract state constructor: expected 'initialZswapLocalState' in argument 1 (as invoked from Typescript)`);
@@ -937,41 +982,6 @@ export class Contract {
   }
   _persistentHash_0(value_0) {
     const result_0 = __compactRuntime.persistentHash(_descriptor_9, value_0);
-    return result_0;
-  }
-  _get_credential_data_0(context, partialProofData) {
-    const witnessContext_0 = __compactRuntime.createWitnessContext(ledger(context.currentQueryContext.state), context.currentPrivateState, context.currentQueryContext.address);
-    const [nextPrivateState_0, result_0] = this.witnesses.get_credential_data(witnessContext_0);
-    context.currentPrivateState = nextPrivateState_0;
-    if (!(result_0.buffer instanceof ArrayBuffer && result_0.BYTES_PER_ELEMENT === 1 && result_0.length === 32)) {
-      __compactRuntime.typeError('get_credential_data',
-                                 'return value',
-                                 'PrivaMedAI.compact line 59 char 1',
-                                 'Bytes<32>',
-                                 result_0)
-    }
-    partialProofData.privateTranscriptOutputs.push({
-      value: _descriptor_0.toValue(result_0),
-      alignment: _descriptor_0.alignment()
-    });
-    return result_0;
-  }
-  _get_bundled_credential_data_0(context, partialProofData, index_0) {
-    const witnessContext_0 = __compactRuntime.createWitnessContext(ledger(context.currentQueryContext.state), context.currentPrivateState, context.currentQueryContext.address);
-    const [nextPrivateState_0, result_0] = this.witnesses.get_bundled_credential_data(witnessContext_0,
-                                                                                      index_0);
-    context.currentPrivateState = nextPrivateState_0;
-    if (!(result_0.buffer instanceof ArrayBuffer && result_0.BYTES_PER_ELEMENT === 1 && result_0.length === 32)) {
-      __compactRuntime.typeError('get_bundled_credential_data',
-                                 'return value',
-                                 'PrivaMedAI.compact line 60 char 1',
-                                 'Bytes<32>',
-                                 result_0)
-    }
-    partialProofData.privateTranscriptOutputs.push({
-      value: _descriptor_0.toValue(result_0),
-      alignment: _descriptor_0.alignment()
-    });
     return result_0;
   }
   _is_active_issuer_0(issuer_0) { return issuer_0.status === 1; }
@@ -1664,8 +1674,10 @@ export class Contract {
                                        { ins: { cached: true, n: 1 } }]);
     return [];
   }
-  _verifyCredential_0(context, partialProofData, commitment_0) {
+  _verifyCredential_0(context, partialProofData, commitment_0, credentialData_0)
+  {
     const d_commitment_0 = commitment_0;
+    const d_credentialData_0 = credentialData_0;
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                       partialProofData,
                                                                                       [
@@ -1743,8 +1755,7 @@ export class Contract {
                                                                                             result: undefined } }]).value));
     __compactRuntime.assert(this._is_active_issuer_0(issuer_0),
                             'Issuer not active');
-    const privateData_0 = this._get_credential_data_0(context, partialProofData);
-    const computedHash_0 = this._persistentHash_0([privateData_0]);
+    const computedHash_0 = this._persistentHash_0([d_credentialData_0]);
     __compactRuntime.assert(this._equal_3(computedHash_0, credential_0.claimHash),
                             'Hash mismatch');
     const tmp_2 = 1n;
@@ -1768,12 +1779,18 @@ export class Contract {
   _bundledVerify3Credentials_0(context,
                                partialProofData,
                                commitment1_0,
+                               credentialData1_0,
                                commitment2_0,
-                               commitment3_0)
+                               credentialData2_0,
+                               commitment3_0,
+                               credentialData3_0)
   {
     const d_commitment1_0 = commitment1_0;
+    const d_credentialData1_0 = credentialData1_0;
     const d_commitment2_0 = commitment2_0;
+    const d_credentialData2_0 = credentialData2_0;
     const d_commitment3_0 = commitment3_0;
+    const d_credentialData3_0 = credentialData3_0;
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                       partialProofData,
                                                                                       [
@@ -1851,10 +1868,7 @@ export class Contract {
                                                                                              result: undefined } }]).value));
     __compactRuntime.assert(this._is_active_issuer_0(issuer1_0),
                             'Credential 1 issuer not active');
-    const privateData1_0 = this._get_bundled_credential_data_0(context,
-                                                               partialProofData,
-                                                               0n);
-    const computedHash1_0 = this._persistentHash_0([privateData1_0]);
+    const computedHash1_0 = this._persistentHash_0([d_credentialData1_0]);
     __compactRuntime.assert(this._equal_4(computedHash1_0, cred1_0.claimHash),
                             'Credential 1 hash mismatch');
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
@@ -1934,10 +1948,7 @@ export class Contract {
                                                                                              result: undefined } }]).value));
     __compactRuntime.assert(this._is_active_issuer_0(issuer2_0),
                             'Credential 2 issuer not active');
-    const privateData2_0 = this._get_bundled_credential_data_0(context,
-                                                               partialProofData,
-                                                               1n);
-    const computedHash2_0 = this._persistentHash_0([privateData2_0]);
+    const computedHash2_0 = this._persistentHash_0([d_credentialData2_0]);
     __compactRuntime.assert(this._equal_5(computedHash2_0, cred2_0.claimHash),
                             'Credential 2 hash mismatch');
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
@@ -2017,10 +2028,7 @@ export class Contract {
                                                                                              result: undefined } }]).value));
     __compactRuntime.assert(this._is_active_issuer_0(issuer3_0),
                             'Credential 3 issuer not active');
-    const privateData3_0 = this._get_bundled_credential_data_0(context,
-                                                               partialProofData,
-                                                               2n);
-    const computedHash3_0 = this._persistentHash_0([privateData3_0]);
+    const computedHash3_0 = this._persistentHash_0([d_credentialData3_0]);
     __compactRuntime.assert(this._equal_6(computedHash3_0, cred3_0.claimHash),
                             'Credential 3 hash mismatch');
     const tmp_6 = 1n;
@@ -2044,10 +2052,14 @@ export class Contract {
   _bundledVerify2Credentials_0(context,
                                partialProofData,
                                commitment1_0,
-                               commitment2_0)
+                               credentialData1_0,
+                               commitment2_0,
+                               credentialData2_0)
   {
     const d_commitment1_0 = commitment1_0;
+    const d_credentialData1_0 = credentialData1_0;
     const d_commitment2_0 = commitment2_0;
+    const d_credentialData2_0 = credentialData2_0;
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                       partialProofData,
                                                                                       [
@@ -2125,10 +2137,7 @@ export class Contract {
                                                                                              result: undefined } }]).value));
     __compactRuntime.assert(this._is_active_issuer_0(issuer1_0),
                             'Credential 1 issuer not active');
-    const privateData1_0 = this._get_bundled_credential_data_0(context,
-                                                               partialProofData,
-                                                               0n);
-    const computedHash1_0 = this._persistentHash_0([privateData1_0]);
+    const computedHash1_0 = this._persistentHash_0([d_credentialData1_0]);
     __compactRuntime.assert(this._equal_7(computedHash1_0, cred1_0.claimHash),
                             'Credential 1 hash mismatch');
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
@@ -2208,10 +2217,7 @@ export class Contract {
                                                                                              result: undefined } }]).value));
     __compactRuntime.assert(this._is_active_issuer_0(issuer2_0),
                             'Credential 2 issuer not active');
-    const privateData2_0 = this._get_bundled_credential_data_0(context,
-                                                               partialProofData,
-                                                               1n);
-    const computedHash2_0 = this._persistentHash_0([privateData2_0]);
+    const computedHash2_0 = this._persistentHash_0([d_credentialData2_0]);
     __compactRuntime.assert(this._equal_8(computedHash2_0, cred2_0.claimHash),
                             'Credential 2 hash mismatch');
     const tmp_4 = 1n;
@@ -2887,10 +2893,7 @@ export function ledger(stateOrChargedState) {
 const _emptyContext = {
   currentQueryContext: new __compactRuntime.QueryContext(new __compactRuntime.ContractState().data, __compactRuntime.dummyContractAddress())
 };
-const _dummyContract = new Contract({
-  get_credential_data: (...args) => undefined,
-  get_bundled_credential_data: (...args) => undefined
-});
+const _dummyContract = new Contract({ });
 export const pureCircuits = {};
 export const contractReferenceLocations =
   { tag: 'publicLedgerArray', indices: { } };
