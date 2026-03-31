@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode, useState, useCallback } from 'react';
+import { createContext, useContext, ReactNode, useState, useCallback, useEffect } from 'react';
 import { useLaceWallet, VALID_NETWORKS, type NetworkId } from './useLaceWallet';
 import { createCredentialAPI, type CredentialAPI } from '../contract/credentialApi';
 
@@ -46,26 +46,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   // Enhanced connect that also initializes credential API
   const connectWithNetwork = useCallback(async (networkId: string) => {
     const success = await laceWallet.connectWithNetwork(networkId);
-    
-    if (success && laceWallet.connectedAPI) {
-      // Initialize credential API
-      const networkConfig = NETWORK_CONFIG[networkId as keyof typeof NETWORK_CONFIG] || NETWORK_CONFIG.preprod;
-      const api = await createCredentialAPI(laceWallet.connectedAPI, networkConfig);
-      setCredentialAPI(api);
-    }
-    
     return success;
   }, [laceWallet]);
 
   const connect = useCallback(async (networkId?: string) => {
     await laceWallet.connectWallet(networkId);
-    
-    if (laceWallet.connectedAPI && laceWallet.detectedNetwork) {
-      const networkConfig = NETWORK_CONFIG[laceWallet.detectedNetwork as keyof typeof NETWORK_CONFIG] || NETWORK_CONFIG.preprod;
-      const api = await createCredentialAPI(laceWallet.connectedAPI, networkConfig);
-      setCredentialAPI(api);
-    }
   }, [laceWallet]);
+
+  // Initialize credential API when connectedAPI becomes available
+  useEffect(() => {
+    if (laceWallet.connectedAPI && laceWallet.detectedNetwork && !credentialAPI) {
+      const initAPI = async () => {
+        const networkConfig = NETWORK_CONFIG[laceWallet.detectedNetwork as keyof typeof NETWORK_CONFIG] || NETWORK_CONFIG.preprod;
+        const api = await createCredentialAPI(laceWallet.connectedAPI, networkConfig);
+        setCredentialAPI(api);
+      };
+      initAPI();
+    }
+  }, [laceWallet.connectedAPI, laceWallet.detectedNetwork, credentialAPI]);
 
   const disconnect = useCallback(() => {
     setCredentialAPI(null);

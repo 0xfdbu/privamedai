@@ -354,7 +354,14 @@ function IssuerPortal() {
   const hash = (s: string) => '0x' + createHash('sha256').update(s).digest('hex');
 
   const handleIssue = async () => {
-    if (!credentialAPI) return;
+    if (!credentialAPI) {
+      setStatus({ type: 'error', msg: 'Contract API not initialized. Please reconnect wallet.' });
+      return;
+    }
+    if (!form.value.trim()) {
+      setStatus({ type: 'error', msg: 'Please enter a claim value' });
+      return;
+    }
     setLoading(true);
     setStatus(null);
     
