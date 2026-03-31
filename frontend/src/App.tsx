@@ -669,7 +669,8 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
         transform: 'translateY(-50%)',
         display: 'none',
         flexDirection: 'column',
-        zIndex: 90,
+        zIndex: 50,
+        pointerEvents: 'auto',
       }}>
         <div style={{
           border: '1px solid rgba(255,255,255,0.05)',
@@ -754,7 +755,8 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
           .sidebar-lg { display: flex !important; }
           .mobile-nav { display: none !important; }
           main { 
-            margin-left: 120px !important; 
+            margin-left: auto !important;
+            margin-right: auto !important;
             margin-bottom: 20px !important;
             padding: 32px 40px !important;
           }
