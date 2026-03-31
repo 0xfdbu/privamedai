@@ -1,44 +1,53 @@
 import { useState, useEffect, useCallback } from 'react';
 
 // Types for the Midnight Lace wallet API
-interface DAppConnectorAPI {
+interface InitialAPI {
   apiVersion: string;
-  isEnabled: () => Promise<boolean>;
-  enable: () => Promise<DAppConnectorWalletAPI>;
-  serviceUriConfig: () => Promise<ServiceUriConfig>;
+  connect: (networkId: string) => Promise<ConnectedAPI>;
 }
 
-interface DAppConnectorWalletAPI {
-  state: () => Promise<any>;
-  submitTransaction: (tx: any) => Promise<any>;
-  balanceUnboundTransaction: (...args: any[]) => Promise<any>;
-  finalizeRecipe: (recipe: any) => Promise<any>;
-}
-
-interface ServiceUriConfig {
-  nodeUri: string;
-  indexerUri: string;
-  indexerWsUri: string;
-  proverServerUri: string;
+interface ConnectedAPI {
+  getConnectionStatus: () => Promise<any>;
+  balanceUnsealedTransaction: (tx: string) => Promise<{ tx: string }>;
+  submitTransaction: (tx: string) => Promise<void>;
 }
 
 interface WalletState {
   isConnected: boolean;
   isConnecting: boolean;
   error: string | null;
-  address: string;
-  balance: bigint | null;
-  walletAPI: DAppConnectorWalletAPI | null;
-  serviceConfig: ServiceUriConfig | null;
+  connectedAPI: ConnectedAPI | null;
 }
 
 // Extend window interface for Midnight Lace
 declare global {
   interface Window {
     midnight?: {
-      mnLace?: DAppConnectorAPI;
+      [key: string]: InitialAPI;
     };
   }
+}
+
+const COMPATIBLE_CONNECTOR_API_VERSION = '4.x';
+
+// Simple semver check
+function satisfiesSemver(version: string, range: string): boolean {
+  const major = parseInt(version.split('.')[0]);
+  const rangeMajor = parseInt(range.split('.')[0]);
+  return major === rangeMajor;
+}
+
+// Find compatible wallet
+function getFirstCompatibleWallet(): InitialAPI | undefined {
+  if (typeof window === 'undefined' || !window.midnight) return undefined;
+  
+  return Object.values(window.midnight).find(
+    (wallet): wallet is InitialAPI =>
+      !!wallet &&
+      typeof wallet === 'object' &&
+      'apiVersion' in wallet &&
+      satisfiesSemver(wallet.apiVersion, COMPATIBLE_CONNECTOR_API_VERSION)
+  );
 }
 
 export function useLaceWallet() {
@@ -46,85 +55,56 @@ export function useLaceWallet() {
     isConnected: false,
     isConnecting: false,
     error: null,
-    address: '',
-    balance: null,
-    walletAPI: null,
-    serviceConfig: null,
+    connectedAPI: null,
   });
 
-  // Check if Lace is installed
-  const isLaceInstalled = useCallback(() => {
-    return typeof window !== 'undefined' && window.midnight?.mnLace !== undefined;
-  }, []);
-
-  // Check for previous connection on mount
-  useEffect(() => {
-    const checkPreviousConnection = async () => {
-      const savedConnection = localStorage.getItem('privamed_lace_connected');
-      if (savedConnection === 'true' && isLaceInstalled()) {
-        // Auto-connect silently
-        await connectWallet(true);
-      }
-    };
-    
-    checkPreviousConnection();
-  }, []);
-
   // Connect to Lace wallet
-  const connectWallet = useCallback(async (silent: boolean = false) => {
-    if (!isLaceInstalled()) {
-      setState(prev => ({
-        ...prev,
-        error: 'Midnight Lace wallet not found. Please install the browser extension.',
-        isConnecting: false,
-      }));
-      return;
-    }
-
+  const connectWallet = useCallback(async (networkId: string = 'preprod') => {
     setState(prev => ({ ...prev, isConnecting: true, error: null }));
 
     try {
-      const laceAPI = window.midnight!.mnLace!;
+      // Wait a bit for extension to inject
+      await new Promise(r => setTimeout(r, 500));
+      
+      const initialAPI = getFirstCompatibleWallet();
+      
+      if (!initialAPI) {
+        throw new Error('Midnight Lace wallet not found. Please install the extension and refresh.');
+      }
 
-      // Enable the wallet (this triggers the extension popup if not already authorized)
-      const wallet = await laceAPI.enable();
+      console.log('Found wallet with API version:', initialAPI.apiVersion);
+
+      // Connect to the wallet
+      const connectedAPI = await initialAPI.connect(networkId);
       
-      // Get service URIs from the wallet
-      const serviceConfig = await laceAPI.serviceUriConfig();
-      
-      // Get wallet state
-      const walletState = await wallet.state();
-      
-      // Extract address from state
-      const address = walletState.coinPublicKey || '';
+      // Check connection status
+      const status = await connectedAPI.getConnectionStatus();
+      console.log('Connection status:', status);
       
       // Save connection state
-      localStorage.setItem('privamed_lace_connected', 'true');
+      localStorage.setItem('privamed_lace_connected', networkId);
       
       setState({
         isConnected: true,
         isConnecting: false,
         error: null,
-        address,
-        balance: walletState.balance || null,
-        walletAPI: wallet,
-        serviceConfig,
+        connectedAPI,
       });
 
-      if (!silent) {
-        console.log('✅ Connected to Midnight Lace wallet');
-        console.log('📍 Address:', address.slice(0, 16) + '...');
-        console.log('🔗 Service URIs:', serviceConfig);
-      }
+      console.log('✅ Connected to Midnight Lace wallet');
     } catch (err: any) {
       console.error('Failed to connect wallet:', err);
       
       let errorMsg = err.message || 'Failed to connect wallet';
       
-      if (errorMsg.includes('not authorized') || errorMsg.includes('rejected')) {
+      if (errorMsg.includes('not found') || errorMsg.includes('not installed')) {
+        errorMsg = 'Midnight Lace wallet not found. Please install the extension and refresh the page.';
+      } else if (errorMsg.includes('rejected') || errorMsg.includes('denied')) {
         errorMsg = 'Connection rejected. Please approve the connection in your Lace wallet.';
       } else if (errorMsg.includes('timeout')) {
         errorMsg = 'Connection timed out. Please try again.';
+      } else if (errorMsg.includes('version') || errorMsg.includes('compatible')) {
+        errorMsg = 'Incompatible wallet version. Please update your Lace wallet extension.';
       }
       
       setState(prev => ({
@@ -134,67 +114,34 @@ export function useLaceWallet() {
         isConnected: false,
       }));
     }
-  }, [isLaceInstalled]);
+  }, []);
 
   // Disconnect wallet
   const disconnectWallet = useCallback(() => {
     localStorage.removeItem('privamed_lace_connected');
-    setState({
+    setState(prev => ({
+      ...prev,
       isConnected: false,
       isConnecting: false,
       error: null,
-      address: '',
-      balance: null,
-      walletAPI: null,
-      serviceConfig: null,
-    });
+      connectedAPI: null,
+    }));
   }, []);
 
-  // Refresh wallet state
-  const refreshState = useCallback(async () => {
-    if (!state.walletAPI || !state.isConnected) return;
-    
-    try {
-      const walletState = await state.walletAPI.state();
-      setState(prev => ({
-        ...prev,
-        address: walletState.coinPublicKey || prev.address,
-        balance: walletState.balance || prev.balance,
-      }));
-    } catch (err) {
-      console.error('Failed to refresh wallet state:', err);
+  // Auto-connect on mount if previously connected
+  useEffect(() => {
+    const savedNetwork = localStorage.getItem('privamed_lace_connected');
+    if (savedNetwork) {
+      connectWallet(savedNetwork);
     }
-  }, [state.walletAPI, state.isConnected]);
+  }, [connectWallet]);
 
   return {
-    ...state,
-    isLaceInstalled,
+    isConnected: state.isConnected,
+    isConnecting: state.isConnecting,
+    error: state.error,
+    connectedAPI: state.connectedAPI,
     connectWallet,
     disconnectWallet,
-    refreshState,
-  };
-}
-
-// Helper to create wallet providers for contract interaction
-export async function createWalletProviders(walletAPI: DAppConnectorWalletAPI, serviceConfig: ServiceUriConfig) {
-  // Get current state for key information
-  const walletState = await walletAPI.state();
-  
-  return {
-    walletProvider: {
-      getCoinPublicKey: () => walletState.coinPublicKey,
-      getEncryptionPublicKey: () => walletState.encryptionPublicKey,
-      balanceTx: async (tx: any, ttl?: Date) => {
-        // Use the wallet's built-in balancing
-        const recipe = await walletAPI.balanceUnboundTransaction(
-          tx,
-          {}, // Keys are managed by the wallet
-          { ttl: ttl ?? new Date(Date.now() + 30 * 60 * 1000) }
-        );
-        return walletAPI.finalizeRecipe(recipe);
-      },
-      submitTx: (tx: any) => walletAPI.submitTransaction(tx),
-    },
-    serviceConfig,
   };
 }

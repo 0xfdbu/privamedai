@@ -7,13 +7,8 @@ interface WalletContextType {
   isConnected: boolean;
   isConnecting: boolean;
   error: string | null;
-  address: string;
-  balance: bigint | null;
-  walletAPI: any;
-  serviceConfig: any;
-  connect: () => Promise<void>;
+  connect: (networkId?: string) => Promise<void>;
   disconnect: () => void;
-  isLaceInstalled: () => boolean;
 }
 
 const WalletContext = createContext<WalletContextType | null>(null);
@@ -25,13 +20,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     isConnected: laceWallet.isConnected,
     isConnecting: laceWallet.isConnecting,
     error: laceWallet.error,
-    address: laceWallet.address,
-    balance: laceWallet.balance,
-    walletAPI: laceWallet.walletAPI,
-    serviceConfig: laceWallet.serviceConfig,
     connect: laceWallet.connectWallet,
     disconnect: laceWallet.disconnectWallet,
-    isLaceInstalled: laceWallet.isLaceInstalled,
   };
 
   return (

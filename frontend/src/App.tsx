@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './styles/theme.css';
-import { WalletProvider, useWallet, useLaceWallet } from './hooks/WalletContext';
+import { WalletProvider, useWallet } from './hooks/WalletContext';
 import { createHash } from 'crypto';
 
 // ============================================================================
@@ -149,11 +149,10 @@ const Alert = ({ type = 'info', children, onClose }: any) => {
 // ============================================================================
 
 function LoginScreen({ onConnect }: { onConnect: () => Promise<void> }) {
-  const { isLaceInstalled, isConnecting, error, connectWallet } = useLaceWallet();
+  const { isConnecting, error } = useWallet();
 
   const handleConnect = async () => {
-    await connectWallet();
-    onConnect();
+    await onConnect();
   };
 
   return (
@@ -163,46 +162,26 @@ function LoginScreen({ onConnect }: { onConnect: () => Promise<void> }) {
         <h1 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>PrivaMedAI</h1>
         <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '28px' }}>Healthcare Credentials on Midnight Network</p>
 
-        {!isLaceInstalled() ? (
-          <Alert type="error">
-            <div style={{ textAlign: 'left' }}>
-              <strong>Midnight Lace wallet not found</strong>
-              <p style={{ margin: '8px 0 0', fontSize: '13px' }}>
-                Please install the Midnight Lace browser extension to continue.
-              </p>
-              <a 
-                href="https://docs.midnight.network/docs/keystore-wallet/lace-wallet-extension" 
-                target="_blank" 
-                style={{ color: 'var(--primary)', fontSize: '13px' }}
-              >
-                Install Lace Wallet →
-              </a>
-            </div>
+        <div style={{ marginBottom: '20px' }}>
+          <Button 
+            onClick={handleConnect} 
+            loading={isConnecting}
+            icon={Icons.Lock}
+            style={{ width: '100%', padding: '14px' }}
+          >
+            {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+          </Button>
+        </div>
+
+        {error && (
+          <Alert type="error" onClose={() => {}}>
+            {error}
           </Alert>
-        ) : (
-          <>
-            <div style={{ marginBottom: '20px' }}>
-              <Button 
-                onClick={handleConnect} 
-                loading={isConnecting}
-                icon={Icons.Lock}
-                style={{ width: '100%', padding: '14px' }}
-              >
-                {isConnecting ? 'Connecting...' : 'Connect Lace Wallet'}
-              </Button>
-            </div>
-
-            {error && (
-              <Alert type="error" onClose={() => {}}>
-                {error}
-              </Alert>
-            )}
-
-            <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(99,102,241,0.1)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-              <Icons.Alert /> Make sure you have tNight tokens from the <a href="https://faucet.preprod.midnight.network/" target="_blank" style={{ color: 'var(--primary)' }}>faucet</a>
-            </div>
-          </>
         )}
+
+        <div style={{ marginTop: '20px', padding: '12px', background: 'rgba(99,102,241,0.1)', borderRadius: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+          <Icons.Alert /> Requires Midnight Lace wallet with tNight tokens
+        </div>
       </Card>
     </div>
   );
@@ -212,7 +191,7 @@ function LoginScreen({ onConnect }: { onConnect: () => Promise<void> }) {
 // Issuer Portal
 // ============================================================================
 
-function IssuerPortal({ walletAPI: _walletAPI, serviceConfig: _serviceConfig, ready }: { walletAPI: any; serviceConfig: any; ready: boolean }) {
+function _IssuerPortal({ walletAPI: _walletAPI, serviceConfig: _serviceConfig, ready }: { walletAPI: any; serviceConfig: any; ready: boolean }) {
   // TODO: Integrate with contract using wallet providers
   const issueCredential = async (_commitment: string, _claimHash: string, _days: number) => {
     return 'mock-tx-id';
@@ -318,7 +297,7 @@ function IssuerPortal({ walletAPI: _walletAPI, serviceConfig: _serviceConfig, re
 // User Portal
 // ============================================================================
 
-function UserPortal({ walletAPI: _walletAPI, serviceConfig: _serviceConfig, ready }: { walletAPI: any; serviceConfig: any; ready: boolean }) {
+function _UserPortal({ walletAPI: _walletAPI, serviceConfig: _serviceConfig, ready }: { walletAPI: any; serviceConfig: any; ready: boolean }) {
   // TODO: Integrate with contract using wallet providers
   const verifyCredential = async (_commitment: string, _credentialData: string) => {
     return 'mock-tx-id';
@@ -454,7 +433,7 @@ function UserPortal({ walletAPI: _walletAPI, serviceConfig: _serviceConfig, read
 // Verifier Portal
 // ============================================================================
 
-function VerifierPortal({ walletAPI: _walletAPI, serviceConfig: _serviceConfig, ready }: { walletAPI: any; serviceConfig: any; ready: boolean }) {
+function _VerifierPortal({ walletAPI: _walletAPI, serviceConfig: _serviceConfig, ready }: { walletAPI: any; serviceConfig: any; ready: boolean }) {
   // TODO: Integrate with contract using wallet providers
   const verifyCredential = async (_commitment: string, _credentialData: string) => {
     return 'mock-tx-id';
@@ -648,27 +627,20 @@ function Layout({ children, state, address, portal, setPortal, onDisconnect }: a
 }
 
 function MainApp() {
-  const { isConnected, connect, disconnect, address, walletAPI, serviceConfig } = useWallet();
+  const { isConnected, connect, disconnect } = useWallet();
   const [portal, setPortal] = useState('issuer');
   
-  // Use placeholder state until we integrate proper contract hook
-  const [contractState, setContractState] = useState<'initializing' | 'ready' | 'error'>('initializing');
-  
-  // Effect to simulate contract initialization
-  useEffect(() => {
-    if (isConnected && walletAPI) {
-      // TODO: Initialize contract with wallet providers
-      setTimeout(() => setContractState('ready'), 1000);
-    }
-  }, [isConnected, walletAPI]);
-
   if (!isConnected) return <LoginScreen onConnect={connect} />;
 
   return (
-    <Layout state={contractState} address={address} portal={portal} setPortal={setPortal} onDisconnect={disconnect}>
-      {portal === 'issuer' && <IssuerPortal walletAPI={walletAPI} serviceConfig={serviceConfig} ready={contractState === 'ready'} />}
-      {portal === 'user' && <UserPortal walletAPI={walletAPI} serviceConfig={serviceConfig} ready={contractState === 'ready'} />}
-      {portal === 'verifier' && <VerifierPortal walletAPI={walletAPI} serviceConfig={serviceConfig} ready={contractState === 'ready'} />}
+    <Layout state={'ready'} address="Connected" portal={portal} setPortal={setPortal} onDisconnect={disconnect}>
+      <div style={{ textAlign: 'center', padding: '40px' }}>
+        <h2>Wallet Connected! 🎉</h2>
+        <p>Your Midnight Lace wallet is now connected.</p>
+        <p style={{ color: 'var(--text-muted)', marginTop: '20px' }}>
+          Contract integration coming soon...
+        </p>
+      </div>
     </Layout>
   );
 }
