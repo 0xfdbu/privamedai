@@ -613,7 +613,7 @@ function _VerifierPortal({ walletAPI: _walletAPI, serviceConfig: _serviceConfig,
 // Layout & Main App
 // ============================================================================
 
-function Layout({ children, state, address, portal, setPortal, onDisconnect }: any) {
+function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
   const navItems = [
     { id: 'issuer', label: 'Issuer', icon: Icons.Hospital },
     { id: 'user', label: 'User', icon: Icons.User },
@@ -665,145 +665,61 @@ function Layout({ children, state, address, portal, setPortal, onDisconnect }: a
       <aside className="sidebar-lg" style={{
         position: 'fixed',
         left: '16px',
-        top: '76px',
-        width: '220px',
-        maxHeight: 'calc(100vh - 100px)',
-        background: '#070707',
-        borderRadius: '16px',
-        padding: '20px',
+        top: '50%',
+        transform: 'translateY(-50%)',
         display: 'none',
         flexDirection: 'column',
-        gap: '8px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
-        border: '1px solid rgba(255,255,255,0.06)',
         zIndex: 90,
-        overflow: 'hidden',
       }}>
-        {/* Logo/Brand */}
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '10px', 
-          marginBottom: '24px',
-          paddingBottom: '16px',
-          borderBottom: '1px solid rgba(248,250,252,0.08)'
+        <div style={{
+          border: '1px solid rgba(255,255,255,0.05)',
+          background: 'rgba(23,23,23,0.3)',
+          backdropFilter: 'blur(12px)',
+          padding: '8px',
+          borderRadius: '16px',
         }}>
-          <div style={{ 
-            width: '36px', 
-            height: '36px', 
-            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', 
-            borderRadius: '10px', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            fontWeight: 'bold',
-            color: '#f8fafc',
-            fontSize: '16px'
-          }}>P</div>
-          <span style={{ 
-            fontWeight: '700', 
-            color: '#f8fafc',
-            fontSize: '16px',
-            letterSpacing: '-0.3px'
-          }}>PrivaMed</span>
-        </div>
-
-        {/* Navigation */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setPortal(item.id)}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '12px 14px',
-                borderRadius: '10px',
-                border: 'none',
-                background: portal === item.id ? 'rgba(248,250,252,0.1)' : 'transparent',
-                color: portal === item.id ? '#f8fafc' : 'rgba(248,250,252,0.6)',
-                fontSize: '14px',
-                fontWeight: portal === item.id ? '600' : '500',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                position: 'relative',
-              }}
-              onMouseEnter={(e) => {
-                if (portal !== item.id) {
-                  e.currentTarget.style.background = 'rgba(248,250,252,0.05)';
-                  e.currentTarget.style.color = '#f8fafc';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (portal !== item.id) {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = 'rgba(248,250,252,0.6)';
-                }
-              }}
-            >
-              <span style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                width: '28px',
-                height: '28px',
-                borderRadius: '8px',
-                background: portal === item.id ? 'rgba(99,102,241,0.2)' : 'transparent',
-                transition: 'all 0.2s ease',
-              }}>
-                <item.icon s={16} />
-              </span>
-              {item.label}
-              {portal === item.id && (
-                <div style={{
-                  position: 'absolute',
-                  right: '10px',
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  background: '#6366f1',
-                }} />
-              )}
-            </button>
-          ))}
-        </nav>
-
-        {/* Status Card */}
-        <div style={{ 
-          marginTop: 'auto',
-          padding: '14px', 
-          background: 'rgba(248,250,252,0.05)', 
-          borderRadius: '12px',
-          border: '1px solid rgba(248,250,252,0.06)',
-        }}>
-          <div style={{ 
-            fontSize: '11px', 
-            color: 'rgba(248,250,252,0.5)', 
-            marginBottom: '8px',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-            fontWeight: '600'
-          }}>Network Status</div>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px', 
-            fontSize: '13px',
-            color: '#f8fafc',
-            fontWeight: '500'
-          }}>
-            <div style={{ 
-              width: '8px', 
-              height: '8px', 
-              borderRadius: '50%', 
-              background: state === 'ready' ? '#10b981' : state === 'error' ? '#ef4444' : '#f59e0b',
-              boxShadow: state === 'ready' ? '0 0 8px #10b981' : state === 'error' ? '0 0 8px #ef4444' : '0 0 8px #f59e0b',
-              animation: state === 'syncing' ? 'pulse 1.5s infinite' : undefined 
-            }} />
-            {state === 'ready' ? 'Connected' : state === 'error' ? 'Error' : 'Syncing'}
-          </div>
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            {navItems.map(item => {
+              const isActive = portal === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setPortal(item.id)}
+                  title={item.label}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    padding: '12px 16px',
+                    minWidth: '72px',
+                    borderRadius: '12px',
+                    border: 'none',
+                    background: isActive ? 'rgba(255,255,255,0.1)' : 'transparent',
+                    color: isActive ? '#f8fafc' : 'rgba(248,250,252,0.5)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+                      e.currentTarget.style.color = '#f8fafc';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = 'rgba(248,250,252,0.5)';
+                    }
+                  }}
+                >
+                  <item.icon s={20} />
+                  <span style={{ fontSize: '10px', fontWeight: 500 }}>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
         </div>
       </aside>
 
@@ -845,7 +761,7 @@ function MainApp() {
   if (!isConnected) return <LoginScreen onConnect={connect} />;
 
   return (
-    <Layout state={'ready'} address="Connected" portal={portal} setPortal={setPortal} onDisconnect={disconnect}>
+    <Layout address="Connected" portal={portal} setPortal={setPortal} onDisconnect={disconnect}>
       <div style={{ textAlign: 'center', padding: '40px' }}>
         <h2>Wallet Connected! 🎉</h2>
         <p>Your Midnight Lace wallet is now connected.</p>
