@@ -1,7 +1,7 @@
 // QR Code Proof Sharing & Webhook Support
 // Enables instant proof verification via QR codes and automated webhooks
 
-import QRCode from 'qrcode';
+import * as QRCode from 'qrcode';
 import { ClaimRule } from '../ai/claimParser';
 
 // ═════════════════════════════════════════════════════════════════════════════

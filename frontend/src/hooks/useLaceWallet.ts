@@ -10,6 +10,8 @@ interface ConnectedAPI {
   getConnectionStatus: () => Promise<any>;
   balanceUnsealedTransaction: (tx: string) => Promise<{ tx: string }>;
   submitTransaction: (tx: string) => Promise<void>;
+  getConfiguration?: () => Promise<{ proverServerUri?: string; indexerUri?: string; indexerWsUri?: string }>;
+  getShieldedAddresses?: () => Promise<{ shieldedCoinPublicKey: string; shieldedEncryptionPublicKey: string }>;
 }
 
 interface WalletState {

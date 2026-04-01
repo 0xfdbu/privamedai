@@ -570,49 +570,49 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('bundledVerify3Credentials',
                                      'argument 1 (as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 290 char 1',
+                                     'PrivaMedAI.compact line 294 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(commitment1_0.buffer instanceof ArrayBuffer && commitment1_0.BYTES_PER_ELEMENT === 1 && commitment1_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify3Credentials',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 290 char 1',
+                                     'PrivaMedAI.compact line 294 char 1',
                                      'Bytes<32>',
                                      commitment1_0)
         }
         if (!(credentialData1_0.buffer instanceof ArrayBuffer && credentialData1_0.BYTES_PER_ELEMENT === 1 && credentialData1_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify3Credentials',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 290 char 1',
+                                     'PrivaMedAI.compact line 294 char 1',
                                      'Bytes<32>',
                                      credentialData1_0)
         }
         if (!(commitment2_0.buffer instanceof ArrayBuffer && commitment2_0.BYTES_PER_ELEMENT === 1 && commitment2_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify3Credentials',
                                      'argument 3 (argument 4 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 290 char 1',
+                                     'PrivaMedAI.compact line 294 char 1',
                                      'Bytes<32>',
                                      commitment2_0)
         }
         if (!(credentialData2_0.buffer instanceof ArrayBuffer && credentialData2_0.BYTES_PER_ELEMENT === 1 && credentialData2_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify3Credentials',
                                      'argument 4 (argument 5 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 290 char 1',
+                                     'PrivaMedAI.compact line 294 char 1',
                                      'Bytes<32>',
                                      credentialData2_0)
         }
         if (!(commitment3_0.buffer instanceof ArrayBuffer && commitment3_0.BYTES_PER_ELEMENT === 1 && commitment3_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify3Credentials',
                                      'argument 5 (argument 6 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 290 char 1',
+                                     'PrivaMedAI.compact line 294 char 1',
                                      'Bytes<32>',
                                      commitment3_0)
         }
         if (!(credentialData3_0.buffer instanceof ArrayBuffer && credentialData3_0.BYTES_PER_ELEMENT === 1 && credentialData3_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify3Credentials',
                                      'argument 6 (argument 7 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 290 char 1',
+                                     'PrivaMedAI.compact line 294 char 1',
                                      'Bytes<32>',
                                      credentialData3_0)
         }
@@ -649,35 +649,35 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('bundledVerify2Credentials',
                                      'argument 1 (as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 336 char 1',
+                                     'PrivaMedAI.compact line 340 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(commitment1_0.buffer instanceof ArrayBuffer && commitment1_0.BYTES_PER_ELEMENT === 1 && commitment1_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify2Credentials',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 336 char 1',
+                                     'PrivaMedAI.compact line 340 char 1',
                                      'Bytes<32>',
                                      commitment1_0)
         }
         if (!(credentialData1_0.buffer instanceof ArrayBuffer && credentialData1_0.BYTES_PER_ELEMENT === 1 && credentialData1_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify2Credentials',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 336 char 1',
+                                     'PrivaMedAI.compact line 340 char 1',
                                      'Bytes<32>',
                                      credentialData1_0)
         }
         if (!(commitment2_0.buffer instanceof ArrayBuffer && commitment2_0.BYTES_PER_ELEMENT === 1 && commitment2_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify2Credentials',
                                      'argument 3 (argument 4 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 336 char 1',
+                                     'PrivaMedAI.compact line 340 char 1',
                                      'Bytes<32>',
                                      commitment2_0)
         }
         if (!(credentialData2_0.buffer instanceof ArrayBuffer && credentialData2_0.BYTES_PER_ELEMENT === 1 && credentialData2_0.length === 32)) {
           __compactRuntime.typeError('bundledVerify2Credentials',
                                      'argument 4 (argument 5 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 336 char 1',
+                                     'PrivaMedAI.compact line 340 char 1',
                                      'Bytes<32>',
                                      credentialData2_0)
         }
@@ -710,21 +710,21 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('revokeCredential',
                                      'argument 1 (as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 373 char 1',
+                                     'PrivaMedAI.compact line 377 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(callerPubKey_0.buffer instanceof ArrayBuffer && callerPubKey_0.BYTES_PER_ELEMENT === 1 && callerPubKey_0.length === 32)) {
           __compactRuntime.typeError('revokeCredential',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 373 char 1',
+                                     'PrivaMedAI.compact line 377 char 1',
                                      'Bytes<32>',
                                      callerPubKey_0)
         }
         if (!(commitment_0.buffer instanceof ArrayBuffer && commitment_0.BYTES_PER_ELEMENT === 1 && commitment_0.length === 32)) {
           __compactRuntime.typeError('revokeCredential',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 373 char 1',
+                                     'PrivaMedAI.compact line 377 char 1',
                                      'Bytes<32>',
                                      commitment_0)
         }
@@ -756,28 +756,28 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('adminRevokeCredential',
                                      'argument 1 (as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 398 char 1',
+                                     'PrivaMedAI.compact line 402 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(callerPubKey_0.buffer instanceof ArrayBuffer && callerPubKey_0.BYTES_PER_ELEMENT === 1 && callerPubKey_0.length === 32)) {
           __compactRuntime.typeError('adminRevokeCredential',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 398 char 1',
+                                     'PrivaMedAI.compact line 402 char 1',
                                      'Bytes<32>',
                                      callerPubKey_0)
         }
         if (!(commitment_0.buffer instanceof ArrayBuffer && commitment_0.BYTES_PER_ELEMENT === 1 && commitment_0.length === 32)) {
           __compactRuntime.typeError('adminRevokeCredential',
                                      'argument 2 (argument 3 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 398 char 1',
+                                     'PrivaMedAI.compact line 402 char 1',
                                      'Bytes<32>',
                                      commitment_0)
         }
         if (!(reasonHash_0.buffer instanceof ArrayBuffer && reasonHash_0.BYTES_PER_ELEMENT === 1 && reasonHash_0.length === 32)) {
           __compactRuntime.typeError('adminRevokeCredential',
                                      'argument 3 (argument 4 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 398 char 1',
+                                     'PrivaMedAI.compact line 402 char 1',
                                      'Bytes<32>',
                                      reasonHash_0)
         }
@@ -808,14 +808,14 @@ export class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.currentQueryContext != undefined)) {
           __compactRuntime.typeError('checkCredentialStatus',
                                      'argument 1 (as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 429 char 1',
+                                     'PrivaMedAI.compact line 433 char 1',
                                      'CircuitContext',
                                      contextOrig_0)
         }
         if (!(commitment_0.buffer instanceof ArrayBuffer && commitment_0.BYTES_PER_ELEMENT === 1 && commitment_0.length === 32)) {
           __compactRuntime.typeError('checkCredentialStatus',
                                      'argument 1 (argument 2 as invoked from Typescript)',
-                                     'PrivaMedAI.compact line 429 char 1',
+                                     'PrivaMedAI.compact line 433 char 1',
                                      'Bytes<32>',
                                      commitment_0)
         }

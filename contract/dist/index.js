@@ -10,7 +10,7 @@ const contractBaseName = path.basename(compactFile, ".compact");
 const contractNameCapitalized = contractBaseName[0].toUpperCase() + contractBaseName.slice(1);
 const contractPath = `./managed/${contractBaseName}/contract/index.cjs`;
 const contractModule = await import(contractPath);
-export * from "./witnesses";
+export * from "./witnesses-privamedai";
 export const contracts = {
     [contractNameCapitalized]: contractModule
 };

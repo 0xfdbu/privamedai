@@ -389,6 +389,34 @@ async function main() {
   console.log('✅ PrivaMedAI Contract deployed successfully!\n');
   console.log(`Contract Address: ${contractAddress}\n`);
 
+  // Initialize the contract and register deployer as issuer
+  console.log('Initializing contract and registering deployer as issuer...\n');
+  
+  try {
+    const providers = await createProviders(walletCtx, zkConfigPath);
+    const coinPublicKey = walletCtx.unshieldedKeystore.getPublicKey();
+    
+    // Initialize contract with admin
+    console.log('1. Initializing contract with admin...');
+    const initTx = await deployed.circuits.initialize(coinPublicKey);
+    console.log(`   Admin set: ${coinPublicKey}\n`);
+    
+    // Register deployer as issuer
+    console.log('2. Registering deployer as issuer...');
+    const nameHash = ledger.Digest.fromString('Admin Issuer');
+    const registerTx = await deployed.circuits.registerIssuer(coinPublicKey, coinPublicKey, nameHash);
+    console.log(`   Issuer registered\n`);
+    
+    // Activate issuer
+    console.log('3. Activating issuer...');
+    const activateTx = await deployed.circuits.updateIssuerStatus(coinPublicKey, coinPublicKey, 1); // 1 = ACTIVE
+    console.log(`   Issuer activated ✅\n`);
+    
+    console.log('Contract is ready for credential issuance!\n');
+  } catch (err) {
+    console.warn('⚠️  Could not auto-initialize/activate (contract may need manual setup):', err.message);
+  }
+
   const deploymentInfo = {
     contractAddress,
     network: 'preprod',

@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import './styles/theme.css';
 import { WalletProvider, useWallet, VALID_NETWORKS } from './hooks/WalletContext';
 import type { CredentialWithPrivateData } from './contract/credentialApi';
-import { createHash } from 'crypto';
+import { AIClaimComposer } from './components/AIClaimComposer';
+import { CliInstructions } from './components/CliInstructions';
+
 
 // ============================================================================
 // Icons
@@ -286,7 +288,7 @@ function NetworkSelector({ onSelect, onCancel }: { onSelect: (network: string) =
 // Login Screen
 // ============================================================================
 
-function LoginScreen({ onConnect }: { onConnect: () => Promise<void> }) {
+function LoginScreen({ onConnect, onBrowserWallet }: { onConnect: () => Promise<void>; onBrowserWallet: () => void }) {
   const { isConnecting, error, showNetworkSelector, connectWithNetwork, hideNetworkSelector } = useWallet();
   const [showManualSelector, setShowManualSelector] = useState(false);
 
@@ -324,9 +326,12 @@ function LoginScreen({ onConnect }: { onConnect: () => Promise<void> }) {
         {!shouldShowSelector ? (
           <>
             <Button onClick={handleConnect} loading={isConnecting} icon={Icons.Lock} style={{ width: '100%', marginBottom: '12px' }}>
-              {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+              {isConnecting ? 'Connecting...' : 'Connect Lace Wallet'}
             </Button>
-            <Button variant="secondary" onClick={() => setShowManualSelector(true)} disabled={isConnecting} style={{ width: '100%' }}>
+            <Button variant="secondary" onClick={onBrowserWallet} style={{ width: '100%', marginBottom: '12px' }}>
+              🌐 Use Browser Wallet
+            </Button>
+            <Button variant="ghost" onClick={() => setShowManualSelector(true)} disabled={isConnecting} style={{ width: '100%' }}>
               Select Network Manually
             </Button>
             {error && <Alert type="error" onClose={() => {}}>{error}</Alert>}
@@ -350,8 +355,15 @@ function IssuerPortal() {
   const [issued, setIssued] = useState<any[]>([]);
   const [status, setStatus] = useState<{ type: 'success' | 'error'; msg: string; txId?: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showCliHelp, setShowCliHelp] = useState(false);
 
-  const hash = (s: string) => '0x' + createHash('sha256').update(s).digest('hex');
+  const hash = async (s: string) => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(s);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
 
   const handleIssue = async () => {
     if (!credentialAPI) {
@@ -366,9 +378,9 @@ function IssuerPortal() {
     setStatus(null);
     
     try {
-      const credentialData = hash(`${form.type}:${form.value}`);
-      const claimHash = hash(credentialData);
-      const commitment = hash(JSON.stringify(form) + Date.now());
+      const credentialData = await hash(`${form.type}:${form.value}`);
+      const claimHash = await hash(credentialData);
+      const commitment = await hash(JSON.stringify(form) + Date.now());
       
       const txId = await credentialAPI.issueCredential(commitment, claimHash, form.days);
       
@@ -386,7 +398,12 @@ function IssuerPortal() {
       setStatus({ type: 'success', msg: 'Credential issued successfully!', txId });
       setForm({ ...form, value: '', subject: '' });
     } catch (e: any) {
-      setStatus({ type: 'error', msg: e.message });
+      const msg = e.message || 'Unknown error';
+      setStatus({ type: 'error', msg });
+      // Show CLI instructions for proof server errors
+      if (msg.includes('400') || msg.includes('Bad Request') || msg.includes('proof server') || msg.includes('Proof Server')) {
+        setShowCliHelp(true);
+      }
     }
     setLoading(false);
   };
@@ -419,6 +436,8 @@ function IssuerPortal() {
       </div>
 
       {status && <Alert type={status.type} onClose={() => setStatus(null)}>{status.msg} {status.txId && <code style={{ fontSize: '11px', opacity: 0.7 }}>({status.txId.slice(0, 20)}...)</code>}</Alert>}
+
+      {showCliHelp && <CliInstructions />}
 
       {tab === 'issue' ? (
         <Card>
@@ -508,145 +527,371 @@ function IssuerPortal() {
 }
 
 // ============================================================================
-// User Portal
+// User Portal with Credential Wallet & AI Composer
 // ============================================================================
+
+import { useCredentialWallet } from './utils/credentialWallet';
+import type { ClaimRule } from './ai/claimParser';
+import type { StoredCredential } from './utils/credentialWallet';
 
 function UserPortal() {
   const { credentialAPI } = useWallet();
-  const [creds, setCreds] = useState<CredentialWithPrivateData[]>([]);
-  const [selected, setSelected] = useState<CredentialWithPrivateData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const wallet = useCredentialWallet();
+  
+  // Wallet UI state
+  const [showWalletSetup, setShowWalletSetup] = useState(false);
+  const [walletPassword, setWalletPassword] = useState('');
+  const [walletError, setWalletError] = useState('');
+  const [showExport, setShowExport] = useState(false);
+  const [exportData, setExportData] = useState('');
+  
+  // AI Composer state
+  const [showAIComposer, setShowAIComposer] = useState(false);
+  
+  // Credential management
+  const [selectedCred, setSelectedCred] = useState<StoredCredential | null>(null);
   const [msg, setMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
-  const [showPrivate, setShowPrivate] = useState(false);
 
-  useEffect(() => {
-    if (credentialAPI) {
-      setCreds(credentialAPI.getStoredCredentials());
+  // Initialize wallet
+  const handleInitializeWallet = async () => {
+    if (!walletPassword || walletPassword.length < 8) {
+      setWalletError('Password must be at least 8 characters');
+      return;
     }
-  }, [credentialAPI]);
+    await wallet.initialize(walletPassword);
+    setShowWalletSetup(false);
+    setWalletPassword('');
+    setWalletError('');
+  };
 
-  const addDemo = () => {
-    if (!credentialAPI) return;
-    const demo: CredentialWithPrivateData = {
+  // Unlock wallet
+  const handleUnlock = async () => {
+    const success = await wallet.unlock(walletPassword);
+    if (!success) {
+      setWalletError('Incorrect password');
+    } else {
+      setShowWalletSetup(false);
+      setWalletPassword('');
+      setWalletError('');
+    }
+  };
+
+  // Export wallet
+  const handleExport = async () => {
+    const data = await wallet.exportWallet();
+    setExportData(data);
+    setShowExport(true);
+  };
+
+  // Handle AI proof generation
+  const handleGenerateProof = async (rule: ClaimRule, credential: StoredCredential): Promise<{ success: boolean; txHash?: string; result?: boolean }> => {
+    if (!credentialAPI) {
+      setMsg({ text: 'Contract API not available', type: 'error' });
+      return { success: false };
+    }
+
+    try {
+      // Call the appropriate circuit based on the rule
+      let result: boolean;
+      let txHash: string;
+
+      switch (rule.circuit) {
+        case 'verifyAgeRange':
+          const ageResult = await credentialAPI.verifyAgeRange(
+            credential.commitment,
+            rule.circuitParams.minAge,
+            rule.circuitParams.maxAge
+          );
+          result = ageResult;
+          txHash = 'tx-' + Date.now(); // Would come from actual tx
+          break;
+        
+        case 'verifyDiabetesTrialEligibility':
+          const diabetesResult = await credentialAPI.verifyDiabetesTrialEligibility(credential.commitment);
+          result = diabetesResult;
+          txHash = 'tx-' + Date.now();
+          break;
+        
+        case 'verifyInsuranceWellnessDiscount':
+          const wellnessResult = await credentialAPI.verifyInsuranceWellnessDiscount(credential.commitment);
+          result = wellnessResult;
+          txHash = 'tx-' + Date.now();
+          break;
+        
+        case 'verifyHealthcareWorkerClearance':
+          const clearanceResult = await credentialAPI.verifyHealthcareWorkerClearance(credential.commitment);
+          result = clearanceResult;
+          txHash = 'tx-' + Date.now();
+          break;
+        
+        default:
+          // Fallback to basic credential verification
+          result = await credentialAPI.verifyCredential(credential.commitment, credential.claimHash);
+          txHash = 'tx-' + Date.now();
+      }
+
+      setMsg({ 
+        text: `✅ Proof generated: ${rule.description} - ${result ? 'ELIGIBLE' : 'NOT ELIGIBLE'}`, 
+        type: 'success' 
+      });
+      setTimeout(() => setMsg(null), 5000);
+
+      return { success: true, txHash, result };
+    } catch (error: any) {
+      setMsg({ text: `❌ ${error.message || 'Proof generation failed'}`, type: 'error' });
+      return { success: false };
+    }
+  };
+
+  // Add demo credential to wallet
+  const addDemoCredential = async () => {
+    const demo: StoredCredential = {
+      id: 'demo-' + Date.now(),
       commitment: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
       issuer: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
-      claimHash: '0x' + createHash('sha256').update('demo').digest('hex'),
+      claimHash: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
       expiry: Date.now() + 86400000 * 365,
       status: 'VALID',
-      credentialData: '0x' + Array(64).fill(0).map(() => Math.floor(Math.random() * 16).toString(16)).join(''),
-      claimType: 'vaccination',
-      claimValue: 'COVID-19-Pfizer-Booster',
+      metadata: {
+        name: 'COVID-19 Vaccination',
+        description: 'Pfizer-BioNTech Booster',
+        issuedAt: Date.now(),
+        issuerName: 'Demo Hospital',
+      }
     };
-    credentialAPI.storeCredential(demo);
-    setCreds([...creds, demo]);
+    await wallet.addCredential(demo, { 
+      vaccine: 'Pfizer', 
+      dose: 3, 
+      date: '2024-01-15',
+      lotNumber: 'ABC123'
+    });
+    setMsg({ text: '✅ Demo credential added', type: 'success' });
+    setTimeout(() => setMsg(null), 3000);
   };
 
-  const generateProof = async () => {
-    if (!selected || !credentialAPI) return;
-    setLoading(true);
-    setMsg(null);
-    try {
-      const result = await credentialAPI.verifyCredential(selected.commitment, selected.credentialData);
-      
-      const proof = {
-        proof: `zk-proof-${Date.now()}`,
-        commitment: selected.commitment,
-        credentialData: selected.credentialData,
-        claimType: selected.claimType,
-        claimValue: selected.claimValue,
-        timestamp: Date.now(),
-        verified: result,
-      };
-      
-      await navigator.clipboard.writeText(JSON.stringify(proof, null, 2));
-      setMsg({ text: '✓ Proof generated and copied!', type: 'success' });
-      setTimeout(() => setMsg(null), 3000);
-    } catch (e: any) {
-      setMsg({ text: e.message || 'Failed to generate proof', type: 'error' });
-    }
-    setLoading(false);
-  };
+  // Render wallet setup UI
+  if (!wallet.isUnlocked) {
+    const walletExists = CredentialWallet.exists();
+    
+    return (
+      <div>
+        <div style={{ marginBottom: '32px' }}>
+          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '4px' }}>Patient Portal</h2>
+          <p style={{ color: 'rgba(248,250,252,0.5)', fontSize: '15px' }}>Secure credential wallet</p>
+        </div>
 
+        <Card style={{ maxWidth: '480px', margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <div style={{ 
+              width: '64px', 
+              height: '64px', 
+              margin: '0 auto 16px',
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              borderRadius: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '28px',
+            }}>🔐</div>
+            <h3 style={{ margin: '0 0 8px 0' }}>
+              {walletExists ? 'Unlock Wallet' : 'Create Wallet'}
+            </h3>
+            <p style={{ color: 'rgba(248,250,252,0.5)', margin: 0, fontSize: '14px' }}>
+              {walletExists 
+                ? 'Enter your password to access credentials'
+                : 'Create a password to encrypt your credentials locally'
+              }
+            </p>
+          </div>
+
+          <Input
+            type="password"
+            label="Password"
+            value={walletPassword}
+            onChange={(e: any) => setWalletPassword(e.target.value)}
+            placeholder={walletExists ? 'Enter password' : 'Create password (min 8 chars)'}
+          />
+
+          {walletError && <Alert type="error">{walletError}</Alert>}
+
+          <Button 
+            onClick={walletExists ? handleUnlock : handleInitializeWallet}
+            style={{ width: '100%' }}
+          >
+            {walletExists ? '🔓 Unlock' : '🔐 Create Wallet'}
+          </Button>
+
+          {walletExists && (
+            <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '13px', color: 'rgba(248,250,252,0.4)' }}>
+              Your credentials are encrypted with AES-256-GCM
+            </p>
+          )}
+        </Card>
+      </div>
+    );
+  }
+
+  // Render main user portal
   return (
     <div>
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div>
-          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '4px' }}>User Portal</h2>
-          <p style={{ color: 'rgba(248,250,252,0.5)', fontSize: '15px' }}>Your credentials & ZK proofs</p>
+          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '4px' }}>Patient Portal</h2>
+          <p style={{ color: 'rgba(248,250,252,0.5)', fontSize: '15px' }}>
+            {wallet.credentials.length} credentials • {wallet.expiringCredentials.length} expiring soon
+          </p>
         </div>
-        <Button variant="secondary" onClick={addDemo} icon={Icons.Plus}>Add Demo</Button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <Button variant="secondary" onClick={() => setShowAIComposer(!showAIComposer)} icon={Icons.Zap}>
+            {showAIComposer ? 'Hide AI' : '🤖 AI Composer'}
+          </Button>
+          <Button variant="secondary" onClick={addDemoCredential} icon={Icons.Plus}>
+            Add Demo
+          </Button>
+          <Button variant="ghost" onClick={handleExport}>
+            Export
+          </Button>
+          <Button variant="ghost" onClick={() => wallet.lock()}>
+            Lock
+          </Button>
+        </div>
       </div>
 
       {msg && <Alert type={msg.type}>{msg.text}</Alert>}
 
-      {creds.length === 0 ? (
+      {/* Expiration Alerts */}
+      {wallet.expiringCredentials.length > 0 && (
+        <div style={{
+          background: 'rgba(251,191,36,0.1)',
+          border: '1px solid rgba(251,191,36,0.3)',
+          borderRadius: '12px',
+          padding: '16px',
+          marginBottom: '24px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+            <span style={{ fontSize: '20px' }}>⚠️</span>
+            <span style={{ color: '#fbbf24', fontWeight: 600 }}>
+              {wallet.expiringCredentials.length} credential(s) expiring soon
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {wallet.expiringCredentials.map(cred => (
+              <div key={cred.id} style={{
+                padding: '10px 12px',
+                background: 'rgba(0,0,0,0.2)',
+                borderRadius: '8px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <span style={{ color: '#f8fafc', fontSize: '14px' }}>{cred.metadata.name}</span>
+                <span style={{ color: '#fbbf24', fontSize: '13px' }}>
+                  Expires {new Date(cred.expiry).toLocaleDateString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* AI Claim Composer */}
+      {showAIComposer && (
+        <div style={{ marginBottom: '24px' }}>
+          <AIClaimComposer 
+            credentials={wallet.credentials}
+            onGenerateProof={handleGenerateProof}
+          />
+        </div>
+      )}
+
+      {/* Export Modal */}
+      {showExport && (
+        <Card style={{ marginBottom: '24px' }}>
+          <h3 style={{ margin: '0 0 12px 0' }}>Export Wallet</h3>
+          <p style={{ color: 'rgba(248,250,252,0.5)', fontSize: '14px', marginBottom: '16px' }}>
+            Copy this encrypted backup and store it securely. You'll need your password to restore.
+          </p>
+          <textarea
+            value={exportData}
+            readOnly
+            style={{
+              width: '100%',
+              height: '120px',
+              padding: '12px',
+              background: 'rgba(0,0,0,0.3)',
+              border: '1px solid rgba(248,250,252,0.1)',
+              borderRadius: '8px',
+              color: '#f8fafc',
+              fontSize: '12px',
+              fontFamily: 'monospace',
+              marginBottom: '16px',
+            }}
+          />
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <Button onClick={() => navigator.clipboard.writeText(exportData)} icon={Icons.Copy}>
+              Copy to Clipboard
+            </Button>
+            <Button variant="ghost" onClick={() => setShowExport(false)}>
+              Close
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Credentials List */}
+      {wallet.credentials.length === 0 ? (
         <Card style={{ textAlign: 'center', padding: '80px 40px' }}>
-          <div style={{ fontSize: '56px', marginBottom: '20px', opacity: 0.3 }}>👤</div>
-          <p style={{ color: 'rgba(248,250,252,0.5)', fontSize: '16px' }}>No credentials stored</p>
+          <div style={{ fontSize: '56px', marginBottom: '20px', opacity: 0.3 }}>📋</div>
+          <p style={{ color: 'rgba(248,250,252,0.5)', fontSize: '16px', marginBottom: '20px' }}>
+            No credentials stored yet
+          </p>
+          <Button onClick={addDemoCredential} icon={Icons.Plus}>
+            Add Demo Credential
+          </Button>
         </Card>
       ) : (
         <div style={{ display: 'grid', gap: '16px' }}>
-          {creds.map((c, i) => (
+          {wallet.credentials.map((cred) => (
             <Card 
-              key={i} 
+              key={cred.id}
               style={{ 
                 padding: '20px', 
                 cursor: 'pointer',
-                borderColor: selected?.commitment === c.commitment ? 'rgba(248,250,252,0.3)' : undefined,
-                background: selected?.commitment === c.commitment ? 'rgba(248,250,252,0.06)' : undefined,
+                borderColor: selectedCred?.id === cred.id ? 'rgba(248,250,252,0.3)' : undefined,
+                background: selectedCred?.id === cred.id ? 'rgba(248,250,252,0.06)' : undefined,
                 transition: 'all 0.2s ease',
               }}
-              onClick={() => setSelected(c)}
+              onClick={() => setSelectedCred(selectedCred?.id === cred.id ? null : cred)}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                    <Badge color="green"><Icons.Check s={12} /> Valid</Badge>
+                    <Badge color={cred.status === 'VALID' ? 'green' : 'red'}>
+                      {cred.status === 'VALID' ? <><Icons.Check s={12} /> Valid</> : <><Icons.X s={12} /> Revoked</>}
+                    </Badge>
                     <span style={{ fontSize: '13px', color: 'rgba(248,250,252,0.4)' }}>
-                      Expires {new Date(c.expiry).toLocaleDateString()}
+                      Expires {new Date(cred.expiry).toLocaleDateString()}
                     </span>
                   </div>
-                  <h4 style={{ fontSize: '17px', fontWeight: '600', textTransform: 'capitalize' }}>
-                    {c.claimType?.replace('_', ' ') || 'Credential'}
+                  <h4 style={{ fontSize: '17px', fontWeight: '600' }}>
+                    {cred.metadata.name}
                   </h4>
-                  <p style={{ fontSize: '15px', color: 'rgba(248,250,252,0.7)' }}>{c.claimValue}</p>
+                  <p style={{ fontSize: '15px', color: 'rgba(248,250,252,0.7)' }}>
+                    {cred.metadata.description}
+                  </p>
+                  {cred.metadata.issuerName && (
+                    <p style={{ fontSize: '13px', color: 'rgba(248,250,252,0.5)', marginTop: '4px' }}>
+                      Issued by {cred.metadata.issuerName}
+                    </p>
+                  )}
                 </div>
-                {selected?.commitment === c.commitment && (
+                {selectedCred?.id === cred.id && (
                   <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }} />
                 )}
               </div>
             </Card>
           ))}
-
-          {selected && (
-            <Card style={{ marginTop: '8px', borderColor: 'rgba(248,250,252,0.2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                <div style={{ padding: '10px', background: 'rgba(248,250,252,0.08)', borderRadius: '10px' }}>
-                  <Icons.Zap />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: '600' }}>Generate ZK Proof</h3>
-                  <p style={{ fontSize: '13px', color: 'rgba(248,250,252,0.5)' }}>Prove validity without revealing data</p>
-                </div>
-              </div>
-              
-              <div style={{ padding: '14px', background: 'rgba(0,0,0,0.3)', borderRadius: '10px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '12px', color: 'rgba(248,250,252,0.5)' }}>Credential Data</span>
-                  <button onClick={() => setShowPrivate(!showPrivate)} style={{ background: 'none', border: 'none', color: 'rgba(248,250,252,0.6)', cursor: 'pointer' }}>
-                    {showPrivate ? <Icons.Eye /> : <Icons.EyeOff />}
-                  </button>
-                </div>
-                <code style={{ fontSize: '12px', color: '#f8fafc', fontFamily: 'monospace' }}>
-                  {showPrivate ? selected.credentialData : selected.credentialData.slice(0, 20) + '...' + selected.credentialData.slice(-8)}
-                </code>
-              </div>
-
-              <Button onClick={generateProof} loading={loading} icon={Icons.Copy}>
-                {loading ? 'Generating...' : 'Generate & Copy Proof'}
-              </Button>
-            </Card>
-          )}
         </div>
       )}
     </div>
@@ -1002,17 +1247,77 @@ function Layout({ children, address, portal, setPortal, onDisconnect }: any) {
   );
 }
 
-function MainApp() {
-  const { isConnected, connect, disconnect } = useWallet();
-  const [portal, setPortal] = useState('issuer');
-  
-  if (!isConnected) return <LoginScreen onConnect={connect} />;
+import { BrowserWalletSetup } from './components/BrowserWalletSetup';
 
-  return (
-    <Layout address="Connected" portal={portal} setPortal={setPortal} onDisconnect={disconnect}>
-      <div />
-    </Layout>
-  );
+function MainApp() {
+  const { 
+    isConnected, 
+    connect, 
+    disconnect, 
+    walletMode, 
+    walletAddress,
+    createBrowserWallet,
+    restoreBrowserWallet,
+    clearBrowserWallet
+  } = useWallet();
+  const [portal, setPortal] = useState('issuer');
+  const [showBrowserWallet, setShowBrowserWallet] = useState(false);
+  const [browserStep, setBrowserStep] = useState<'create' | 'restore' | 'seed'>('create');
+  const [newSeed, setNewSeed] = useState('');
+  
+  // Handle browser wallet creation
+  const handleCreateBrowserWallet = async () => {
+    await createBrowserWallet();
+    setShowBrowserWallet(false);
+  };
+
+  // Handle browser wallet restore
+  const handleRestoreBrowserWallet = async (seed: string) => {
+    await restoreBrowserWallet(seed);
+    setShowBrowserWallet(false);
+  };
+
+  // Show browser wallet setup
+  if (showBrowserWallet && !isConnected) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <Card style={{ width: '100%', maxWidth: '480px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <h2 style={{ margin: '0 0 8px 0' }}>Browser Wallet</h2>
+            <p style={{ color: 'rgba(248,250,252,0.5)', margin: 0 }}>Create or restore your self-custody wallet</p>
+          </div>
+          <BrowserWalletSetup 
+            onComplete={handleCreateBrowserWallet}
+            onRestore={handleRestoreBrowserWallet}
+          />
+          <Button variant="ghost" onClick={() => setShowBrowserWallet(false)} style={{ width: '100%', marginTop: '16px' }}>
+            Back to Login
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show main app if connected
+  if (isConnected) {
+    const displayAddress = walletMode === 'browser' && walletAddress
+      ? walletAddress.slice(0, 10) + '...'
+      : 'Connected';
+    
+    return (
+      <Layout address={displayAddress} portal={portal} setPortal={setPortal} onDisconnect={() => {
+        disconnect();
+        if (walletMode === 'browser') {
+          clearBrowserWallet();
+        }
+      }}>
+        <div />
+      </Layout>
+    );
+  }
+
+  // Show login screen
+  return <LoginScreen onConnect={connect} onBrowserWallet={() => setShowBrowserWallet(true)} />;
 }
 
 export default function App() {

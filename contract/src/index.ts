@@ -15,7 +15,7 @@ const contractNameCapitalized = contractBaseName[0].toUpperCase() + contractBase
 const contractPath = `./managed/${contractBaseName}/contract/index.cjs`;
 const contractModule = await import(contractPath);
 
-export * from "./witnesses";
+export * from "./witnesses-privamedai";
 
 export const contracts = {
   [contractNameCapitalized]: contractModule
