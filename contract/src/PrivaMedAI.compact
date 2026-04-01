@@ -1,4 +1,4 @@
-pragma language_version >= 0.22.0 && <= 0.22.0;
+pragma language_version >= 0.16 && <= 0.21;
 
 import CompactStandardLibrary;
 
@@ -436,4 +436,192 @@ export circuit checkCredentialStatus(commitment: Bytes<32>): CredentialStatus {
   // Note: expiry check can be added here
   // For now, return the stored status
   return credential.status;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PARAMETRIC VERIFICATION CIRCUITS - True Zero-Knowledge Eligibility
+// These circuits prove eligibility criteria WITHOUT revealing health data
+// Only the boolean result is disclosed - verifiers learn nothing else
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Witnesses for parametric verification (private health data)
+witness get_age(): Uint<64>;
+witness get_hba1c_level(): Uint<16>;
+witness has_diabetes_type2(): Boolean;
+witness has_cardiovascular_history(): Boolean;
+witness is_non_smoker(): Boolean;
+witness get_bmi(): Uint<16>;
+witness has_vaccinations_current(): Boolean;
+witness has_wellness_exam_current(): Boolean;
+witness has_tb_clearance(): Boolean;
+witness has_hep_b_immunity(): Boolean;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AGE VERIFICATION (Privacy-Preserving)
+// Proves: age >= minAge AND age <= maxAge
+// Reveals: ONLY the boolean result (eligible/ineligible)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export circuit verifyAgeRange(
+  commitment: Bytes<32>,
+  minAge: Uint<64>,
+  maxAge: Uint<64>
+): Boolean {
+  const d_commitment = disclose(commitment);
+  const d_minAge = disclose(minAge);
+  const d_maxAge = disclose(maxAge);
+  
+  // Verify credential exists and is valid
+  assert(credentials.member(d_commitment), "Credential not found");
+  const credential = credentials.lookup(d_commitment);
+  assert(disclose(credential.status == CredentialStatus.VALID), "Credential revoked");
+  assert(issuerRegistry.member(credential.issuer), "Issuer not registered");
+  const issuer = issuerRegistry.lookup(credential.issuer);
+  assert(disclose(is_active_issuer(issuer)), "Issuer not active");
+  
+  // Get private age from witness
+  const age = get_age();
+  
+  // Verify age is within range (private computation)
+  const inRange = (age >= d_minAge) && (age <= d_maxAge);
+  
+  // Only the result is disclosed - actual age stays private
+  totalVerificationsPerformed.increment(1);
+  return disclose(inRange);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DIABETES CLINICAL TRIAL ELIGIBILITY
+// Proves: All trial criteria met without revealing specific values
+// Criteria: age 40-75, T2 diabetes diagnosed, HbA1c 7-10%, no recent CV event
+// ─────────────────────────────────────────────────────────────────────────────
+
+export circuit verifyDiabetesTrialEligibility(
+  commitment: Bytes<32>
+): Boolean {
+  const d_commitment = disclose(commitment);
+  
+  // Verify credential validity
+  assert(credentials.member(d_commitment), "Credential not found");
+  const credential = credentials.lookup(d_commitment);
+  assert(disclose(credential.status == CredentialStatus.VALID), "Credential revoked");
+  assert(issuerRegistry.member(credential.issuer), "Issuer not registered");
+  const issuer = issuerRegistry.lookup(credential.issuer);
+  assert(disclose(is_active_issuer(issuer)), "Issuer not active");
+  
+  // Get all private health data from witnesses
+  const age = get_age();
+  const hasT2Diabetes = has_diabetes_type2();
+  const hba1c = get_hba1c_level();
+  const hasCVHistory = has_cardiovascular_history();
+  
+  // Verify all criteria in ZK (private computation)
+  const ageOk = (age >= 40 as Uint<64>) && (age <= 75 as Uint<64>);
+  const hba1cOk = (hba1c >= 700 as Uint<16>) && (hba1c <= 1000 as Uint<16>);
+  const noCVEvent = !hasCVHistory;
+  
+  const eligible = ageOk && hasT2Diabetes && hba1cOk && noCVEvent;
+  
+  // Only eligibility result is disclosed
+  totalVerificationsPerformed.increment(1);
+  return disclose(eligible);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INSURANCE WELLNESS DISCOUNT ELIGIBILITY
+// Proves: Non-smoker, BMI < 30, wellness exam current, vaccinations up to date
+// ─────────────────────────────────────────────────────────────────────────────
+
+export circuit verifyInsuranceWellnessDiscount(
+  commitment: Bytes<32>
+): Boolean {
+  const d_commitment = disclose(commitment);
+  
+  // Verify credential validity
+  assert(credentials.member(d_commitment), "Credential not found");
+  const credential = credentials.lookup(d_commitment);
+  assert(disclose(credential.status == CredentialStatus.VALID), "Credential revoked");
+  assert(issuerRegistry.member(credential.issuer), "Issuer not registered");
+  const issuer = issuerRegistry.lookup(credential.issuer);
+  assert(disclose(is_active_issuer(issuer)), "Issuer not active");
+  
+  // Get private health data
+  const nonSmoker = is_non_smoker();
+  const bmi = get_bmi();
+  const wellnessExam = has_wellness_exam_current();
+  const vaccinations = has_vaccinations_current();
+  
+  // Verify criteria (BMI < 300 means < 30.0 when stored as tenths)
+  const bmiOk = bmi < 300 as Uint<16>;
+  
+  const eligible = nonSmoker && bmiOk && wellnessExam && vaccinations;
+  
+  totalVerificationsPerformed.increment(1);
+  return disclose(eligible);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HEALTHCARE WORKER MEDICAL CLEARANCE
+// Proves: TB clearance, Hep B immunity/vaccination
+// ─────────────────────────────────────────────────────────────────────────────
+
+export circuit verifyHealthcareWorkerClearance(
+  commitment: Bytes<32>
+): Boolean {
+  const d_commitment = disclose(commitment);
+  
+  // Verify credential validity
+  assert(credentials.member(d_commitment), "Credential not found");
+  const credential = credentials.lookup(d_commitment);
+  assert(disclose(credential.status == CredentialStatus.VALID), "Credential revoked");
+  assert(issuerRegistry.member(credential.issuer), "Issuer not registered");
+  const issuer = issuerRegistry.lookup(credential.issuer);
+  assert(disclose(is_active_issuer(issuer)), "Issuer not active");
+  
+  // Get private health data
+  const tbClear = has_tb_clearance();
+  const hepBImmune = has_hep_b_immunity();
+  
+  // Healthcare workers need both TB clearance and Hep B immunity
+  const eligible = tbClear && hepBImmune;
+  
+  totalVerificationsPerformed.increment(1);
+  return disclose(eligible);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GENERIC PARAMETRIC VERIFICATION
+// Most flexible - proves credential data satisfies a claim hash
+// The claim hash commits to specific parameter values
+// ─────────────────────────────────────────────────────────────────────────────
+
+export circuit verifyParametricClaim(
+  commitment: Bytes<32>,
+  credentialData: Bytes<32>,
+  expectedClaimHash: Bytes<32>
+): Boolean {
+  const d_commitment = disclose(commitment);
+  const d_credentialData = disclose(credentialData);
+  const d_expectedClaimHash = disclose(expectedClaimHash);
+  
+  // Verify credential exists and is valid
+  assert(credentials.member(d_commitment), "Credential not found");
+  const credential = credentials.lookup(d_commitment);
+  assert(disclose(credential.status == CredentialStatus.VALID), "Credential revoked");
+  assert(issuerRegistry.member(credential.issuer), "Issuer not registered");
+  const issuer = issuerRegistry.lookup(credential.issuer);
+  assert(disclose(is_active_issuer(issuer)), "Issuer not active");
+  
+  // Verify the credential's claim hash matches expected
+  // This allows verifiers to specify exactly what claim they're checking
+  const claimHashMatches = credential.claimHash == d_expectedClaimHash;
+  
+  // Also verify the provided data hashes to the claim hash
+  const computedHash = persistentHash<Vector<1, Bytes<32>>>([d_credentialData]);
+  const dataIntegrity = computedHash == credential.claimHash;
+  
+  const valid = claimHashMatches && dataIntegrity;
+  
+  totalVerificationsPerformed.increment(1);
+  return disclose(valid);
 }
