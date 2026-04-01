@@ -25,6 +25,7 @@
     "cli": "npx tsx scripts/cli-preprod.ts",
     "cli:privamedai": "npx tsx scripts/cli-privamedai.ts",
     "test:privamedai:txs": "npx tsx scripts/test-privamedai-txs.ts",
+    "test:all-features": "npx tsx scripts/test-all-features.ts",
     "check": "node -e \"console.log('✅ PrivaCred is ready!'); console.log('💡 Run npm run dev to compile contract'); process.exit(0)\""
   },
   "devDependencies": {
