@@ -4,6 +4,7 @@ import { WalletProvider, useWallet, VALID_NETWORKS } from './hooks/WalletContext
 import type { CredentialWithPrivateData } from './contract/credentialApi';
 import { AIClaimComposer } from './components/AIClaimComposer';
 import { CliInstructions } from './components/CliInstructions';
+import { useCredentialWallet, CredentialWallet } from './utils/credentialWallet';
 
 
 // ============================================================================
@@ -530,7 +531,6 @@ function IssuerPortal() {
 // User Portal with Credential Wallet & AI Composer
 // ============================================================================
 
-import { useCredentialWallet } from './utils/credentialWallet';
 import type { ClaimRule } from './ai/claimParser';
 import type { StoredCredential } from './utils/credentialWallet';
 

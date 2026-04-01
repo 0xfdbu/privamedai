@@ -1,7 +1,13 @@
 // Secure Local Credential Wallet
 // Encrypted localStorage + export/import functionality
 
-import { persistentHash } from './crypto';
+// Crypto utilities for credential wallet
+const persistentHash = async (data: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(data));
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
 
 export interface StoredCredential {
   id: string;

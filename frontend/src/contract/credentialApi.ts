@@ -47,6 +47,12 @@ export interface CredentialAPI {
   checkCredentialStatus(commitment: string): Promise<CredentialStatus | null>;
   verifyCredential(commitment: string, credentialData: string): Promise<boolean>;
   verifyOnChain(commitment: string, claimHash: string): Promise<boolean>;
+  // Parametric verification circuits (new)
+  verifyAgeRange(commitment: string, minAge: number, maxAge: number): Promise<boolean>;
+  verifyDiabetesTrialEligibility(commitment: string): Promise<boolean>;
+  verifyInsuranceWellnessDiscount(commitment: string): Promise<boolean>;
+  verifyHealthcareWorkerClearance(commitment: string): Promise<boolean>;
+  verifyParametricClaim(commitment: string, credentialData: string, expectedClaimHash: string): Promise<boolean>;
   storeCredential(credential: CredentialWithPrivateData): void;
   getStoredCredentials(): CredentialWithPrivateData[];
   getContractAddress(): string;
@@ -282,6 +288,47 @@ export async function createCredentialAPI(
       await new Promise(r => setTimeout(r, 500));
       const stored = JSON.parse(localStorage.getItem('privamed_issued') || '[]');
       return stored.some((c: any) => c.commitment === commitment);
+    },
+    
+    // Parametric verification circuits (new)
+    async verifyAgeRange(commitment: string, minAge: number, maxAge: number): Promise<boolean> {
+      // Simulate ZK proof verification for age range
+      console.log(`Verifying age range ${minAge}-${maxAge} for commitment ${commitment.slice(0, 10)}...`);
+      await new Promise(r => setTimeout(r, 800));
+      // Mock result - in production this would call the actual circuit
+      return true;
+    },
+    
+    async verifyDiabetesTrialEligibility(commitment: string): Promise<boolean> {
+      // Simulate ZK proof verification for diabetes trial
+      console.log(`Verifying diabetes trial eligibility for commitment ${commitment.slice(0, 10)}...`);
+      await new Promise(r => setTimeout(r, 1000));
+      // Mock result
+      return true;
+    },
+    
+    async verifyInsuranceWellnessDiscount(commitment: string): Promise<boolean> {
+      // Simulate ZK proof verification for wellness discount
+      console.log(`Verifying wellness discount eligibility for commitment ${commitment.slice(0, 10)}...`);
+      await new Promise(r => setTimeout(r, 800));
+      // Mock result
+      return true;
+    },
+    
+    async verifyHealthcareWorkerClearance(commitment: string): Promise<boolean> {
+      // Simulate ZK proof verification for healthcare clearance
+      console.log(`Verifying healthcare worker clearance for commitment ${commitment.slice(0, 10)}...`);
+      await new Promise(r => setTimeout(r, 800));
+      // Mock result
+      return true;
+    },
+    
+    async verifyParametricClaim(commitment: string, _credentialData: string, _expectedClaimHash: string): Promise<boolean> {
+      // Simulate generic parametric claim verification
+      console.log(`Verifying parametric claim for commitment ${commitment.slice(0, 10)}...`);
+      await new Promise(r => setTimeout(r, 600));
+      // Mock result
+      return true;
     },
     
     storeCredential(credential: CredentialWithPrivateData): void {

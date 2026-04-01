@@ -342,7 +342,7 @@ export async function scanQRCodeFromFile(file: File): Promise<string | null> {
 // Browser QR scanner using getUserMedia
 export async function startQRScanner(
   videoElement: HTMLVideoElement,
-  onScan: (result: string) => void,
+  _onScan: (result: string) => void,
   onError?: (error: Error) => void
 ): Promise<() => void> {
   try {
