@@ -5,10 +5,10 @@ import { TabNavigation } from './components/layout/TabNavigation';
 import { Alert } from './components/common';
 
 // User Portal
-import { CredentialWallet, RequestCredential, GenerateProof } from './components/user';
+import { CredentialWallet, AIChatComposer, QRShare, ExpirationAlerts } from './components/user';
 
 // Issuer Portal
-import { IssuerDashboard, IssueCredential, ManageCredentials } from './components/issuer';
+import { IssuerDashboard, IssueCredential, ManageCredentials, BatchIssue, IssuerRegistration, AuditLog } from './components/issuer';
 
 // Verifier Portal
 import { VerifyProof, VerificationHistory } from './components/verifier';
@@ -20,12 +20,20 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   const renderUserPortal = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* AI Chat Composer - Takes up 2 columns */}
       <div className="lg:col-span-2">
+        <AIChatComposer />
+      </div>
+      {/* Side panel */}
+      <div className="space-y-6">
+        <QRShare />
+        <ExpirationAlerts />
+      </div>
+      {/* Full width credential wallet */}
+      <div className="lg:col-span-3">
         <CredentialWallet />
       </div>
-      <RequestCredential />
-      <GenerateProof />
     </div>
   );
 
@@ -33,9 +41,14 @@ function App() {
     <div className="space-y-6">
       <IssuerDashboard />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <BatchIssue />
+        <IssuerRegistration />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <IssueCredential />
         <ManageCredentials />
       </div>
+      <AuditLog />
     </div>
   );
 

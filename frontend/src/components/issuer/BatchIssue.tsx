@@ -131,9 +131,10 @@ export function BatchIssue() {
                   className="hidden" 
                   onChange={handleCSVUpload}
                 />
-                <Button variant="secondary" size="sm" leftIcon={<Upload className="w-4 h-4" />} as="span">
+                <span className="inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-200 px-3 py-1.5 text-sm bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 shadow-sm cursor-pointer">
+                  <Upload className="w-4 h-4" />
                   Import CSV
-                </Button>
+                </span>
               </label>
             </div>
 

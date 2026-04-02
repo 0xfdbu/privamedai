@@ -309,9 +309,9 @@ export async function createCredentialAPI(
       return true;
     },
     
-    async verifyInsuranceWellnessDiscount(commitment: string): Promise<boolean> {
-      // Simulate ZK proof verification for wellness discount
-      console.log(`Verifying wellness discount eligibility for commitment ${commitment.slice(0, 10)}...`);
+    async verifyFreeHealthcareEligibility(commitment: string): Promise<boolean> {
+      // Simulate ZK proof verification for free healthcare eligibility
+      console.log(`Verifying free healthcare eligibility for commitment ${commitment.slice(0, 10)}...`);
       await new Promise(r => setTimeout(r, 800));
       // Mock result
       return true;
