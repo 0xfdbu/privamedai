@@ -23,15 +23,6 @@ export function Header() {
             </div>
             
             <WalletButton />
-            
-            <a 
-              href="https://midnight.network" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="hidden md:block text-sm text-slate-500 hover:text-slate-900 transition-colors"
-            >
-              Powered by Midnight
-            </a>
           </div>
         </div>
       </div>
