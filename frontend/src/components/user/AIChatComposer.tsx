@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, Shield, Check, Copy, Download, RefreshCw, Loader2, ChevronDown } from 'lucide-react';
-import { Card, CardHeader, CardBody, Button, Badge, Alert } from '../common';
+import { Send, Bot, User, Sparkles, Shield, Check, Copy, Download, RefreshCw, Loader2, ChevronDown, MessageSquare, Share2 } from 'lucide-react';
+import { Card, CardBody, Button, Badge } from '../common';
 import { parseNaturalLanguage } from '../../services/xaiService';
 import { generateZKProofReal } from '../../services/proofServiceReal';
 import { getStoredCredentials, getWalletState } from '../../services/contractService';
@@ -90,7 +90,7 @@ export function AIChatComposer() {
     setMessages(prev => [...prev, {
       id: processingId,
       role: 'assistant',
-      content: 'Analyzing your request with xAI...',
+      content: 'Analyzing your request...',
       isGenerating: true,
     }]);
 
@@ -117,7 +117,7 @@ export function AIChatComposer() {
       
       // Get credential data for witness generation
       const credentialData = latestCredential ? {
-        age: Math.floor(Math.random() * 40) + 30, // Mock age for demo
+        age: Math.floor(Math.random() * 40) + 30,
         has_diabetes_diagnosis: true,
         vaccinated_last_6_months: true,
         vaccination_status: 'complete',
@@ -197,23 +197,35 @@ export function AIChatComposer() {
 
   return (
     <Card className="h-[600px] flex flex-col">
-      <CardHeader 
-        title="AI Claim Composer"
-        subtitle="Powered by xAI Grok-4 - Describe what you need to prove"
-        icon={Bot}
-        action={
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-xs text-slate-500">AI Ready</span>
-          </div>
-        }
-      />
       <CardBody className="flex-1 flex flex-col p-0">
         {!walletConnected && (
           <div className="px-4 py-2 bg-amber-50 border-b border-amber-200">
             <p className="text-xs text-amber-700">
               ⚠️ Connect your wallet to generate and store proofs
             </p>
+          </div>
+        )}
+        
+        {/* Info Boxes - Inside Chat Box */}
+        {messages.length < 3 && (
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <InfoBox 
+                icon={MessageSquare}
+                title="Natural Language"
+                description="Just describe what you need to prove in plain English"
+              />
+              <InfoBox 
+                icon={Sparkles}
+                title="AI Generated"
+                description="Our AI converts your request into precise verification rules"
+              />
+              <InfoBox 
+                icon={Share2}
+                title="Zero-Knowledge"
+                description="Share proofs without revealing your private medical data"
+              />
+            </div>
           </div>
         )}
         
@@ -399,5 +411,27 @@ export function AIChatComposer() {
         </div>
       </CardBody>
     </Card>
+  );
+}
+
+interface InfoBoxProps {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+}
+
+function InfoBox({ icon: Icon, title, description }: InfoBoxProps) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-lg p-3">
+      <div className="flex items-start gap-2">
+        <div className="p-1.5 bg-emerald-50 rounded-md">
+          <Icon className="w-4 h-4 text-emerald-600" />
+        </div>
+        <div>
+          <h4 className="font-medium text-slate-900 text-xs">{title}</h4>
+          <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{description}</p>
+        </div>
+      </div>
+    </div>
   );
 }

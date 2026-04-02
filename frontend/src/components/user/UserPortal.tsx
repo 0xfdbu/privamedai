@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { UserCircle, Sparkles, CreditCard, Share2, MessageSquare } from 'lucide-react';
+import { UserCircle, Sparkles, CreditCard, Share2 } from 'lucide-react';
 import { AIChatComposer } from './AIChatComposer';
 import { CredentialWallet } from './CredentialWallet';
 import { QRShare } from './QRShare';
@@ -76,52 +76,9 @@ export function UserPortal() {
         </CardBody>
       </Card>
 
-      {/* Quick Help Card - only show on AI tab */}
-      {activeTab === 'ai' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <QuickTip 
-            icon={MessageSquare}
-            title="Natural Language"
-            description="Just describe what you need to prove in plain English"
-          />
-          <QuickTip 
-            icon={Sparkles}
-            title="AI Generated"
-            description="Our AI converts your request into precise verification rules"
-          />
-          <QuickTip 
-            icon={Share2}
-            title="Zero-Knowledge"
-            description="Share proofs without revealing your private medical data"
-          />
-        </div>
-      )}
-
       {/* Content */}
       <div className="min-h-[400px]">
         {renderContent()}
-      </div>
-    </div>
-  );
-}
-
-interface QuickTipProps {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-}
-
-function QuickTip({ icon: Icon, title, description }: QuickTipProps) {
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="p-2 bg-emerald-50 rounded-lg">
-          <Icon className="w-5 h-5 text-emerald-600" />
-        </div>
-        <div>
-          <h4 className="font-medium text-slate-900 text-sm">{title}</h4>
-          <p className="text-xs text-slate-500 mt-0.5">{description}</p>
-        </div>
       </div>
     </div>
   );
