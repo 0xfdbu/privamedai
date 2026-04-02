@@ -4,10 +4,10 @@ import { Footer } from './components/layout/Footer';
 import { TabNavigation } from './components/layout/TabNavigation';
 import { Alert } from './components/common';
 
-// User Portal
-import { CredentialWallet, AIChatComposer, QRShare } from './components/user';
+// User Portal - Now with tabs
+import { UserPortal } from './components/user/UserPortal';
 
-// Issuer Portal - Now consolidated
+// Issuer Portal
 import { IssuerPortal } from './components/issuer/IssuerPortal';
 
 // Verifier Portal
@@ -18,23 +18,6 @@ type Tab = 'user' | 'issuer' | 'verifier';
 function App() {
   const [activeTab, setActiveTab] = useState<Tab>('user');
   const [error, setError] = useState<string | null>(null);
-
-  const renderUserPortal = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* AI Chat Composer - Takes up 2 columns */}
-      <div className="lg:col-span-2">
-        <AIChatComposer />
-      </div>
-      {/* Side panel */}
-      <div className="space-y-6">
-        <QRShare />
-      </div>
-      {/* Full width credential wallet */}
-      <div className="lg:col-span-3">
-        <CredentialWallet />
-      </div>
-    </div>
-  );
 
   const renderVerifierPortal = () => (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -61,7 +44,7 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'user' && renderUserPortal()}
+        {activeTab === 'user' && <UserPortal />}
         {activeTab === 'issuer' && <IssuerPortal />}
         {activeTab === 'verifier' && renderVerifierPortal()}
       </main>

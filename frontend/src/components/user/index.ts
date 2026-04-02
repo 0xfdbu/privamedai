@@ -1,3 +1,4 @@
+export { UserPortal } from './UserPortal';
 export { CredentialWallet } from './CredentialWallet';
 export { RequestCredential } from './RequestCredential';
 export { GenerateProof } from './GenerateProof';
