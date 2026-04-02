@@ -7,8 +7,8 @@ import { Alert } from './components/common';
 // User Portal
 import { CredentialWallet, AIChatComposer, QRShare } from './components/user';
 
-// Issuer Portal
-import { IssuerDashboard, IssueCredential, ManageCredentials, BatchIssue, IssuerRegistration, AuditLog } from './components/issuer';
+// Issuer Portal - Now consolidated
+import { IssuerPortal } from './components/issuer/IssuerPortal';
 
 // Verifier Portal
 import { VerifyProof, VerificationHistory } from './components/verifier';
@@ -33,21 +33,6 @@ function App() {
       <div className="lg:col-span-3">
         <CredentialWallet />
       </div>
-    </div>
-  );
-
-  const renderIssuerPortal = () => (
-    <div className="space-y-6">
-      <IssuerDashboard />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <BatchIssue />
-        <IssuerRegistration />
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <IssueCredential />
-        <ManageCredentials />
-      </div>
-      <AuditLog />
     </div>
   );
 
@@ -77,7 +62,7 @@ function App() {
         )}
 
         {activeTab === 'user' && renderUserPortal()}
-        {activeTab === 'issuer' && renderIssuerPortal()}
+        {activeTab === 'issuer' && <IssuerPortal />}
         {activeTab === 'verifier' && renderVerifierPortal()}
       </main>
 
