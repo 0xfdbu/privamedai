@@ -24,7 +24,6 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      // Fix WebSocket resolution for isomorphic-ws
       'isomorphic-ws': 'isomorphic-ws/browser.js',
     },
   },

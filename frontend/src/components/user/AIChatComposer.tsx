@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Sparkles, Shield, Check, Copy, Download, RefreshCw, Loader2 } from 'lucide-react';
-import { Card, CardHeader, CardBody, Button, Badge } from '../common';
+import { Card, CardHeader, CardBody, Button, Badge, Alert } from '../common';
+import { parseNaturalLanguage } from '../../services/xaiService';
+import { generateZKProof, getStoredCredentials, getWalletState } from '../../services/contractService';
+import { GeneratedRule } from '../../types/claims';
 
 interface Message {
   id: string;
@@ -9,13 +12,7 @@ interface Message {
   rules?: GeneratedRule[];
   proof?: GeneratedProof;
   isGenerating?: boolean;
-}
-
-interface GeneratedRule {
-  field: string;
-  operator: string;
-  value: string;
-  description: string;
+  error?: boolean;
 }
 
 interface GeneratedProof {
@@ -23,6 +20,7 @@ interface GeneratedProof {
   type: string;
   timestamp: string;
   qrData: string;
+  rules: GeneratedRule[];
 }
 
 const SUGGESTED_PROMPTS = [
@@ -44,7 +42,14 @@ export function AIChatComposer() {
   ]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [walletConnected, setWalletConnected] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const wallet = getWalletState();
+    setWalletConnected(wallet.isConnected);
+    scrollToBottom();
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -53,77 +58,6 @@ export function AIChatComposer() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  const parseNaturalLanguage = async (text: string): Promise<GeneratedRule[]> => {
-    // Simulate AI processing delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const lower = text.toLowerCase();
-    const rules: GeneratedRule[] = [];
-    
-    // Diabetes trial
-    if (lower.includes('diabetes') || lower.includes('clinical trial')) {
-      rules.push(
-        { field: 'age', operator: '>=', value: '50', description: 'Age at least 50 years' },
-        { field: 'has_diabetes_diagnosis', operator: '==', value: 'true', description: 'Has diabetes diagnosis' },
-        { field: 'vaccinated_last_6_months', operator: '==', value: 'true', description: 'Vaccinated within last 6 months' },
-      );
-    }
-    // Travel / Vaccination
-    else if (lower.includes('travel') || (lower.includes('vaccinat') && lower.includes('18'))) {
-      rules.push(
-        { field: 'age', operator: '>=', value: '18', description: 'Age at least 18 years' },
-        { field: 'vaccination_status', operator: '==', value: 'complete', description: 'Vaccination complete' },
-      );
-    }
-    // Medical clearance
-    else if (lower.includes('medical clearance') || lower.includes('sports')) {
-      rules.push(
-        { field: 'medical_clearance', operator: '==', value: 'true', description: 'Medical clearance granted' },
-        { field: 'clearance_expiry', operator: '>', value: 'today', description: 'Clearance not expired' },
-      );
-    }
-    // Free healthcare
-    else if (lower.includes('free') || lower.includes('healthcare') || lower.includes('coverage')) {
-      rules.push(
-        { field: 'free_healthcare_eligible', operator: '==', value: 'true', description: 'Eligible for free healthcare' },
-        { field: 'dental_coverage', operator: '==', value: 'true', description: 'Dental coverage included' },
-      );
-    }
-    // Wellness exam
-    else if (lower.includes('wellness') || lower.includes('annual exam')) {
-      rules.push(
-        { field: 'annual_wellness_exam', operator: '==', value: 'completed', description: 'Annual wellness exam completed' },
-        { field: 'exam_date', operator: '>', value: '1_year_ago', description: 'Exam within last 12 months' },
-      );
-    }
-    // Senior citizen
-    else if (lower.includes('senior') || lower.includes('65') || lower.includes('elderly')) {
-      rules.push(
-        { field: 'age', operator: '>=', value: '65', description: 'Age 65 or older' },
-      );
-    }
-    // Default fallback
-    else {
-      rules.push(
-        { field: 'identity_verified', operator: '==', value: 'true', description: 'Identity verified' },
-      );
-    }
-    
-    return rules;
-  };
-
-  const generateZKProof = async (rules: GeneratedRule[]): Promise<GeneratedProof> => {
-    // Simulate ZK proof generation
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    return {
-      id: 'zk-' + Math.random().toString(36).substring(2, 10),
-      type: rules.length > 1 ? 'bundled' : 'single',
-      timestamp: new Date().toISOString(),
-      qrData: 'zkproof:' + Math.random().toString(36).substring(2, 34),
-    };
-  };
 
   const handleSend = async () => {
     if (!input.trim() || isProcessing) return;
@@ -143,37 +77,61 @@ export function AIChatComposer() {
     setMessages(prev => [...prev, {
       id: processingId,
       role: 'assistant',
-      content: 'Analyzing your request...',
+      content: 'Analyzing your request with xAI...',
       isGenerating: true,
     }]);
 
-    // Parse natural language
-    const rules = await parseNaturalLanguage(userMessage.content);
+    try {
+      // Call AI to parse natural language
+      const aiResponse = await parseNaturalLanguage(userMessage.content);
 
-    // Update with rules
-    setMessages(prev => prev.map(m => 
-      m.id === processingId 
-        ? {
-            ...m,
-            content: `I've analyzed your request and generated the following verification rules:\n\n**${rules.map(r => r.description).join(', ')}**`,
-            rules,
-            isGenerating: false,
-          }
-        : m
-    ));
+      // Update with rules
+      setMessages(prev => prev.map(m => 
+        m.id === processingId 
+          ? {
+              ...m,
+              content: `I've analyzed your request and generated the following verification rules:\n\n**${aiResponse.explanation}**`,
+              rules: aiResponse.rules,
+              isGenerating: false,
+            }
+          : m
+      ));
 
-    // Generate proof
-    const proof = await generateZKProof(rules);
+      // Generate ZK proof locally
+      const credentials = getStoredCredentials();
+      const proofResult = await generateZKProof(aiResponse.rules, credentials);
 
-    // Add proof message
-    setMessages(prev => [...prev, {
-      id: (Date.now() + 2).toString(),
-      role: 'assistant',
-      content: `✅ **Zero-Knowledge Proof Generated!**\n\nYour bundled proof is ready. You can now share this proof with any verifier - they'll know you meet all the requirements without seeing your private medical data.`,
-      proof,
-    }]);
+      if (!proofResult.success) {
+        throw new Error(proofResult.error || 'Failed to generate proof');
+      }
 
-    setIsProcessing(false);
+      // Add proof message
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 2).toString(),
+        role: 'assistant',
+        content: `✅ **Zero-Knowledge Proof Generated!**\n\nYour ${aiResponse.circuitType} proof is ready. You can now share this proof with any verifier - they'll know you meet all the requirements without seeing your private medical data.`,
+        proof: {
+          id: proofResult.proof!.replace('zk:', ''),
+          type: aiResponse.circuitType,
+          timestamp: new Date().toISOString(),
+          qrData: proofResult.proof!,
+          rules: aiResponse.rules,
+        },
+      }]);
+    } catch (error: any) {
+      setMessages(prev => prev.map(m => 
+        m.id === processingId 
+          ? {
+              ...m,
+              content: `Error: ${error.message || 'Failed to process request'}`,
+              isGenerating: false,
+              error: true,
+            }
+          : m
+      ));
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const copyProof = (qrData: string) => {
@@ -186,6 +144,8 @@ export function AIChatComposer() {
       type: proof.type,
       generatedAt: proof.timestamp,
       qrData: proof.qrData,
+      rules: proof.rules,
+      contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -207,7 +167,7 @@ export function AIChatComposer() {
     <Card className="h-[600px] flex flex-col">
       <CardHeader 
         title="AI Claim Composer"
-        subtitle="Describe what you need to prove - no forms needed"
+        subtitle="Powered by xAI Grok-4 - Describe what you need to prove"
         icon={Bot}
         action={
           <div className="flex items-center gap-2">
@@ -217,6 +177,14 @@ export function AIChatComposer() {
         }
       />
       <CardBody className="flex-1 flex flex-col p-0">
+        {!walletConnected && (
+          <div className="px-4 py-2 bg-amber-50 border-b border-amber-200">
+            <p className="text-xs text-amber-700">
+              ⚠️ Connect your wallet to generate and store proofs
+            </p>
+          </div>
+        )}
+        
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((message) => (
@@ -228,10 +196,14 @@ export function AIChatComposer() {
               <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                 message.role === 'user' 
                   ? 'bg-emerald-100' 
-                  : 'bg-blue-100'
+                  : message.error 
+                    ? 'bg-red-100'
+                    : 'bg-blue-100'
               }`}>
                 {message.role === 'user' ? (
                   <User className="w-4 h-4 text-emerald-600" />
+                ) : message.error ? (
+                  <RefreshCw className="w-4 h-4 text-red-600" />
                 ) : (
                   <Bot className="w-4 h-4 text-blue-600" />
                 )}
@@ -242,7 +214,9 @@ export function AIChatComposer() {
                 <div className={`inline-block px-4 py-2 rounded-2xl text-left ${
                   message.role === 'user'
                     ? 'bg-emerald-600 text-white'
-                    : 'bg-slate-100 text-slate-800'
+                    : message.error
+                      ? 'bg-red-50 text-red-800 border border-red-200'
+                      : 'bg-slate-100 text-slate-800'
                 }`}>
                   <p className="whitespace-pre-wrap text-sm">{message.content}</p>
                 </div>
@@ -372,7 +346,7 @@ export function AIChatComposer() {
           </div>
           <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
             <Shield className="w-3 h-3" />
-            All processing happens locally. No data leaves your device.
+            ZK proof generation happens locally for maximum privacy.
           </p>
         </div>
       </CardBody>
