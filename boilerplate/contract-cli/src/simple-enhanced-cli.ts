@@ -17,12 +17,12 @@ import { type Wallet } from '@midnight-ntwrk/wallet-api';
 import { stdin as input, stdout as output } from 'node:process';
 import { createInterface, type Interface } from 'node:readline/promises';
 import { type Logger } from 'pino';
-import { type PrivaCredProviders, type DeployedPrivaCredContract } from './common-types.js';
+import { type PrivaMedAIProviders, type DeployedPrivaMedAIContract } from './common-types.js';
 import { type Config } from './config.js';
 import { ContractAnalyzer, type ContractAnalysis } from './contract-analyzer.js';
 import { DynamicCLIGenerator, type MenuItem } from './dynamic-cli-generator.js';
 import * as api from './api.js';
-import { createPrivaCredPrivateState } from '@midnight-ntwrk/contract';
+import { createPrivaMedAIPrivateState } from '@midnight-ntwrk/contract';
 
 /**
  * Simple Enhanced CLI that dynamically adapts to contract functions
@@ -31,7 +31,7 @@ export class SimpleEnhancedCLI {
   private analyzer: ContractAnalyzer;
   private cliGenerator: DynamicCLIGenerator;
   private contractInfo: ContractAnalysis | null = null;
-  private contract: DeployedPrivaCredContract | null = null;
+  private contract: DeployedPrivaMedAIContract | null = null;
 
   constructor(private logger: Logger) {
     this.analyzer = new ContractAnalyzer();
@@ -49,7 +49,7 @@ export class SimpleEnhancedCLI {
     }
   }
 
-  async runEnhancedCLI(providers: PrivaCredProviders, rli: Interface): Promise<void> {
+  async runEnhancedCLI(providers: PrivaMedAIProviders, rli: Interface): Promise<void> {
     if (!this.contractInfo) {
       throw new Error('Contract info not available');
     }
@@ -96,7 +96,7 @@ export class SimpleEnhancedCLI {
     }
   }
 
-  async deployOrJoin(providers: PrivaCredProviders, rli: Interface): Promise<DeployedPrivaCredContract | null> {
+  async deployOrJoin(providers: PrivaMedAIProviders, rli: Interface): Promise<DeployedPrivaMedAIContract | null> {
     if (!this.contractInfo) {
       throw new Error('Contract info not available');
     }
@@ -113,7 +113,7 @@ export class SimpleEnhancedCLI {
         return this.contract;
       } else {
         this.logger.info('🚀 Auto-deploying new contract...');
-        this.contract = await api.deploy(providers, createPrivaCredPrivateState(new Uint8Array(32).fill(1)));
+        this.contract = await api.deploy(providers, createPrivaMedAIPrivateState(new Uint8Array(32).fill(1)));
         this.logger.info(`🎉 Successfully deployed ${this.contractInfo.contractName}!`);
         return this.contract;
       }
@@ -130,7 +130,7 @@ Which would you like to do? `;
       const choice = await rli.question(question);
       switch (choice) {
         case '1':
-          this.contract = await api.deploy(providers, createPrivaCredPrivateState(new Uint8Array(32).fill(1)));
+          this.contract = await api.deploy(providers, createPrivaMedAIPrivateState(new Uint8Array(32).fill(1)));
           this.logger.info(`🎉 Successfully deployed ${this.contractInfo.contractName}!`);
           return this.contract;
         case '2':

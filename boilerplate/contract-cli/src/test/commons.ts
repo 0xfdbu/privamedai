@@ -24,7 +24,7 @@ import {
 import path from 'path';
 import * as api from '../api';
 import * as Rx from 'rxjs';
-import { nativeToken } from '@midnight-ntwrk/ledger';
+// @ts-ignore - Ledger module merged in SDK v4
 import type { Logger } from 'pino';
 import type { Wallet } from '@midnight-ntwrk/wallet-api';
 import type { Resource } from '@midnight-ntwrk/wallet';
@@ -190,7 +190,9 @@ export class TestEnvironment {
     );
     expect(this.wallet).not.toBeNull();
     const state = await Rx.firstValueFrom(this.wallet.state());
-    expect(state.balances[nativeToken()].valueOf()).toBeGreaterThan(BigInt(0));
+    // Check native token balance (token type 'tDUST' for Midnight)
+    const nativeTokenId = 'tDUST';
+    expect(state.balances[nativeTokenId]?.valueOf() ?? BigInt(0)).toBeGreaterThan(BigInt(0));
     return this.wallet;
   };
 

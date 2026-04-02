@@ -9,7 +9,7 @@ import { CompiledContract } from '@midnight-ntwrk/compact-js';
 import * as PrivaMedAI from '../../../contract/dist/managed/PrivaMedAI/contract/index.js';
 import type { PrivateStateId, PrivateStateProvider } from '@midnight-ntwrk/midnight-js-types';
 
-const CONTRACT_ADDRESS = '650292271129bfbaf34029e48d71eab23086caebfbb561f3b8d6db956264f43d';
+const CONTRACT_ADDRESS = '8b5e6beaece98e9af39b323aea15dda68881e95483effe29950dfc92add6800d';
 const PRIVATE_STATE_ID = 'privamedai-default';
 
 export enum CredentialStatus { VALID = 0, REVOKED = 1 }
@@ -50,7 +50,7 @@ export interface CredentialAPI {
   // Parametric verification circuits (new)
   verifyAgeRange(commitment: string, minAge: number, maxAge: number): Promise<boolean>;
   verifyDiabetesTrialEligibility(commitment: string): Promise<boolean>;
-  verifyInsuranceWellnessDiscount(commitment: string): Promise<boolean>;
+  verifyFreeHealthcareEligibility(commitment: string): Promise<boolean>;
   verifyHealthcareWorkerClearance(commitment: string): Promise<boolean>;
   verifyParametricClaim(commitment: string, credentialData: string, expectedClaimHash: string): Promise<boolean>;
   storeCredential(credential: CredentialWithPrivateData): void;
@@ -225,7 +225,9 @@ export async function createCredentialAPI(
     
     async registerIssuer(issuerPubKey: string, nameHash: string): Promise<string> {
       const callerPubKey = getCallerPubKey();
-      return submitCircuitCall('registerIssuer', [callerPubKey, hexToBytes(issuerPubKey), hexToBytes(nameHash)]);
+      // Ensure nameHash is exactly 64 hex chars (32 bytes)
+      const paddedNameHash = nameHash.padEnd(64, '0').slice(0, 64);
+      return submitCircuitCall('registerIssuer', [callerPubKey, hexToBytes(issuerPubKey), hexToBytes(paddedNameHash)]);
     },
     
     async updateIssuerStatus(issuerPubKey: string, newStatus: IssuerStatus): Promise<string> {

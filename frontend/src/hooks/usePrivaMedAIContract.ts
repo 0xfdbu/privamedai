@@ -27,7 +27,7 @@ const CONFIG = {
 
 // Deployment info - PrivaMedAI contract
 const DEPLOYMENT = {
-  contractAddress: '9a965779dcd16a1f1d295dc890125cc11b93a2d037a0b298a66e4b8e1f3bf187',
+  contractAddress: '8b5e6beaece98e9af39b323aea15dda68881e95483effe29950dfc92add6800d',
   network: 'preprod',
 };
 

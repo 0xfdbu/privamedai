@@ -1,6 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
-import { NetworkId, setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 export const currentDir = path.resolve(new URL(import.meta.url).pathname, '..');
 
 /**
@@ -41,7 +41,7 @@ function detectContractPath(): string {
 }
 
 export const contractConfig = {
-  privateStateStoreName: 'privacred-private-state',
+  privateStateStoreName: 'privamedai-private-state',
   zkConfigPath: detectContractPath(),
 };
 
@@ -60,7 +60,6 @@ export class PreprodLocalConfig implements Config {
   node = 'http://127.0.0.1:9944';
   proofServer = 'http://127.0.0.1:6300';
   constructor() {
-    // @ts-expect-error: preprod is not in the old NetworkId enum; upgrading to wallet-sdk is needed for full support
     setNetworkId('preprod');
   }
 }
@@ -72,18 +71,17 @@ export class StandaloneConfig implements Config {
   node = 'http://127.0.0.1:9944';
   proofServer = 'http://127.0.0.1:6300';
   constructor() {
-    setNetworkId(NetworkId.Undeployed);
+    setNetworkId('undeployed');
   }
 }
 
 export class PreprodRemoteConfig implements Config {
   logDir = path.resolve(currentDir, '..', 'logs', 'preprod-remote', `${new Date().toISOString()}.log`);
-  indexer = 'https://indexer.preprod.midnight.network/api/v1/graphql';
-  indexerWS = 'wss://indexer.preprod.midnight.network/api/v1/graphql/ws';
+  indexer = 'https://indexer.preprod.midnight.network/api/v4/graphql';
+  indexerWS = 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws';
   node = 'https://rpc.preprod.midnight.network';
-  proofServer = 'http://127.0.0.1:6300';
+  proofServer = 'http://127.0.0.1:6300';  // Local proof server
   constructor() {
-    // @ts-expect-error: preprod is not in the old NetworkId enum; upgrading to wallet-sdk is needed for full support
     setNetworkId('preprod');
   }
 }

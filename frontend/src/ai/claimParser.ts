@@ -4,7 +4,7 @@
 export type CircuitName = 
   | 'verifyAgeRange'
   | 'verifyDiabetesTrialEligibility' 
-  | 'verifyInsuranceWellnessDiscount'
+  | 'verifyFreeHealthcareEligibility'
   | 'verifyHealthcareWorkerClearance'
   | 'verifyParametricClaim';
 
@@ -18,7 +18,7 @@ export interface ClaimParameter {
 
 export interface ClaimRule {
   id: string;
-  category: 'clinical_trial' | 'insurance' | 'employment' | 'travel' | 'education' | 'custom';
+  category: 'clinical_trial' | 'healthcare' | 'employment' | 'travel' | 'education' | 'custom';
   description: string;
   naturalLanguage: string;
   compactRule: string;
@@ -59,26 +59,27 @@ export const PRESET_CLAIMS: Record<string, ClaimRule> = {
   },
   
   // ───────────────────────────────────────────────────────────────────────────
-  // Insurance
+  // Free Healthcare Eligibility
   // ───────────────────────────────────────────────────────────────────────────
   
-  'insurance_wellness_discount': {
-    id: 'insurance_wellness_discount',
-    category: 'insurance',
-    description: 'Health Insurance Wellness Discount',
-    naturalLanguage: 'Eligible for insurance wellness discount: non-smoker, BMI under 30, annual wellness exam completed, vaccination up to date',
-    compactRule: 'verifyInsuranceWellnessDiscount(commitment)',
-    circuit: 'verifyInsuranceWellnessDiscount',
+  'free_healthcare_eligibility': {
+    id: 'free_healthcare_eligibility',
+    category: 'healthcare',
+    description: 'Free Healthcare Eligibility Verification',
+    naturalLanguage: 'Eligible for free healthcare: income below threshold, resident status verified, no existing coverage',
+    compactRule: 'verifyFreeHealthcareEligibility(commitment)',
+    circuit: 'verifyFreeHealthcareEligibility',
     circuitParams: {},
     parameters: [
-      { name: 'nonSmoker', type: 'bool', value: true, description: 'Non-smoker', witnessName: 'is_non_smoker' },
-      { name: 'bmi', type: 'uint', value: 250, description: 'BMI (tenths, e.g., 250 = 25.0)', witnessName: 'get_bmi' },
+      { name: 'incomeEligible', type: 'bool', value: true, description: 'Income below threshold', witnessName: 'is_income_eligible' },
+      { name: 'resident', type: 'bool', value: true, description: 'Verified resident', witnessName: 'is_verified_resident' },
+      { name: 'noExistingCoverage', type: 'bool', value: true, description: 'No existing coverage', witnessName: 'has_no_existing_coverage' },
       { name: 'wellnessExam', type: 'bool', value: true, description: 'Annual wellness exam current', witnessName: 'has_wellness_exam_current' },
       { name: 'vaccinations', type: 'bool', value: true, description: 'Vaccinations up to date', witnessName: 'has_vaccinations_current' },
     ],
-    requiredCredentials: ['tobacco_status', 'vitals_bmi', 'wellness_exam', 'immunization_record'],
+    requiredCredentials: ['income_verification', 'residency_proof', 'coverage_status', 'wellness_exam', 'immunization_record'],
     privacyLevel: 'high',
-    resultDescription: 'Verifier learns: QUALIFIES for discount or NOT (no health details)',
+    resultDescription: 'Verifier learns: ELIGIBLE or NOT ELIGIBLE (no income/details revealed)',
   },
   
   // ───────────────────────────────────────────────────────────────────────────
@@ -167,10 +168,10 @@ export function parseClaimPattern(input: string): ClaimRule | null {
     return PRESET_CLAIMS.diabetes_trial_phase3;
   }
   
-  // Insurance
-  if ((lower.includes('insurance') || lower.includes('premium')) && 
-      (lower.includes('discount') || lower.includes('wellness') || lower.includes('saving'))) {
-    return PRESET_CLAIMS.insurance_wellness_discount;
+  // Free healthcare eligibility
+  if ((lower.includes('free') || lower.includes('healthcare') || lower.includes('coverage')) && 
+      (lower.includes('eligible') || lower.includes('qualify') || lower.includes('program'))) {
+    return PRESET_CLAIMS.free_healthcare_eligibility;
   }
   
   // Employment
@@ -250,7 +251,7 @@ export function buildCircuitParams(rule: ClaimRule): any[] {
     case 'verifyAgeRange':
       return [rule.circuitParams.minAge, rule.circuitParams.maxAge];
     case 'verifyDiabetesTrialEligibility':
-    case 'verifyInsuranceWellnessDiscount':
+    case 'verifyFreeHealthcareEligibility':
     case 'verifyHealthcareWorkerClearance':
       return []; // No additional params needed - witnesses provide data
     case 'verifyParametricClaim':
@@ -290,7 +291,7 @@ export function collectWitnessValues(rule: ClaimRule, userData: WitnessValues): 
 
 export const CATEGORY_INFO: Record<string, { icon: string; label: string; color: string }> = {
   clinical_trial: { icon: '🧬', label: 'Clinical Trials', color: '#8b5cf6' },
-  insurance: { icon: '🛡️', label: 'Insurance', color: '#3b82f6' },
+  healthcare: { icon: '🏥', label: 'Healthcare', color: '#3b82f6' },
   employment: { icon: '💼', label: 'Employment', color: '#10b981' },
   travel: { icon: '✈️', label: 'Travel', color: '#f59e0b' },
   education: { icon: '🎓', label: 'Education', color: '#ec4899' },

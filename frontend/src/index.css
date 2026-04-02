@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* PrivaMedAI - Clean Light Theme */
+:root {
+  /* Core Colors */
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-elevated: #f1f5f9;
+  --surface-highlight: #e2e8f0;
+  --border: #cbd5e1;
+  --border-strong: #94a3b8;
+  
+  /* Text */
+  --text: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  
+  /* Brand */
+  --primary: #059669;
+  --primary-hover: #047857;
+  --primary-dim: rgba(5, 150, 105, 0.1);
+  --secondary: #0891b2;
+  
+  /* Status */
+  --success: #059669;
+  --success-dim: rgba(5, 150, 105, 0.1);
+  --error: #dc2626;
+  --error-dim: rgba(220, 38, 38, 0.1);
+  --warning: #d97706;
+}
+
+@layer base {
+  * {
+    @apply box-border;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white border border-slate-200 rounded-xl shadow-sm;
+  }
+  
+  .btn-primary {
+    @apply bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-lg 
+           transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50
+           shadow-sm disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium px-4 py-2 rounded-lg 
+           transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-slate-500/50
+           shadow-sm disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .input {
+    @apply w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 
+           placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 
+           focus:border-emerald-500 transition-colors;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+  
+  .animate-pulse-slow {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

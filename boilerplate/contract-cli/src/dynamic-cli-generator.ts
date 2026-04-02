@@ -1,13 +1,13 @@
 import { type Interface } from 'node:readline/promises';
 import { type Logger } from 'pino';
 import { ContractAnalyzer, type ContractAnalysis, type ContractFunction } from './contract-analyzer.js';
-import { type PrivaCredProviders, type DeployedPrivaCredContract } from './common-types.js';
+import { type PrivaMedAIProviders, type DeployedPrivaMedAIContract } from './common-types.js';
 
 export interface MenuItem {
   id: string;
   label: string;
   description: string;
-  action: (providers: PrivaCredProviders, contract: DeployedPrivaCredContract, rli: Interface) => Promise<void>;
+  action: (providers: PrivaMedAIProviders, contract: DeployedPrivaMedAIContract, rli: Interface) => Promise<void>;
   isReadOnly: boolean;
 }
 
@@ -104,8 +104,8 @@ export class DynamicCLIGenerator {
   /**
    * Create a function handler for a specific contract function
    */
-  private createFunctionHandler(func: ContractFunction): (providers: PrivaCredProviders, contract: DeployedPrivaCredContract, rli: Interface) => Promise<void> {
-    return async (providers: PrivaCredProviders, contract: DeployedPrivaCredContract, rli: Interface) => {
+  private createFunctionHandler(func: ContractFunction): (providers: PrivaMedAIProviders, contract: DeployedPrivaMedAIContract, rli: Interface) => Promise<void> {
+    return async (providers: PrivaMedAIProviders, contract: DeployedPrivaMedAIContract, rli: Interface) => {
       try {
         this.logger.info(`🔧 Executing ${func.name}...`);
 
@@ -142,8 +142,8 @@ export class DynamicCLIGenerator {
   /**
    * Create a handler for displaying contract state
    */
-  private createStateDisplayHandler(): (providers: PrivaCredProviders, contract: DeployedPrivaCredContract, rli: Interface) => Promise<void> {
-    return async (providers: PrivaCredProviders, contract: DeployedPrivaCredContract) => {
+  private createStateDisplayHandler(): (providers: PrivaMedAIProviders, contract: DeployedPrivaMedAIContract, rli: Interface) => Promise<void> {
+    return async (providers: PrivaMedAIProviders, contract: DeployedPrivaMedAIContract) => {
       if (!this.contractAnalysis) return;
 
       const api = await import('./api.js');
@@ -289,8 +289,8 @@ export class DynamicCLIGenerator {
   private async executeReadOnlyFunction(
     functionName: string,
     args: any[],
-    providers: PrivaCredProviders,
-    contract: DeployedPrivaCredContract
+    providers: PrivaMedAIProviders,
+    contract: DeployedPrivaMedAIContract
   ): Promise<void> {
     const api = await import('./api.js');
     
@@ -304,7 +304,7 @@ export class DynamicCLIGenerator {
   private async executeStateChangingFunction(
     functionName: string,
     args: any[],
-    contract: DeployedPrivaCredContract
+    contract: DeployedPrivaMedAIContract
   ): Promise<void> {
     // Use dynamic property access to call the function
     const contractFunction = (contract.callTx as any)[functionName];

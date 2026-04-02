@@ -1,24 +1,33 @@
 import { type ContractAddress } from '@midnight-ntwrk/compact-runtime';
-import { contracts, witnesses, createPrivaCredPrivateState } from '@midnight-ntwrk/contract';
-import { type CoinInfo, nativeToken, Transaction, type TransactionId } from '@midnight-ntwrk/ledger';
+import { contracts, witnesses, createPrivaMedAIPrivateState } from '@midnight-ntwrk/contract';
 import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { levelPrivateStateProvider } from '@midnight-ntwrk/midnight-js-level-private-state-provider';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
 import { assertIsContractAddress, toHex } from '@midnight-ntwrk/midnight-js-utils';
-import { getLedgerNetworkId, getZswapNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { getNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { NetworkId as ZswapNetworkId } from '@midnight-ntwrk/zswap';
+
+// Helper to convert string network ID to Zswap NetworkId enum
+const getZswapNetworkId = (networkId: string): ZswapNetworkId => {
+  switch (networkId) {
+    case 'undeployed': return ZswapNetworkId.Undeployed;
+    case 'devnet': return ZswapNetworkId.DevNet;
+    case 'testnet': return ZswapNetworkId.TestNet;
+    case 'mainnet': return ZswapNetworkId.MainNet;
+    case 'preprod': return (ZswapNetworkId as any).PreProd || ZswapNetworkId.TestNet;
+    default: return ZswapNetworkId.TestNet;
+  }
+};
 import {
-  type BalancedTransaction,
-  createBalancedTx,
   type FinalizedTxData,
   type MidnightProvider,
-  type UnbalancedTransaction,
   type WalletProvider,
+  type UnboundTransaction,
 } from '@midnight-ntwrk/midnight-js-types';
 import { type Resource, WalletBuilder } from '@midnight-ntwrk/wallet';
 import { type Wallet } from '@midnight-ntwrk/wallet-api';
-import { Transaction as ZswapTransaction } from '@midnight-ntwrk/zswap';
 import { webcrypto } from 'crypto';
 import { type Logger } from 'pino';
 import * as Rx from 'rxjs';
@@ -27,11 +36,11 @@ import * as fsAsync from 'node:fs/promises';
 import * as fs from 'node:fs';
 import { ContractAnalyzer } from './contract-analyzer.js';
 import {
-  type PrivaCredContract,
-  type PrivaCredPrivateState,
-  PrivaCredPrivateStateId,
-  type PrivaCredProviders,
-  type DeployedPrivaCredContract,
+  type PrivaMedAIContract,
+  type PrivaMedAIPrivateState,
+  PrivaMedAIPrivateStateId,
+  type PrivaMedAIProviders,
+  type DeployedPrivaMedAIContract,
 } from './common-types';
 import { type Config, contractConfig } from './config';
 
@@ -64,8 +73,8 @@ export const createOpaqueString = (value: string): any => {
 // @ts-expect-error: It's needed to enable WebSocket usage through apollo
 globalThis.WebSocket = WebSocket;
 
-export const getPrivaCredLedgerState = async (
-  providers: PrivaCredProviders,
+export const getPrivaMedAILedgerState = async (
+  providers: PrivaMedAIProviders,
   contractAddress: ContractAddress,
 ): Promise<bigint | null> => {
   assertIsContractAddress(contractAddress);
@@ -80,50 +89,51 @@ export const getPrivaCredLedgerState = async (
 
 
 
-export const privaCredContractInstance: PrivaCredContract = new contractModule.Contract(witnesses);
+export const privaMedAIContractInstance: PrivaMedAIContract = new contractModule.Contract(witnesses);
 
 export const joinContract = async (
-  providers: PrivaCredProviders,
+  providers: PrivaMedAIProviders,
   contractAddress: string,
-): Promise<DeployedPrivaCredContract> => {
-  const privaCredContract = await findDeployedContract(providers, {
+): Promise<DeployedPrivaMedAIContract> => {
+  const privaMedAIContract = await findDeployedContract(providers, {
     contractAddress,
-    contract: privaCredContractInstance,
-    privateStateId: PrivaCredPrivateStateId,
-    initialPrivateState: createPrivaCredPrivateState(new Uint8Array(32)),
+    compiledContract: privaMedAIContractInstance,
+    privateStateId: PrivaMedAIPrivateStateId,
+    initialPrivateState: createPrivaMedAIPrivateState(new Uint8Array(32)),
   });
-  logger.info(`Joined contract at address: ${privaCredContract.deployTxData.public.contractAddress}`);
-  return privaCredContract;
+  logger.info(`Joined contract at address: ${privaMedAIContract.deployTxData.public.contractAddress}`);
+  return privaMedAIContract;
 };
 
 export const deploy = async (
-  providers: PrivaCredProviders,
-  privateState: PrivaCredPrivateState,
-): Promise<DeployedPrivaCredContract> => {
+  providers: PrivaMedAIProviders,
+  privateState: PrivaMedAIPrivateState,
+): Promise<DeployedPrivaMedAIContract> => {
   // Get dynamic contract name
   const analyzer = new ContractAnalyzer();
   const analysis = await analyzer.analyzeContract();
   
   logger.info(`Deploying ${analysis.contractName.toLowerCase()}...`);
-  const privaCredContract = await deployContract(providers, {
-    contract: privaCredContractInstance,
-    privateStateId: PrivaCredPrivateStateId,
+  const privaMedAIContract = await deployContract(providers, {
+    compiledContract: privaMedAIContractInstance,
+    privateStateId: PrivaMedAIPrivateStateId,
     initialPrivateState: privateState,
-  });
-  logger.info(`Deployed contract at address: ${privaCredContract.deployTxData.public.contractAddress}`);
-  return privaCredContract;
+    args: [],
+  } as any);
+  logger.info(`Deployed contract at address: ${privaMedAIContract.deployTxData.public.contractAddress}`);
+  return privaMedAIContract;
 };
 
 
 
-export const displayPrivaCredValue = async (
-  providers: PrivaCredProviders,
-  privaCredContract: DeployedPrivaCredContract,
+export const displayPrivaMedAIValue = async (
+  providers: PrivaMedAIProviders,
+  privaMedAIContract: DeployedPrivaMedAIContract,
 ): Promise<{ counterValue: bigint | null; contractAddress: string }> => {
-  const contractAddress = privaCredContract.deployTxData.public.contractAddress;
-  const counterValue = await getPrivaCredLedgerState(providers, contractAddress);
+  const contractAddress = privaMedAIContract.deployTxData.public.contractAddress;
+  const counterValue = await getPrivaMedAILedgerState(providers, contractAddress);
   if (counterValue === null) {
-    logger.info(`There is no privacred contract deployed at ${contractAddress}.`);
+    logger.info(`There is no privamedai contract deployed at ${contractAddress}.`);
   } else {
     logger.info(`Current counter value: ${Number(counterValue)}`);
   }
@@ -135,19 +145,20 @@ export const displayPrivaCredValue = async (
 export const createWalletAndMidnightProvider = async (wallet: Wallet): Promise<WalletProvider & MidnightProvider> => {
   const state = await Rx.firstValueFrom(wallet.state());
   return {
-    coinPublicKey: state.coinPublicKey,
-    encryptionPublicKey: state.encryptionPublicKey,
-    balanceTx(tx: UnbalancedTransaction, newCoins: CoinInfo[]): Promise<BalancedTransaction> {
-      return wallet
-        .balanceTransaction(
-          ZswapTransaction.deserialize(tx.serialize(getLedgerNetworkId()), getZswapNetworkId()),
-          newCoins,
-        )
-        .then((tx) => wallet.proveTransaction(tx))
-        .then((zswapTx) => Transaction.deserialize(zswapTx.serialize(getZswapNetworkId()), getLedgerNetworkId()))
-        .then(createBalancedTx);
+    getCoinPublicKey: () => state.coinPublicKey,
+    getEncryptionPublicKey: () => state.encryptionPublicKey,
+    async balanceTx(tx: UnboundTransaction, ttl?: Date): Promise<any> {
+      // SDK v4: balanceTransaction returns BalanceTransactionToProve | NothingToProve
+      const result = await (wallet as any).balanceTransaction(tx, []);
+      // Handle the new proving flow
+      if (result.type === 'BalanceTransactionToProve') {
+        const provenTx = await (wallet as any).proveTransaction(result);
+        return provenTx;
+      }
+      // NothingToProve case - return the balanced transaction directly
+      return (result as any).transaction ?? result;
     },
-    submitTx(tx: BalancedTransaction): Promise<TransactionId> {
+    submitTx(tx: any): Promise<string> {
       return wallet.submitTransaction(tx);
     },
   };
@@ -204,7 +215,7 @@ export const waitForFunds = (wallet: Wallet) =>
         // Let's allow progress only if wallet is synced
         return state.syncProgress?.synced === true;
       }),
-      Rx.map((s) => s.balances[nativeToken()] ?? 0n),
+      Rx.map((s) => s.balances['MIDNIGHT'] ?? 0n),
       Rx.filter((balance) => balance > 0n),
     ),
   );
@@ -236,7 +247,7 @@ export const buildWalletAndWaitForFunds = async (
             proofServer,
             node,
             seed,
-            getZswapNetworkId(),
+            getZswapNetworkId(getNetworkId()),
             'info',
           );
           wallet.start();
@@ -256,7 +267,7 @@ export const buildWalletAndWaitForFunds = async (
               proofServer,
               node,
               seed,
-              getZswapNetworkId(),
+              getZswapNetworkId(getNetworkId()),
               'info',
             );
             wallet.start();
@@ -277,7 +288,7 @@ export const buildWalletAndWaitForFunds = async (
           proofServer,
           node,
           seed,
-          getZswapNetworkId(),
+          getZswapNetworkId(getNetworkId()),
           'info',
         );
         wallet.start();
@@ -290,7 +301,7 @@ export const buildWalletAndWaitForFunds = async (
         proofServer,
         node,
         seed,
-        getZswapNetworkId(),
+        getZswapNetworkId(getNetworkId()),
         'info',
       );
       wallet.start();
@@ -303,7 +314,7 @@ export const buildWalletAndWaitForFunds = async (
       proofServer,
       node,
       seed,
-      getZswapNetworkId(),
+      getZswapNetworkId(getNetworkId()),
       'info',
     );
     wallet.start();
@@ -312,7 +323,7 @@ export const buildWalletAndWaitForFunds = async (
   const state = await Rx.firstValueFrom(wallet.state());
   logger.info(`Your wallet seed is: ${seed}`);
   logger.info(`Your wallet address is: ${state.address}`);
-  let balance = state.balances[nativeToken()];
+  let balance = state.balances['MIDNIGHT'];
   if (balance === undefined || balance === 0n) {
     logger.info(`Your wallet balance is: 0`);
     logger.info(`Waiting to receive tokens...`);
@@ -331,15 +342,19 @@ export const randomBytes = (length: number): Uint8Array => {
 export const buildFreshWallet = async (config: Config): Promise<Wallet & Resource> =>
   await buildWalletAndWaitForFunds(config, toHex(randomBytes(32)), '');
 
-export const configureProviders = async (wallet: Wallet & Resource, config: Config) => {
+export const configureProviders = async (wallet: Wallet & Resource, config: Config): Promise<PrivaMedAIProviders> => {
   const walletAndMidnightProvider = await createWalletAndMidnightProvider(wallet);
+  const state = await Rx.firstValueFrom(wallet.state());
+  const zkConfigProvider = new NodeZkConfigProvider(contractConfig.zkConfigPath);
   return {
-    privateStateProvider: levelPrivateStateProvider<typeof PrivaCredPrivateStateId>({
+    privateStateProvider: levelPrivateStateProvider({
       privateStateStoreName: contractConfig.privateStateStoreName,
-    }),
+      privateStoragePasswordProvider: async () => 'PrivaMedAI-Secure-Password-2025!',
+      accountId: state.coinPublicKey,
+    }) as any,
     publicDataProvider: indexerPublicDataProvider(config.indexer, config.indexerWS),
-    zkConfigProvider: new NodeZkConfigProvider<'issueCredential' | 'revokeCredential'>(contractConfig.zkConfigPath),
-    proofProvider: httpClientProofProvider(config.proofServer),
+    zkConfigProvider: zkConfigProvider as any,
+    proofProvider: httpClientProofProvider(config.proofServer, zkConfigProvider),
     walletProvider: walletAndMidnightProvider,
     midnightProvider: walletAndMidnightProvider,
   };
@@ -408,7 +423,7 @@ export const saveState = async (wallet: Wallet, filename: string) => {
 };
 
 export const getItemsSet = async (
-  _providers: PrivaCredProviders,
+  _providers: PrivaMedAIProviders,
   _contractAddress: ContractAddress,
 ): Promise<string[]> => {
   return [];

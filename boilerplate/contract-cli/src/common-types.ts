@@ -1,5 +1,5 @@
-import { contracts, type PrivaCredPrivateState } from '@midnight-ntwrk/contract';
-import type { ImpureCircuitId, MidnightProviders } from '@midnight-ntwrk/midnight-js-types';
+import { contracts, type PrivaMedAIPrivateState } from '@midnight-ntwrk/contract';
+import type { MidnightProviders } from '@midnight-ntwrk/midnight-js-types';
 import type { DeployedContract, FoundContract } from '@midnight-ntwrk/midnight-js-contracts';
 
 // Get the dynamic contract module
@@ -13,13 +13,12 @@ const getContractModule = () => {
 
 const contractModule = getContractModule();
 
-export type { PrivaCredPrivateState };
-export type PrivaCredCircuits = ImpureCircuitId<typeof contractModule.Contract>;
+export type { PrivaMedAIPrivateState };
 
-export const PrivaCredPrivateStateId = 'privacredPrivateState';
+export const PrivaMedAIPrivateStateId = 'privamedaiPrivateState';
 
-export type PrivaCredProviders = MidnightProviders<PrivaCredCircuits, typeof PrivaCredPrivateStateId, PrivaCredPrivateState>;
+export type PrivaMedAIProviders = MidnightProviders<any, typeof PrivaMedAIPrivateStateId, PrivaMedAIPrivateState>;
 
-export type PrivaCredContract = typeof contractModule.Contract;
+export type PrivaMedAIContract = typeof contractModule.Contract;
 
-export type DeployedPrivaCredContract = DeployedContract<PrivaCredContract> | FoundContract<PrivaCredContract>;
+export type DeployedPrivaMedAIContract = DeployedContract<PrivaMedAIContract> | FoundContract<PrivaMedAIContract>;

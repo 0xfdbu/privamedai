@@ -17,7 +17,7 @@ import { type Resource } from '@midnight-ntwrk/wallet';
 import { type Wallet } from '@midnight-ntwrk/wallet-api';
 import path from 'path';
 import * as api from '../api';
-import { type PrivaCredProviders } from '../common-types';
+import { type PrivaMedAIProviders } from '../common-types';
 import { currentDir } from '../config';
 import { createLogger } from '../logger-utils';
 import { TestEnvironment } from './commons';
@@ -29,7 +29,7 @@ const logger = await createLogger(logDir);
 describe('API', () => {
   let testEnvironment: TestEnvironment;
   let wallet: Wallet & Resource;
-  let providers: PrivaCredProviders;
+  let providers: PrivaMedAIProviders;
 
   beforeAll(
     async () => {
@@ -48,10 +48,14 @@ describe('API', () => {
   });
 
   it('should deploy the contract and increment the counter [@slow]', async () => {
-    const counterContract = await api.deploy(providers, { secretKey: new Uint8Array(32).fill(1) });
+    const counterContract = await api.deploy(providers, { 
+      secretKey: new Uint8Array(32).fill(1),
+      credentialData: new Uint8Array(0),
+      bundledCredentialData: []
+    });
     expect(counterContract).not.toBeNull();
 
-    const counter = await api.displayPrivaCredValue(providers, counterContract);
+    const counter = await api.displayPrivaMedAIValue(providers, counterContract);
     expect(counter.counterValue).toEqual(BigInt(0));
 
     await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -59,7 +63,7 @@ describe('API', () => {
     // expect(response.txHash).toMatch(/[0-9a-f]{64}/);
     // expect(response.blockHeight).toBeGreaterThan(BigInt(0));
 
-    const counterAfter = await api.displayPrivaCredValue(providers, counterContract);
+    const counterAfter = await api.displayPrivaMedAIValue(providers, counterContract);
     expect(counterAfter.counterValue).toEqual(BigInt(1));
     expect(counterAfter.contractAddress).toEqual(counter.contractAddress);
   });

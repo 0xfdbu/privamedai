@@ -14,11 +14,11 @@ import { stdin as input, stdout as output } from 'node:process';
 import { createInterface, type Interface } from 'node:readline/promises';
 import { type Logger } from 'pino';
 import { type StartedDockerComposeEnvironment, type DockerComposeEnvironment } from 'testcontainers';
-import { type PrivaCredProviders, type DeployedPrivaCredContract } from './common-types';
+import { type PrivaMedAIProviders, type DeployedPrivaMedAIContract } from './common-types';
 import { type Config, StandaloneConfig } from './config';
 import { DynamicCLIGenerator } from './dynamic-cli-generator.js';
 import * as api from './api';
-import { createPrivaCredPrivateState } from '@midnight-ntwrk/contract';
+import { createPrivaMedAIPrivateState } from '@midnight-ntwrk/contract';
 
 let logger: Logger;
 
@@ -35,12 +35,12 @@ You can do one of the following:
   3. Exit
 Which would you like to do? `;
 
-const join = async (providers: PrivaCredProviders, rli: Interface): Promise<DeployedPrivaCredContract> => {
+const join = async (providers: PrivaMedAIProviders, rli: Interface): Promise<DeployedPrivaMedAIContract> => {
   const contractAddress = await rli.question('What is the contract address (in hex)? ');
   return await api.joinContract(providers, contractAddress);
 };
 
-const deployOrJoin = async (providers: PrivaCredProviders, rli: Interface): Promise<DeployedPrivaCredContract | null> => {
+const deployOrJoin = async (providers: PrivaMedAIProviders, rli: Interface): Promise<DeployedPrivaMedAIContract | null> => {
   // Check if auto-deploy is enabled (set by deployment script)
   if (process.env.AUTO_DEPLOY === 'true') {
     const deployMode = process.env.DEPLOY_MODE || 'new';
@@ -51,7 +51,7 @@ const deployOrJoin = async (providers: PrivaCredProviders, rli: Interface): Prom
       return await api.joinContract(providers, contractAddress);
     } else {
       logger.info('🚀 Auto-deploying new contract...');
-      return await api.deploy(providers, createPrivaCredPrivateState(new Uint8Array(32).fill(1)));
+      return await api.deploy(providers, createPrivaMedAIPrivateState(new Uint8Array(32).fill(1)));
     }
   }
   
@@ -59,7 +59,7 @@ const deployOrJoin = async (providers: PrivaCredProviders, rli: Interface): Prom
     const choice = await rli.question(DEPLOY_OR_JOIN_QUESTION);
     switch (choice) {
       case '1':
-        return await api.deploy(providers, createPrivaCredPrivateState(new Uint8Array(32).fill(1)));
+        return await api.deploy(providers, createPrivaMedAIPrivateState(new Uint8Array(32).fill(1)));
       case '2':
         return await join(providers, rli);
       case '3':
@@ -71,9 +71,9 @@ const deployOrJoin = async (providers: PrivaCredProviders, rli: Interface): Prom
   }
 };
 
-const mainLoop = async (providers: PrivaCredProviders, rli: Interface): Promise<void> => {
-  const privaCredContract = await deployOrJoin(providers, rli);
-  if (privaCredContract === null) {
+const mainLoop = async (providers: PrivaMedAIProviders, rli: Interface): Promise<void> => {
+  const privaMedAIContract = await deployOrJoin(providers, rli);
+  if (privaMedAIContract === null) {
     return;
   }
   
@@ -85,7 +85,7 @@ const mainLoop = async (providers: PrivaCredProviders, rli: Interface): Promise<
   const menuQuestion = cliGenerator.generateMenuQuestion(menuItems);
   
   logger.info('=== Dynamic Contract CLI ===');
-  logger.info(`Contract Address: ${privaCredContract.deployTxData.public.contractAddress}`);
+  logger.info(`Contract Address: ${privaMedAIContract.deployTxData.public.contractAddress}`);
   logger.info('Available functions have been automatically detected from your contract!');
   
   // Check if this is a quick deployment test
@@ -97,7 +97,7 @@ const mainLoop = async (providers: PrivaCredProviders, rli: Interface): Promise<
     if (testAction) {
       logger.info(`🎯 Testing function: ${testAction.label}`);
       try {
-        await testAction.action(providers, privaCredContract, rli);
+        await testAction.action(providers, privaMedAIContract, rli);
         logger.info('✅ Quick test completed successfully!');
         logger.info('🎉 Contract deployed and tested - ready for use!');
       } catch (error: unknown) {
@@ -131,7 +131,7 @@ const mainLoop = async (providers: PrivaCredProviders, rli: Interface): Promise<
     }
     
     try {
-      await selectedItem.action(providers, privaCredContract, rli);
+      await selectedItem.action(providers, privaMedAIContract, rli);
     } catch (error: unknown) {
       if (error instanceof Error) {
         logger.error(`❌ Operation failed: ${error.message}`);
