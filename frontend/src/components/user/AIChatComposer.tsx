@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, Shield, Check, Copy, Download, RefreshCw, Loader2 } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Shield, Check, Copy, Download, RefreshCw, Loader2, ChevronDown } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, Badge, Alert } from '../common';
 import { parseNaturalLanguage } from '../../services/xaiService';
 import { generateZKProofReal } from '../../services/proofService';
@@ -45,7 +45,9 @@ export function AIChatComposer() {
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [walletConnected, setWalletConnected] = useState(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const wallet = getWalletState();
@@ -55,6 +57,15 @@ export function AIChatComposer() {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setShowScrollButton(false);
+  };
+
+  const handleScroll = () => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      const isScrolledUp = container.scrollHeight - container.scrollTop - container.clientHeight > 100;
+      setShowScrollButton(isScrolledUp);
+    }
   };
 
   useEffect(() => {
@@ -207,7 +218,12 @@ export function AIChatComposer() {
         )}
         
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div 
+          ref={messagesContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth relative"
+          style={{ maxHeight: '400px', minHeight: '300px' }}
+        >
           {messages.map((message) => (
             <div
               key={message.id}
@@ -319,6 +335,17 @@ export function AIChatComposer() {
             </div>
           ))}
           <div ref={messagesEndRef} />
+          
+          {/* Scroll to bottom button */}
+          {showScrollButton && (
+            <button
+              onClick={scrollToBottom}
+              className="absolute bottom-4 right-4 p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-lg transition-all animate-bounce"
+              title="Scroll to bottom"
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Suggested Prompts */}
