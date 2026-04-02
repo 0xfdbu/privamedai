@@ -5,7 +5,7 @@ import { TabNavigation } from './components/layout/TabNavigation';
 import { Alert } from './components/common';
 
 // User Portal
-import { CredentialWallet, AIChatComposer, QRShare, ExpirationAlerts } from './components/user';
+import { CredentialWallet, AIChatComposer, QRShare } from './components/user';
 
 // Issuer Portal
 import { IssuerDashboard, IssueCredential, ManageCredentials, BatchIssue, IssuerRegistration, AuditLog } from './components/issuer';
@@ -28,7 +28,6 @@ function App() {
       {/* Side panel */}
       <div className="space-y-6">
         <QRShare />
-        <ExpirationAlerts />
       </div>
       {/* Full width credential wallet */}
       <div className="lg:col-span-3">
