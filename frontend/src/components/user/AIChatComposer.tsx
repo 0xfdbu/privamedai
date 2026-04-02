@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Sparkles, Shield, Check, Copy, Download, RefreshCw, Loader2, ChevronDown } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, Badge, Alert } from '../common';
 import { parseNaturalLanguage } from '../../services/xaiService';
-import { generateZKProofReal } from '../../services/proofService';
+import { generateZKProofReal } from '../../services/proofServiceReal';
 import { getStoredCredentials, getWalletState } from '../../services/contractService';
 import { GeneratedRule } from '../../types/claims';
 
