@@ -9,9 +9,9 @@ import { getWalletState } from '../../services/contractService';
 type UserTab = 'ai' | 'credentials' | 'share';
 
 const tabs = [
-  { id: 'ai' as UserTab, label: 'AI Composer', icon: Sparkles, description: 'Generate ZK proofs with AI' },
-  { id: 'credentials' as UserTab, label: 'My Credentials', icon: CreditCard, description: 'Manage your credentials' },
-  { id: 'share' as UserTab, label: 'Share', icon: Share2, description: 'Share proofs with QR' },
+  { id: 'ai' as UserTab, label: 'AI Composer', icon: Sparkles },
+  { id: 'credentials' as UserTab, label: 'My Credentials', icon: CreditCard },
+  { id: 'share' as UserTab, label: 'Share', icon: Share2 },
 ];
 
 export function UserPortal() {
@@ -32,7 +32,7 @@ export function UserPortal() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header Card */}
       <Card>
         <CardHeader
@@ -59,7 +59,7 @@ export function UserPortal() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`
-                      flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap
+                      flex items-center gap-2 px-6 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap
                       ${isActive 
                         ? 'border-emerald-500 text-emerald-600 bg-emerald-50/50' 
                         : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -77,9 +77,7 @@ export function UserPortal() {
       </Card>
 
       {/* Content */}
-      <div className="min-h-[400px]">
-        {renderContent()}
-      </div>
+      {renderContent()}
     </div>
   );
 }

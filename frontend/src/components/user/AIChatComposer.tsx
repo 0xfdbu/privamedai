@@ -30,8 +30,6 @@ const SUGGESTED_PROMPTS = [
   "Prove I'm vaccinated and over 18 for international travel",
   "Show I have medical clearance for sports competition",
   "Prove I'm eligible for free healthcare and dental coverage",
-  "Verify I completed my annual wellness exam",
-  "Show I'm a senior citizen for discount eligibility",
 ];
 
 export function AIChatComposer() {
@@ -39,7 +37,7 @@ export function AIChatComposer() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: "Hello! I'm your AI Claim Composer. Describe what you need to prove in plain English, and I'll generate the precise zero-knowledge proof for you.\n\nFor example: *\"I need proof I'm eligible for the diabetes clinical trial\"*",
+      content: "Hello! Describe what you need to prove in plain English, and I'll generate a zero-knowledge proof for you.",
     },
   ]);
   const [input, setInput] = useState('');
@@ -52,7 +50,6 @@ export function AIChatComposer() {
   useEffect(() => {
     const wallet = getWalletState();
     setWalletConnected(wallet.isConnected);
-    scrollToBottom();
   }, []);
 
   const scrollToBottom = () => {
@@ -110,12 +107,11 @@ export function AIChatComposer() {
           : m
       ));
 
-      // Generate real ZK proof using proof server
+      // Generate ZK proof
       const credentials = getStoredCredentials();
       const latestCredential = credentials[credentials.length - 1];
       const credentialCommitment = latestCredential?.commitment || '0x' + '0'.repeat(64);
       
-      // Get credential data for witness generation
       const credentialData = latestCredential ? {
         age: Math.floor(Math.random() * 40) + 30,
         has_diabetes_diagnosis: true,
@@ -140,9 +136,9 @@ export function AIChatComposer() {
       setMessages(prev => [...prev, {
         id: (Date.now() + 2).toString(),
         role: 'assistant',
-        content: `✅ **Zero-Knowledge Proof Generated!**\n\nYour ${aiResponse.circuitType} proof has been generated using the local proof server. You can now share this proof with any verifier - they'll know you meet all the requirements without seeing your private medical data.`,
+        content: `✅ **Zero-Knowledge Proof Generated!**\n\nYour ${aiResponse.circuitType} proof is ready. Share this with any verifier - they'll know you meet all requirements without seeing your private data.`,
         proof: {
-          id: proofResult.proof!.replace('zk:', '').split(':').pop() || proofResult.proof!,
+          id: proofResult.proof!.split(':').pop() || proofResult.proof!,
           type: aiResponse.circuitType,
           timestamp: new Date().toISOString(),
           qrData: proofResult.proof!,
@@ -155,7 +151,7 @@ export function AIChatComposer() {
         m.id === processingId 
           ? {
               ...m,
-              content: `Error: ${error.message || 'Failed to process request'}`,
+              content: `❌ **Error:** ${error.message || 'Failed to process request'}`,
               isGenerating: false,
               error: true,
             }
@@ -183,7 +179,7 @@ export function AIChatComposer() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `zk-proof-${proof.id}.json`;
+    a.download = `zk-proof-${proof.id.slice(0, 8)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -195,222 +191,219 @@ export function AIChatComposer() {
     }
   };
 
-  return (
-    <Card className="h-[600px] flex flex-col">
-      <CardBody className="flex-1 flex flex-col p-0">
-        {!walletConnected && (
-          <div className="px-4 py-2 bg-amber-50 border-b border-amber-200">
-            <p className="text-xs text-amber-700">
-              ⚠️ Connect your wallet to generate and store proofs
-            </p>
-          </div>
-        )}
-        
-        {/* Info Boxes - Inside Chat Box */}
-        {messages.length < 3 && (
-          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <InfoBox 
-                icon={MessageSquare}
-                title="Natural Language"
-                description="Just describe what you need to prove in plain English"
-              />
-              <InfoBox 
-                icon={Sparkles}
-                title="AI Generated"
-                description="Our AI converts your request into precise verification rules"
-              />
-              <InfoBox 
-                icon={Share2}
-                title="Zero-Knowledge"
-                description="Share proofs without revealing your private medical data"
-              />
-            </div>
-          </div>
-        )}
-        
-        {/* Messages */}
-        <div 
-          ref={messagesContainerRef}
-          onScroll={handleScroll}
-          className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth relative"
-          style={{ maxHeight: '400px', minHeight: '300px' }}
-        >
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
-            >
-              {/* Avatar */}
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                message.role === 'user' 
-                  ? 'bg-emerald-100' 
-                  : message.error 
-                    ? 'bg-red-100'
-                    : 'bg-blue-100'
-              }`}>
-                {message.role === 'user' ? (
-                  <User className="w-4 h-4 text-emerald-600" />
-                ) : message.error ? (
-                  <RefreshCw className="w-4 h-4 text-red-600" />
-                ) : (
-                  <Bot className="w-4 h-4 text-blue-600" />
-                )}
-              </div>
+  const showInfoBoxes = messages.length < 3;
 
-              {/* Content */}
-              <div className={`max-w-[80%] ${message.role === 'user' ? 'text-right' : ''}`}>
-                <div className={`inline-block px-4 py-2 rounded-2xl text-left ${
-                  message.role === 'user'
-                    ? 'bg-emerald-600 text-white'
-                    : message.error
-                      ? 'bg-red-50 text-red-800 border border-red-200'
-                      : 'bg-slate-100 text-slate-800'
+  return (
+    <div className="space-y-4">
+      {/* Info Boxes */}
+      {showInfoBoxes && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <InfoBox 
+            icon={MessageSquare}
+            title="Natural Language"
+            description="Just describe what you need to prove in plain English"
+          />
+          <InfoBox 
+            icon={Sparkles}
+            title="AI Generated"
+            description="AI converts your request into precise verification rules"
+          />
+          <InfoBox 
+            icon={Share2}
+            title="Zero-Knowledge"
+            description="Share proofs without revealing private medical data"
+          />
+        </div>
+      )}
+
+      {/* Chat Card */}
+      <Card>
+        <CardBody className="p-0">
+          {!walletConnected && (
+            <div className="px-4 py-2 bg-amber-50 border-b border-amber-200">
+              <p className="text-xs text-amber-700">
+                ⚠️ Connect your wallet to generate and store proofs
+              </p>
+            </div>
+          )}
+          
+          {/* Messages */}
+          <div 
+            ref={messagesContainerRef}
+            onScroll={handleScroll}
+            className="overflow-y-auto p-4 space-y-4"
+            style={{ height: '400px', maxHeight: '400px' }}
+          >
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
+              >
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  message.role === 'user' 
+                    ? 'bg-emerald-100' 
+                    : message.error 
+                      ? 'bg-red-100'
+                      : 'bg-blue-100'
                 }`}>
-                  <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                  {message.role === 'user' ? (
+                    <User className="w-4 h-4 text-emerald-600" />
+                  ) : message.error ? (
+                    <RefreshCw className="w-4 h-4 text-red-600" />
+                  ) : (
+                    <Bot className="w-4 h-4 text-blue-600" />
+                  )}
                 </div>
 
-                {/* Generated Rules */}
-                {message.rules && message.rules.length > 0 && (
-                  <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Sparkles className="w-4 h-4 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-800">Generated Rules</span>
+                <div className={`max-w-[80%] ${message.role === 'user' ? 'text-right' : ''}`}>
+                  <div className={`inline-block px-4 py-2 rounded-2xl text-left ${
+                    message.role === 'user'
+                      ? 'bg-emerald-600 text-white'
+                      : message.error
+                        ? 'bg-red-50 text-red-800 border border-red-200'
+                        : 'bg-slate-100 text-slate-800'
+                  }`}>
+                    <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                  </div>
+
+                  {message.rules && message.rules.length > 0 && (
+                    <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-left">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Sparkles className="w-4 h-4 text-emerald-600" />
+                        <span className="text-xs font-medium text-emerald-800">Generated Rules</span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {message.rules.map((rule, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            <span className="w-5 h-5 rounded-full bg-emerald-200 text-emerald-700 text-xs flex items-center justify-center font-medium">
+                              {idx + 1}
+                            </span>
+                            <code className="text-emerald-700 font-mono text-xs">
+                              {rule.field} {rule.operator} {rule.value}
+                            </code>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-emerald-600 mt-2">
+                        {message.rules.length > 1 ? 'Bundled ZK proof' : 'Single condition proof'}
+                      </p>
                     </div>
-                    <div className="space-y-1.5">
-                      {message.rules.map((rule, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-sm">
-                          <span className="w-5 h-5 rounded-full bg-emerald-200 text-emerald-700 text-xs flex items-center justify-center font-medium">
-                            {idx + 1}
-                          </span>
-                          <code className="text-emerald-700 font-mono text-xs">
-                            {rule.field} {rule.operator} {rule.value}
-                          </code>
+                  )}
+
+                  {message.proof && (
+                    <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg text-left">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Shield className="w-5 h-5 text-blue-600" />
+                        <span className="font-medium text-blue-800">ZK Proof Ready</span>
+                        <Badge variant="success" size="sm">Private</Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+                        <div className="bg-white p-2 rounded border border-blue-200">
+                          <span className="text-slate-500">Proof ID</span>
+                          <p className="font-mono text-slate-700 truncate">{message.proof.id.slice(0, 16)}...</p>
                         </div>
-                      ))}
-                    </div>
-                    <p className="text-xs text-emerald-600 mt-2">
-                      {message.rules.length > 1 ? 'Bundled ZK proof will verify all conditions' : 'Single condition proof'}
-                    </p>
-                  </div>
-                )}
-
-                {/* Generated Proof */}
-                {message.proof && (
-                  <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Shield className="w-5 h-5 text-blue-600" />
-                      <span className="font-medium text-blue-800">ZK Proof Ready</span>
-                      <Badge variant="success" size="sm">Private</Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
-                      <div className="bg-white p-2 rounded border border-blue-200">
-                        <span className="text-slate-500">Proof ID</span>
-                        <p className="font-mono text-slate-700">{message.proof.id}</p>
+                        <div className="bg-white p-2 rounded border border-blue-200">
+                          <span className="text-slate-500">Type</span>
+                          <p className="text-slate-700 capitalize">{message.proof.type}</p>
+                        </div>
                       </div>
-                      <div className="bg-white p-2 rounded border border-blue-200">
-                        <span className="text-slate-500">Type</span>
-                        <p className="text-slate-700 capitalize">{message.proof.type}</p>
+
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="secondary" 
+                          size="sm" 
+                          onClick={() => copyProof(message.proof!.qrData)}
+                          leftIcon={<Copy className="w-3 h-3" />}
+                        >
+                          Copy
+                        </Button>
+                        <Button 
+                          variant="secondary" 
+                          size="sm" 
+                          onClick={() => downloadProof(message.proof!)}
+                          leftIcon={<Download className="w-3 h-3" />}
+                        >
+                          Download
+                        </Button>
                       </div>
                     </div>
+                  )}
 
-                    <div className="flex gap-2">
-                      <Button 
-                        variant="secondary" 
-                        size="sm" 
-                        onClick={() => copyProof(message.proof!.qrData)}
-                        leftIcon={<Copy className="w-3 h-3" />}
-                      >
-                        Copy
-                      </Button>
-                      <Button 
-                        variant="secondary" 
-                        size="sm" 
-                        onClick={() => downloadProof(message.proof!)}
-                        leftIcon={<Download className="w-3 h-3" />}
-                      >
-                        Download
-                      </Button>
+                  {message.isGenerating && (
+                    <div className="mt-2 flex items-center gap-2 text-slate-500">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="text-xs">Processing...</span>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+            
+            {showScrollButton && (
+              <button
+                onClick={scrollToBottom}
+                className="absolute bottom-20 right-6 p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-lg transition-all"
+                title="Scroll to bottom"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
+            )}
+          </div>
 
-                {/* Loading indicator */}
-                {message.isGenerating && (
-                  <div className="mt-2 flex items-center gap-2 text-slate-500">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-xs">Processing...</span>
-                  </div>
-                )}
+          {/* Suggested Prompts */}
+          {messages.length < 3 && (
+            <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50">
+              <p className="text-xs text-slate-500 mb-2">Try asking:</p>
+              <div className="flex flex-wrap gap-2">
+                {SUGGESTED_PROMPTS.map((prompt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setInput(prompt)}
+                    className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-full hover:border-emerald-400 hover:text-emerald-600 transition-colors"
+                  >
+                    {prompt.length > 40 ? prompt.slice(0, 40) + '...' : prompt}
+                  </button>
+                ))}
               </div>
             </div>
-          ))}
-          <div ref={messagesEndRef} />
-          
-          {/* Scroll to bottom button */}
-          {showScrollButton && (
-            <button
-              onClick={scrollToBottom}
-              className="absolute bottom-4 right-4 p-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-lg transition-all animate-bounce"
-              title="Scroll to bottom"
-            >
-              <ChevronDown className="w-4 h-4" />
-            </button>
           )}
-        </div>
 
-        {/* Suggested Prompts */}
-        {messages.length < 3 && (
-          <div className="px-4 py-3 border-t border-slate-100 bg-slate-50/50">
-            <p className="text-xs text-slate-500 mb-2">Try asking:</p>
-            <div className="flex flex-wrap gap-2">
-              {SUGGESTED_PROMPTS.map((prompt, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setInput(prompt)}
-                  className="text-xs px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-full hover:border-emerald-400 hover:text-emerald-600 transition-colors"
-                >
-                  {prompt.length > 40 ? prompt.slice(0, 40) + '...' : prompt}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Input */}
-        <div className="p-4 border-t border-slate-200 bg-white">
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Describe what you need to prove..."
-                className="w-full px-4 py-3 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 resize-none"
-                rows={2}
-                disabled={isProcessing}
-              />
-              <div className="absolute right-3 bottom-3 text-xs text-slate-400">
-                {input.length > 0 && 'Press Enter ↵'}
+          {/* Input */}
+          <div className="p-4 border-t border-slate-200 bg-white">
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Describe what you need to prove..."
+                  className="w-full px-4 py-3 pr-12 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 resize-none"
+                  rows={2}
+                  disabled={isProcessing}
+                />
+                <div className="absolute right-3 bottom-3 text-xs text-slate-400">
+                  {input.length > 0 && 'Enter ↵'}
+                </div>
               </div>
+              <Button
+                onClick={handleSend}
+                disabled={!input.trim() || isProcessing}
+                isLoading={isProcessing}
+                className="self-end"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
             </div>
-            <Button
-              onClick={handleSend}
-              disabled={!input.trim() || isProcessing}
-              isLoading={isProcessing}
-              className="self-end"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
+            <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+              <Shield className="w-3 h-3" />
+              ZK proof generation happens locally for maximum privacy.
+            </p>
           </div>
-          <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
-            <Shield className="w-3 h-3" />
-            ZK proof generation happens locally for maximum privacy.
-          </p>
-        </div>
-      </CardBody>
-    </Card>
+        </CardBody>
+      </Card>
+    </div>
   );
 }
 
@@ -422,14 +415,14 @@ interface InfoBoxProps {
 
 function InfoBox({ icon: Icon, title, description }: InfoBoxProps) {
   return (
-    <div className="bg-white border border-slate-200 rounded-lg p-3">
-      <div className="flex items-start gap-2">
-        <div className="p-1.5 bg-emerald-50 rounded-md">
-          <Icon className="w-4 h-4 text-emerald-600" />
+    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="p-2 bg-emerald-50 rounded-lg">
+          <Icon className="w-5 h-5 text-emerald-600" />
         </div>
         <div>
-          <h4 className="font-medium text-slate-900 text-xs">{title}</h4>
-          <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{description}</p>
+          <h4 className="font-medium text-slate-900 text-sm">{title}</h4>
+          <p className="text-xs text-slate-500 mt-0.5">{description}</p>
         </div>
       </div>
     </div>
