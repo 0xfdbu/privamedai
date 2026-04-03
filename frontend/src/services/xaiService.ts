@@ -48,8 +48,9 @@ Rules:
 5. Keep explanations under 100 characters`;
 
 export async function parseNaturalLanguage(input: string): Promise<AIResponse> {
-  if (!API_KEY) {
-    console.warn('AI API key not found, using fallback parser');
+  if (!API_KEY || API_KEY === 'your-xai-api-key-here') {
+    console.warn('AI API key not configured. Get your key from https://x.ai and set VITE_XAI_API_KEY in .env');
+    console.warn('Using fallback parser for now.');
     return fallbackParser(input);
   }
 

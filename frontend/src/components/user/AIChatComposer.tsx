@@ -136,7 +136,11 @@ export function AIChatComposer() {
       const latestCredential = credentials[credentials.length - 1];
       
       if (!latestCredential) {
-        throw new Error('No credentials found. Please obtain a credential from an issuer first.');
+        throw new Error(
+          'No credentials found in your wallet. ' +
+          'Please ask a Medical Provider to issue you a credential first. ' +
+          'Go to "Medical Provider" tab → "Issue Credentials" and have them issue a credential to your wallet address.'
+        );
       }
       
       const credentialCommitment = latestCredential.commitment;
@@ -308,6 +312,14 @@ export function AIChatComposer() {
             <div className="px-4 py-2 bg-amber-50 border-b border-amber-200">
               <p className="text-xs text-amber-700">
                 ⚠️ Connect your wallet to generate and store proofs
+              </p>
+            </div>
+          )}
+          
+          {walletConnected && getStoredCredentials().length === 0 && (
+            <div className="px-4 py-2 bg-amber-50 border-b border-amber-200">
+              <p className="text-xs text-amber-700">
+                ⚠️ No credentials in your wallet. Ask a Medical Provider to issue you a credential first.
               </p>
             </div>
           )}
