@@ -188,6 +188,16 @@ export function getStoredCredentials(): Credential[] {
   return stored ? JSON.parse(stored) : [];
 }
 
+// Store a credential to localStorage
+export function storeCredential(credential: Credential): void {
+  const existing = getStoredCredentials();
+  // Avoid duplicates based on credential id
+  const filtered = existing.filter(c => c.id !== credential.id);
+  filtered.push(credential);
+  localStorage.setItem('privamedai_credentials', JSON.stringify(filtered));
+  console.log('💾 Credential saved to localStorage:', credential.id);
+}
+
 // Issuer operations
 export async function registerIssuer(
   _nameHash: string,

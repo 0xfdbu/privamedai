@@ -13,7 +13,7 @@ import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client
 import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-config-provider';
 import { toHex, fromHex } from '@midnight-ntwrk/compact-runtime';
 import * as ledger from '@midnight-ntwrk/ledger-v8';
-import { getWalletState, CONFIG, getLaceAPI } from './contractService';
+import { getWalletState, CONFIG, getLaceAPI, storeCredential } from './contractService';
 import type { Credential, IssuerInfo } from '../types/claims';
 import { bech32m } from '@scure/base';
 
@@ -370,6 +370,21 @@ export async function issueCredentialOnChain(
 
     const txId = result?.public?.txId;
     console.log('✅ Credential issued successfully:', txId);
+
+    // Store credential locally for proof generation
+    const credential: Credential = {
+      id: toHex(commitment),
+      issuer: wallet.coinPublicKey || '',
+      claimType,
+      issuedAt: Date.now(),
+      expiresAt: Date.now() + expiryDays * 24 * 60 * 60 * 1000,
+      isRevoked: false,
+      encryptedData: JSON.stringify({ patientAddress, claimData, issuedTo: patientAddress }),
+      commitment: toHex(commitment),
+      claimHash: toHex(claimHash),
+    };
+    storeCredential(credential);
+    console.log('💾 Credential stored locally:', credential.id);
 
     return {
       success: true,

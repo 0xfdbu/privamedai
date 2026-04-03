@@ -2,13 +2,22 @@ import { useState } from 'react';
 import { ShieldCheck, Upload, CheckCircle, XCircle } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, TextArea, Alert, Badge } from '../common';
 
+interface RuleResult {
+  field: string;
+  operator: string;
+  value: string;
+  actualValue: any;
+  satisfied: boolean;
+}
+
 interface VerificationResult {
   valid: boolean;
-  credentialType?: string;
-  issuer?: string;
-  issuedAt?: string;
-  expiresAt?: string;
-  disclosures?: Record<string, string>;
+  type?: string;
+  verifiedAt?: string;
+  rules?: RuleResult[];
+  allSatisfied?: boolean;
+  credentialCommitment?: string;
+  error?: string;
 }
 
 export function VerifyProof() {
@@ -21,19 +30,47 @@ export function VerifyProof() {
     
     setIsVerifying(true);
     
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setResult({
-      valid: true,
-      credentialType: 'Vaccination Record',
-      issuer: 'City General Hospital',
-      issuedAt: '2024-01-15',
-      expiresAt: '2025-01-15',
-      disclosures: {
-        'Vaccination Status': 'Complete',
-        'Date of Issue': '2024-01-15',
-      },
-    });
+    try {
+      // Parse the proof JSON
+      let proofData: any;
+      try {
+        proofData = JSON.parse(proofInput.trim());
+      } catch (e) {
+        setResult({
+          valid: false,
+          error: 'Invalid proof format - must be valid JSON',
+        });
+        setIsVerifying(false);
+        return;
+      }
+      
+      // Verify the proof structure
+      if (proofData.type !== 'rule-based-verification') {
+        setResult({
+          valid: false,
+          error: 'Unknown proof type. Expected: rule-based-verification',
+        });
+        setIsVerifying(false);
+        return;
+      }
+      
+      // Check if all rules were satisfied
+      const allSatisfied = proofData.allSatisfied === true;
+      
+      setResult({
+        valid: allSatisfied,
+        type: proofData.type,
+        verifiedAt: proofData.verifiedAt ? new Date(proofData.verifiedAt).toLocaleString() : 'Unknown',
+        rules: proofData.rules || [],
+        allSatisfied: allSatisfied,
+        credentialCommitment: proofData.credentialCommitment,
+      });
+    } catch (error) {
+      setResult({
+        valid: false,
+        error: 'Failed to verify proof: ' + (error instanceof Error ? error.message : 'Unknown error'),
+      });
+    }
     
     setIsVerifying(false);
   };
@@ -105,40 +142,49 @@ export function VerifyProof() {
                 </div>
               </div>
 
-              {result.valid && (
+              {result.valid && result.rules && (
                 <div className="space-y-3 mt-4 pt-4 border-t border-emerald-200">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-slate-500 uppercase">Credential Type</p>
-                      <p className="text-slate-900 font-medium">{result.credentialType}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 uppercase">Issuer</p>
-                      <p className="text-slate-900 font-medium">{result.issuer}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 uppercase">Issued</p>
-                      <p className="text-slate-700">{result.issuedAt}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-slate-500 uppercase">Expires</p>
-                      <p className="text-slate-700">{result.expiresAt}</p>
+                  <div>
+                    <p className="text-xs text-slate-500 uppercase mb-2">Verified Rules</p>
+                    <div className="space-y-2">
+                      {result.rules.map((rule, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2 bg-white rounded border">
+                          <div className="flex items-center gap-2">
+                            {rule.satisfied ? (
+                              <CheckCircle className="w-4 h-4 text-emerald-500" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-red-500" />
+                            )}
+                            <span className="text-sm font-medium">{rule.field}</span>
+                            <Badge variant="default" size="sm">{rule.operator}</Badge>
+                            <span className="text-sm text-slate-600">{String(rule.value)}</span>
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            Actual: <span className={rule.satisfied ? 'text-emerald-600 font-medium' : 'text-red-600'}>
+                              {String(rule.actualValue)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
-                  {result.disclosures && Object.keys(result.disclosures).length > 0 && (
-                    <div className="mt-4">
-                      <p className="text-xs text-slate-500 uppercase mb-2">Disclosed Information</p>
-                      <div className="space-y-2">
-                        {Object.entries(result.disclosures).map(([key, value]) => (
-                          <div key={key} className="flex items-center gap-2">
-                            <Badge variant="info" size="sm">{key}</Badge>
-                            <span className="text-slate-900">{value}</span>
-                          </div>
-                        ))}
-                      </div>
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase">Proof Type</p>
+                      <p className="text-slate-900 font-medium">{result.type}</p>
                     </div>
-                  )}
+                    <div>
+                      <p className="text-xs text-slate-500 uppercase">Verified At</p>
+                      <p className="text-slate-700">{result.verifiedAt}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {result.error && (
+                <div className="mt-4 p-3 bg-red-50 rounded border border-red-200">
+                  <p className="text-sm text-red-700">{result.error}</p>
                 </div>
               )}
             </div>

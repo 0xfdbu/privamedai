@@ -4,12 +4,27 @@ import { Card, CardHeader, CardBody, Button, Input, Alert } from '../common';
 import { getWalletState } from '../../services/contractService';
 import { issueCredentialOnChain } from '../../services/contractInteraction';
 
+// Structured claim data that matches AI proof requirements
+interface ClaimData {
+  age: number;
+  has_diabetes_diagnosis: boolean;
+  vaccinated_last_6_months: boolean;
+  vaccination_status: string;
+  medical_clearance: boolean;
+  free_healthcare_eligible: boolean;
+  dental_coverage: boolean;
+  annual_wellness_exam: string;
+  identity_verified: boolean;
+  income_eligible: boolean;
+  resident_status: string;
+}
+
 // Credential data structure
 interface CredentialData {
   patientAddress: string;
   claimType: string;
-  claimData: string;
   expiryDays: string;
+  claimData: ClaimData;
 }
 
 // Issue result
@@ -24,12 +39,26 @@ interface IssueResult {
 
 export type { IssueResult };
 
+const defaultClaimData: ClaimData = {
+  age: 35,
+  has_diabetes_diagnosis: false,
+  vaccinated_last_6_months: false,
+  vaccination_status: 'partial',
+  medical_clearance: false,
+  free_healthcare_eligible: false,
+  dental_coverage: false,
+  annual_wellness_exam: 'pending',
+  identity_verified: true,
+  income_eligible: false,
+  resident_status: 'pending',
+};
+
 export function IssueCredential() {
   const [formData, setFormData] = useState<CredentialData>({
     patientAddress: '',
-    claimType: '',
-    claimData: '',
+    claimType: 'Medical Record',
     expiryDays: '365',
+    claimData: { ...defaultClaimData },
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<IssueResult | null>(null);
@@ -43,7 +72,7 @@ export function IssueCredential() {
     const dataString = JSON.stringify({
       patient: data.patientAddress,
       type: data.claimType,
-      data: data.claimData,
+      data: data.claimData, // Now structured ClaimData object
       issuedAt: Date.now(),
     });
     
@@ -94,11 +123,14 @@ export function IssueCredential() {
         throw new Error('Patient address and claim type are required.');
       }
 
+      // Convert structured claim data to JSON string
+      const claimDataJson = JSON.stringify(formData.claimData);
+
       // Call the REAL contract on-chain
       const result = await issueCredentialOnChain(
         formData.patientAddress,
         formData.claimType,
-        formData.claimData,
+        claimDataJson,
         parseInt(formData.expiryDays)
       );
 
@@ -116,8 +148,8 @@ export function IssueCredential() {
       // Reset form
       setFormData({
         patientAddress: '',
-        claimType: '',
-        claimData: '',
+        claimType: 'Medical Record',
+        claimData: { ...defaultClaimData },
         expiryDays: '365',
       });
 
@@ -224,18 +256,172 @@ export function IssueCredential() {
               required
             />
 
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium text-slate-700">
-                Claim Data (Encrypted)
-              </label>
-              <textarea
-                className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-colors"
-                rows={4}
-                placeholder="Enter the credential data (will be hashed)..."
-                value={formData.claimData}
-                onChange={(e) => setFormData(prev => ({ ...prev, claimData: e.target.value }))}
-                required
+            {/* Structured Claim Data */}
+            <div className="space-y-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <h4 className="font-medium text-slate-700">Claim Data Fields</h4>
+              
+              <Input
+                label="Age"
+                type="number"
+                min="0"
+                max="150"
+                value={formData.claimData.age}
+                onChange={(e) => setFormData(prev => ({ 
+                  ...prev, 
+                  claimData: { ...prev.claimData, age: parseInt(e.target.value) || 0 }
+                }))}
               />
+
+              {/* Boolean fields */}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex items-center gap-2 p-2 bg-white rounded border cursor-pointer hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.claimData.has_diabetes_diagnosis}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      claimData: { ...prev.claimData, has_diabetes_diagnosis: e.target.checked }
+                    }))}
+                    className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  />
+                  <span className="text-sm">Diabetes Diagnosis</span>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 bg-white rounded border cursor-pointer hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.claimData.vaccinated_last_6_months}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      claimData: { ...prev.claimData, vaccinated_last_6_months: e.target.checked }
+                    }))}
+                    className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  />
+                  <span className="text-sm">Vaccinated (6mo)</span>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 bg-white rounded border cursor-pointer hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.claimData.medical_clearance}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      claimData: { ...prev.claimData, medical_clearance: e.target.checked }
+                    }))}
+                    className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  />
+                  <span className="text-sm">Medical Clearance</span>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 bg-white rounded border cursor-pointer hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.claimData.free_healthcare_eligible}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      claimData: { ...prev.claimData, free_healthcare_eligible: e.target.checked }
+                    }))}
+                    className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  />
+                  <span className="text-sm">Free Healthcare</span>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 bg-white rounded border cursor-pointer hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.claimData.dental_coverage}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      claimData: { ...prev.claimData, dental_coverage: e.target.checked }
+                    }))}
+                    className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  />
+                  <span className="text-sm">Dental Coverage</span>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 bg-white rounded border cursor-pointer hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.claimData.identity_verified}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      claimData: { ...prev.claimData, identity_verified: e.target.checked }
+                    }))}
+                    className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  />
+                  <span className="text-sm">Identity Verified</span>
+                </label>
+
+                <label className="flex items-center gap-2 p-2 bg-white rounded border cursor-pointer hover:bg-slate-50">
+                  <input
+                    type="checkbox"
+                    checked={formData.claimData.income_eligible}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      claimData: { ...prev.claimData, income_eligible: e.target.checked }
+                    }))}
+                    className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
+                  />
+                  <span className="text-sm">Income Eligible</span>
+                </label>
+              </div>
+
+              {/* String fields */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-slate-700">Vaccination Status</label>
+                <select
+                  value={formData.claimData.vaccination_status}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    claimData: { ...prev.claimData, vaccination_status: e.target.value }
+                  }))}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
+                >
+                  <option value="complete">Complete</option>
+                  <option value="partial">Partial</option>
+                  <option value="none">None</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-slate-700">Wellness Exam Status</label>
+                <select
+                  value={formData.claimData.annual_wellness_exam}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    claimData: { ...prev.claimData, annual_wellness_exam: e.target.value }
+                  }))}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
+                >
+                  <option value="completed">Completed</option>
+                  <option value="pending">Pending</option>
+                  <option value="scheduled">Scheduled</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-slate-700">Resident Status</label>
+                <select
+                  value={formData.claimData.resident_status}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    claimData: { ...prev.claimData, resident_status: e.target.value }
+                  }))}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500"
+                >
+                  <option value="verified">Verified</option>
+                  <option value="pending">Pending</option>
+                  <option value="ineligible">Ineligible</option>
+                </select>
+              </div>
+
+              {/* JSON Preview */}
+              <div className="mt-4 p-3 bg-slate-800 rounded-lg">
+                <p className="text-xs text-slate-400 mb-2">Data Preview (what will be hashed):</p>
+                <pre className="text-xs text-emerald-400 overflow-x-auto">
+                  {JSON.stringify(formData.claimData, null, 2)}
+                </pre>
+              </div>
             </div>
 
             <Input

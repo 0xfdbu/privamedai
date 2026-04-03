@@ -1,42 +1,15 @@
 import { useState } from 'react';
 import { Building2, FilePlus, UserCircle, Users } from 'lucide-react';
-import { IssueCredential } from './IssueCredential';
-import { RegisterIssuer } from './RegisterIssuer';
-import { RegisteredIssuers } from './RegisteredIssuers';
-
-// Note: Removed Dashboard, ManageCredentials, and AuditLog tabs as requested
-// Now only showing: Issue Credentials, Register, and Registered Issuers
-
 import { Card, CardHeader, CardBody, Badge } from '../common';
 
-type IssuerTab = 'issue' | 'registration' | 'issuers';
-
-const tabs = [
-  { id: 'issue' as IssuerTab, label: 'Issue Credentials', icon: FilePlus },
-  { id: 'registration' as IssuerTab, label: 'Register', icon: UserCircle },
-  { id: 'issuers' as IssuerTab, label: 'Registered Issuers', icon: Users },
-];
-
+// This is now a landing page for the Medical Provider Portal
+// Actual navigation is handled by sidebar
 export function IssuerPortal() {
-  const [activeTab, setActiveTab] = useState<IssuerTab>('issue');
   const [issuerStatus] = useState({
     isRegistered: true,
     isActive: true,
     name: 'City General Hospital',
   });
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'issue':
-        return <IssueCredential />;
-      case 'registration':
-        return <RegisterIssuer />;
-      case 'issuers':
-        return <RegisteredIssuers />;
-      default:
-        return <IssueCredential />;
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -44,7 +17,7 @@ export function IssuerPortal() {
       <Card>
         <CardHeader
           title="Medical Provider Portal"
-          subtitle="Issue and manage privacy-preserving credentials"
+          subtitle="Issue privacy-preserving credentials for your patients"
           icon={Building2}
           action={
             <div className="flex items-center gap-2">
@@ -57,39 +30,52 @@ export function IssuerPortal() {
             </div>
           }
         />
-        <CardBody className="p-0">
-          {/* Sub-navigation */}
-          <div className="border-t border-slate-200">
-            <div className="flex overflow-x-auto">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`
-                      flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap
-                      ${isActive 
-                        ? 'border-emerald-500 text-emerald-600 bg-emerald-50/50' 
-                        : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                      }
-                    `}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
+        <CardBody>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <FeatureCard
+              icon={FilePlus}
+              title="Issue Credentials"
+              description="Create new medical credentials for patients"
+              link="/issuer/issue"
+            />
+            <FeatureCard
+              icon={UserCircle}
+              title="Register"
+              description="Register as a credential issuer"
+              link="/issuer/register"
+            />
+            <FeatureCard
+              icon={Users}
+              title="Registered Issuers"
+              description="View all registered medical providers"
+              link="/issuer/issuers"
+            />
           </div>
         </CardBody>
       </Card>
-
-      {/* Content */}
-      <div className="min-h-[400px]">
-        {renderContent()}
-      </div>
     </div>
+  );
+}
+
+function FeatureCard({ 
+  icon: Icon, 
+  title, 
+  description, 
+  link 
+}: { 
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  description: string;
+  link: string;
+}) {
+  return (
+    <a 
+      href={link}
+      className="p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/50 transition-colors group"
+    >
+      <Icon className="w-8 h-8 text-emerald-600 mb-3 group-hover:scale-110 transition-transform" />
+      <h3 className="font-medium text-slate-900 mb-1">{title}</h3>
+      <p className="text-sm text-slate-500">{description}</p>
+    </a>
   );
 }
