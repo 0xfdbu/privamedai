@@ -1,26 +1,56 @@
 import { useState, useRef, useEffect } from 'react';
 import { Wallet, LogOut, Copy, Check, ExternalLink, ChevronDown, Shield } from 'lucide-react';
-import { getWalletState, connectWallet, disconnectWallet } from '../../services/contractService';
+import { getWalletState, connectLaceWallet, disconnectWallet } from '../../services/contractService';
 import { Button } from '../common/Button';
-import { Input } from '../common/Input';
+
+// Import dapp-connector types for window.midnight augmentation
+import '@midnight-ntwrk/dapp-connector-api';
 
 export function WalletButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [address, setAddress] = useState('');
-  const [pubKey, setPubKey] = useState('');
-  const [seed, setSeed] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [laceAvailable, setLaceAvailable] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const wallet = getWalletState();
     setIsConnected(wallet.isConnected);
     setAddress(wallet.address || '');
-    setPubKey(wallet.pubKey || '');
   }, []);
+
+  // Poll for Lace availability (extensions inject async)
+  useEffect(() => {
+    // Check immediately first
+    checkForLace();
+    
+    // Poll every 100ms for up to 3 seconds
+    const interval = setInterval(() => {
+      checkForLace();
+    }, 100);
+
+    // Stop polling after 3 seconds
+    const timeout = setTimeout(() => clearInterval(interval), 3000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, []);
+
+  function checkForLace() {
+    const midnight = (window as any).midnight;
+    // Check for mnLace or any wallet with apiVersion
+    const lace = midnight?.mnLace || 
+      (midnight ? Object.values(midnight).find((w: any) => w?.apiVersion) : undefined);
+    
+    if (lace) {
+      setLaceAvailable(true);
+    }
+  }
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -33,17 +63,15 @@ export function WalletButton() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleConnect = async () => {
+  const handleConnectLace = async () => {
     setIsConnecting(true);
     setError(null);
     
-    const result = await connectWallet(seed);
+    const result = await connectLaceWallet();
     
     if (result.success) {
       setIsConnected(true);
       setAddress(result.address!);
-      setPubKey(seed);
-      setSeed('');
       setIsOpen(false);
     } else {
       setError(result.error || 'Failed to connect');
@@ -56,7 +84,6 @@ export function WalletButton() {
     disconnectWallet();
     setIsConnected(false);
     setAddress('');
-    setPubKey('');
     setIsOpen(false);
   };
 
@@ -89,7 +116,7 @@ export function WalletButton() {
             <div className="p-4">
               <h3 className="font-semibold text-slate-900 mb-1">Connect Wallet</h3>
               <p className="text-xs text-slate-500 mb-4">
-                Enter your wallet seed to connect
+                Connect your Lace wallet to interact with the contract
               </p>
 
               {error && (
@@ -98,25 +125,33 @@ export function WalletButton() {
                 </div>
               )}
 
-              <Input
-                label="Wallet Seed"
-                placeholder="64 character hex seed..."
-                value={seed}
-                onChange={(e) => setSeed(e.target.value)}
-                type="password"
-              />
+              {!laceAvailable && (
+                <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+                  <p className="font-medium mb-1">Lace wallet not detected</p>
+                  <p>Please install the Lace extension and refresh the page</p>
+                  <a 
+                    href="https://chromewebstore.google.com/detail/lace-wallet/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-amber-800 underline mt-1 inline-block"
+                  >
+                    Install Lace →
+                  </a>
+                </div>
+              )}
 
               <Button
-                onClick={handleConnect}
+                onClick={handleConnectLace}
                 isLoading={isConnecting}
-                disabled={seed.length !== 64 || isConnecting}
-                className="w-full mt-3"
+                disabled={!laceAvailable || isConnecting}
+                className="w-full"
+                leftIcon={<Wallet className="w-4 h-4" />}
               >
-                Connect
+                {laceAvailable ? 'Connect with Lace' : 'Lace Not Available'}
               </Button>
 
               <p className="text-xs text-slate-400 mt-3 text-center">
-                Your seed is stored locally and never leaves your device
+                Your keys never leave your wallet
               </p>
             </div>
           </div>
@@ -155,7 +190,7 @@ export function WalletButton() {
               </div>
               <div>
                 <p className="font-semibold text-slate-900">Wallet Connected</p>
-                <p className="text-xs text-slate-500">Midnight Preprod Network</p>
+                <p className="text-xs text-slate-500">Lace • Midnight Preprod</p>
               </div>
             </div>
           </div>
@@ -178,18 +213,6 @@ export function WalletButton() {
                 >
                   {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
                 </button>
-              </div>
-            </div>
-
-            {/* Public Key */}
-            <div>
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                Public Key
-              </label>
-              <div className="mt-1">
-                <code className="block text-xs bg-slate-100 px-3 py-2 rounded-lg text-slate-600 font-mono truncate">
-                  {pubKey ? `${pubKey.slice(0, 20)}...${pubKey.slice(-20)}` : 'N/A'}
-                </code>
               </div>
             </div>
 

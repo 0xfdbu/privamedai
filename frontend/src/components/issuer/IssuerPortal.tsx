@@ -1,26 +1,25 @@
 import { useState } from 'react';
-import { Building2, LayoutDashboard, FilePlus, ClipboardList, UserCircle, FileText } from 'lucide-react';
-import { IssuerDashboard } from './IssuerDashboard';
+import { Building2, FilePlus, UserCircle, Users } from 'lucide-react';
 import { IssueCredential } from './IssueCredential';
-import { BatchIssue } from './BatchIssue';
-import { ManageCredentials } from './ManageCredentials';
-import { IssuerRegistration } from './IssuerRegistration';
-import { AuditLog } from './AuditLog';
+import { RegisterIssuer } from './RegisterIssuer';
+import { RegisteredIssuers } from './RegisteredIssuers';
+
+// Note: Removed Dashboard, ManageCredentials, and AuditLog tabs as requested
+// Now only showing: Issue Credentials, Register, and Registered Issuers
+
 import { Card, CardHeader, CardBody, Badge } from '../common';
 
-type IssuerTab = 'dashboard' | 'issue' | 'manage' | 'registration' | 'audit';
+type IssuerTab = 'issue' | 'registration' | 'issuers';
 
 const tabs = [
-  { id: 'dashboard' as IssuerTab, label: 'Dashboard', icon: LayoutDashboard },
   { id: 'issue' as IssuerTab, label: 'Issue Credentials', icon: FilePlus },
-  { id: 'manage' as IssuerTab, label: 'Manage', icon: ClipboardList },
-  { id: 'registration' as IssuerTab, label: 'Registration', icon: UserCircle },
-  { id: 'audit' as IssuerTab, label: 'Audit Log', icon: FileText },
+  { id: 'registration' as IssuerTab, label: 'Register', icon: UserCircle },
+  { id: 'issuers' as IssuerTab, label: 'Registered Issuers', icon: Users },
 ];
 
 export function IssuerPortal() {
-  const [activeTab, setActiveTab] = useState<IssuerTab>('dashboard');
-  const [issuerStatus, setIssuerStatus] = useState({
+  const [activeTab, setActiveTab] = useState<IssuerTab>('issue');
+  const [issuerStatus] = useState({
     isRegistered: true,
     isActive: true,
     name: 'City General Hospital',
@@ -28,23 +27,14 @@ export function IssuerPortal() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard':
-        return <IssuerDashboard />;
       case 'issue':
-        return (
-          <div className="space-y-6">
-            <BatchIssue />
-            <IssueCredential />
-          </div>
-        );
-      case 'manage':
-        return <ManageCredentials />;
+        return <IssueCredential />;
       case 'registration':
-        return <IssuerRegistration />;
-      case 'audit':
-        return <AuditLog />;
+        return <RegisterIssuer />;
+      case 'issuers':
+        return <RegisteredIssuers />;
       default:
-        return <IssuerDashboard />;
+        return <IssueCredential />;
     }
   };
 

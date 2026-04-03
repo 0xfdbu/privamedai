@@ -98,8 +98,8 @@ export circuit registerIssuer(
   const d_issuerPubKey = disclose(issuerPubKey);
   const d_nameHash = disclose(nameHash);
   
-  const adminKey = admin.lookup(pad(1, "a"));
-  assert(disclose(d_callerPubKey == adminKey), "Only admin can register issuers");
+  // Open registration - anyone can register as an issuer
+  // Admin check removed for open registration
   
   assert(!issuerRegistry.member(d_issuerPubKey), "Issuer already registered");
   

@@ -7,6 +7,7 @@ export interface Credential {
   isRevoked: boolean;
   encryptedData: string;
   commitment: string;
+  claimHash: string;
 }
 
 export interface IssuerInfo {

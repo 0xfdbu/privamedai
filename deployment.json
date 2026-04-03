@@ -1,5 +1,55 @@
 {
-  "contractAddress": "56c506bed6acff24377f26d2c46eb60dd31f9c4039449e47bd61e0555f6a9404",
   "network": "preprod",
-  "deployedAt": "2026-03-31T01:17:00.713Z"
+  "contractAddress": "dfd5cc3242d5958bababee206981c7327be0a8f60d6669fca2488e34cad8755b",
+  "contractName": "PrivaMedAI",
+  "txId": "00b2adc5f37a6619cd5913ef3691722c61970eb4819b414e8a5b56f219482a9793",
+  "blockHeight": "180003",
+  "adminAddress": {
+    "type": "addr",
+    "network": "preprod",
+    "data": {
+      "type": "Buffer",
+      "data": [
+        156,
+        202,
+        208,
+        216,
+        36,
+        199,
+        237,
+        161,
+        159,
+        140,
+        134,
+        157,
+        192,
+        206,
+        170,
+        218,
+        60,
+        99,
+        2,
+        205,
+        107,
+        143,
+        77,
+        171,
+        92,
+        95,
+        81,
+        249,
+        87,
+        8,
+        238,
+        43
+      ]
+    }
+  },
+  "deployedAt": "2026-04-03T00:08:00.903Z",
+  "features": [
+    "Issuer Registry with open registration",
+    "Privacy-preserving credentials",
+    "Batch credential issuance",
+    "Credential verification"
+  ]
 }

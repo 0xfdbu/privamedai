@@ -13,6 +13,21 @@
       "require": "./dist/index.js",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./dist/index.browser.js": {
+      "types": "./dist/index.browser.d.ts",
+      "import": "./dist/index.browser.js",
+      "default": "./dist/index.browser.js"
+    },
+    "./dist/managed/PrivaMedAI/contract/index.js": {
+      "types": "./dist/managed/PrivaMedAI/contract/index.d.ts",
+      "import": "./dist/managed/PrivaMedAI/contract/index.js",
+      "default": "./dist/managed/PrivaMedAI/contract/index.js"
+    },
+    "./dist/managed/*": {
+      "types": "./dist/managed/*",
+      "import": "./dist/managed/*",
+      "default": "./dist/managed/*"
     }
   },
   "scripts": {

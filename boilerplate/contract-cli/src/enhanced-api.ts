@@ -1,6 +1,6 @@
-// Enhanced API wrapper for PrivaCred Contract
-// Generated on: 2026-03-30T20:14:42.032Z
-// Auto-generated from PrivaCred.compact
+// Enhanced API wrapper for PrivaMedAI Contract
+// Generated on: 2026-04-02T23:13:58.518Z
+// Auto-generated from PrivaMedAI.compact
 
 import { type Logger } from 'pino';
 import { ContractAnalyzer } from './contract-analyzer.js';
@@ -87,10 +87,46 @@ export class EnhancedContractAPI {
 
   // Dynamic function mapping based on contract analysis
   /**
+   * Execute initialize function
+   */
+  async initialize(...args: any[]): Promise<any> {
+    return await (originalApi as any).initialize(...args);
+  }
+  /**
+   * Execute getAdmin function
+   */
+  async getAdmin(...args: any[]): Promise<any> {
+    return await (originalApi as any).getAdmin(...args);
+  }
+  /**
+   * Execute registerIssuer function
+   */
+  async registerIssuer(...args: any[]): Promise<any> {
+    return await (originalApi as any).registerIssuer(...args);
+  }
+  /**
+   * Execute updateIssuerStatus function
+   */
+  async updateIssuerStatus(...args: any[]): Promise<any> {
+    return await (originalApi as any).updateIssuerStatus(...args);
+  }
+  /**
+   * Execute getIssuerInfo function
+   */
+  async getIssuerInfo(...args: any[]): Promise<any> {
+    return await (originalApi as any).getIssuerInfo(...args);
+  }
+  /**
    * Execute issueCredential function
    */
   async issueCredential(...args: any[]): Promise<any> {
     return await (originalApi as any).issueCredential(...args);
+  }
+  /**
+   * Execute batchIssue3Credentials function
+   */
+  async batchIssue3Credentials(...args: any[]): Promise<any> {
+    return await (originalApi as any).batchIssue3Credentials(...args);
   }
   /**
    * Execute verifyCredential function
@@ -99,28 +135,122 @@ export class EnhancedContractAPI {
     return await (originalApi as any).verifyCredential(...args);
   }
   /**
+   * Execute bundledVerify3Credentials function
+   */
+  async bundledVerify3Credentials(...args: any[]): Promise<any> {
+    return await (originalApi as any).bundledVerify3Credentials(...args);
+  }
+  /**
+   * Execute bundledVerify2Credentials function
+   */
+  async bundledVerify2Credentials(...args: any[]): Promise<any> {
+    return await (originalApi as any).bundledVerify2Credentials(...args);
+  }
+  /**
    * Execute revokeCredential function
    */
   async revokeCredential(...args: any[]): Promise<any> {
     return await (originalApi as any).revokeCredential(...args);
   }
+  /**
+   * Execute adminRevokeCredential function
+   */
+  async adminRevokeCredential(...args: any[]): Promise<any> {
+    return await (originalApi as any).adminRevokeCredential(...args);
+  }
+  /**
+   * Execute checkCredentialStatus function
+   */
+  async checkCredentialStatus(...args: any[]): Promise<any> {
+    return await (originalApi as any).checkCredentialStatus(...args);
+  }
 }
 
 // Export contract metadata for reference
 export const CONTRACT_METADATA = {
-  name: 'PrivaCred Contract',
-  fileName: 'PrivaCred.compact',
-  generatedAt: '2026-03-30T20:14:42.032Z',
+  name: 'PrivaMedAI Contract',
+  fileName: 'PrivaMedAI.compact',
+  generatedAt: '2026-04-02T23:13:58.518Z',
   functions: [
+  {
+    "name": "initialize",
+    "parameters": [
+      {
+        "name": "initialAdmin",
+        "type": "Bytes<32>"
+      }
+    ],
+    "returnType": "[]",
+    "readOnly": false
+  },
+  {
+    "name": "getAdmin",
+    "parameters": [],
+    "returnType": "Bytes<32>",
+    "readOnly": true
+  },
+  {
+    "name": "registerIssuer",
+    "parameters": [
+      {
+        "name": "callerPubKey",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "issuerPubKey",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "nameHash",
+        "type": "Bytes<32>"
+      }
+    ],
+    "returnType": "[]",
+    "readOnly": false
+  },
+  {
+    "name": "updateIssuerStatus",
+    "parameters": [
+      {
+        "name": "callerPubKey",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "issuerPubKey",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "newStatus",
+        "type": "IssuerStatus"
+      }
+    ],
+    "returnType": "[]",
+    "readOnly": false
+  },
+  {
+    "name": "getIssuerInfo",
+    "parameters": [
+      {
+        "name": "issuerPubKey",
+        "type": "Bytes<32>"
+      }
+    ],
+    "returnType": "Issuer",
+    "readOnly": true
+  },
   {
     "name": "issueCredential",
     "parameters": [
+      {
+        "name": "callerPubKey",
+        "type": "Bytes<32>"
+      },
       {
         "name": "commitment",
         "type": "Bytes<32>"
       },
       {
-        "name": "issuer",
+        "name": "issuerPubKey",
         "type": "Bytes<32>"
       },
       {
@@ -136,10 +266,115 @@ export const CONTRACT_METADATA = {
     "readOnly": false
   },
   {
+    "name": "batchIssue3Credentials",
+    "parameters": [
+      {
+        "name": "callerPubKey",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "commitment1",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "claimHash1",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "expiry1",
+        "type": "Uint<64>"
+      },
+      {
+        "name": "commitment2",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "claimHash2",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "expiry2",
+        "type": "Uint<64>"
+      },
+      {
+        "name": "commitment3",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "claimHash3",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "expiry3",
+        "type": "Uint<64>"
+      }
+    ],
+    "returnType": "[]",
+    "readOnly": false
+  },
+  {
     "name": "verifyCredential",
     "parameters": [
       {
         "name": "commitment",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "credentialData",
+        "type": "Bytes<32>"
+      }
+    ],
+    "returnType": "Boolean",
+    "readOnly": true
+  },
+  {
+    "name": "bundledVerify3Credentials",
+    "parameters": [
+      {
+        "name": "commitment1",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "credentialData1",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "commitment2",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "credentialData2",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "commitment3",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "credentialData3",
+        "type": "Bytes<32>"
+      }
+    ],
+    "returnType": "Boolean",
+    "readOnly": true
+  },
+  {
+    "name": "bundledVerify2Credentials",
+    "parameters": [
+      {
+        "name": "commitment1",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "credentialData1",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "commitment2",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "credentialData2",
         "type": "Bytes<32>"
       }
     ],
@@ -150,12 +385,46 @@ export const CONTRACT_METADATA = {
     "name": "revokeCredential",
     "parameters": [
       {
+        "name": "callerPubKey",
+        "type": "Bytes<32>"
+      },
+      {
         "name": "commitment",
         "type": "Bytes<32>"
       }
     ],
     "returnType": "[]",
     "readOnly": false
+  },
+  {
+    "name": "adminRevokeCredential",
+    "parameters": [
+      {
+        "name": "callerPubKey",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "commitment",
+        "type": "Bytes<32>"
+      },
+      {
+        "name": "reasonHash",
+        "type": "Bytes<32>"
+      }
+    ],
+    "returnType": "[]",
+    "readOnly": false
+  },
+  {
+    "name": "checkCredentialStatus",
+    "parameters": [
+      {
+        "name": "commitment",
+        "type": "Bytes<32>"
+      }
+    ],
+    "returnType": "CredentialStatus",
+    "readOnly": true
   }
 ],
   ledgerState: [
@@ -164,7 +433,23 @@ export const CONTRACT_METADATA = {
     "type": "Map<Bytes<32>, Credential>"
   },
   {
+    "name": "issuerRegistry",
+    "type": "Map<Bytes<32>, Issuer>"
+  },
+  {
+    "name": "admin",
+    "type": "Map<Bytes<1>, Bytes<32>>"
+  },
+  {
     "name": "roundCounter",
+    "type": "Counter"
+  },
+  {
+    "name": "totalCredentialsIssued",
+    "type": "Counter"
+  },
+  {
+    "name": "totalVerificationsPerformed",
     "type": "Counter"
   }
 ],

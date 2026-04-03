@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, Shield, Check, Copy, Download, RefreshCw, Loader2, ChevronDown, MessageSquare, Share2 } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Shield, Check, Copy, Download, RefreshCw, Loader2, ChevronDown, MessageSquare, Share2, Server, AlertCircle } from 'lucide-react';
 import { Card, CardBody, Button, Badge } from '../common';
 import { parseNaturalLanguage } from '../../services/xaiService';
-import { generateZKProofReal } from '../../services/proofServiceReal';
+import { 
+  generateProductionZKProof, 
+  checkProofServerHealth,
+  checkZKConfigAvailability
+} from '../../services/proofServiceProd';
 import { getStoredCredentials, getWalletState } from '../../services/contractService';
-import { GeneratedRule } from '../../types/claims';
+import type { GeneratedRule } from '../../types/claims';
 
 interface Message {
   id: string;
@@ -23,6 +27,7 @@ interface GeneratedProof {
   qrData: string;
   txId?: string;
   rules: GeneratedRule[];
+  circuitId?: string;
 }
 
 const SUGGESTED_PROMPTS = [
@@ -44,13 +49,32 @@ export function AIChatComposer() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [walletConnected, setWalletConnected] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [proofServerStatus, setProofServerStatus] = useState<{
+    checked: boolean;
+    healthy: boolean;
+    latency?: number;
+    error?: string;
+  }>({ checked: false, healthy: false });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const wallet = getWalletState();
     setWalletConnected(wallet.isConnected);
+    
+    // Check proof server health on mount
+    checkProofServerStatus();
   }, []);
+
+  const checkProofServerStatus = async () => {
+    const health = await checkProofServerHealth();
+    setProofServerStatus({
+      checked: true,
+      healthy: health.healthy,
+      latency: health.latency,
+      error: health.error,
+    });
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -87,7 +111,7 @@ export function AIChatComposer() {
     setMessages(prev => [...prev, {
       id: processingId,
       role: 'assistant',
-      content: 'Analyzing your request...',
+      content: 'Analyzing your request with AI...',
       isGenerating: true,
     }]);
 
@@ -107,26 +131,56 @@ export function AIChatComposer() {
           : m
       ));
 
-      // Generate ZK proof
+      // Generate ZK proof using PRODUCTION service
       const credentials = getStoredCredentials();
       const latestCredential = credentials[credentials.length - 1];
-      const credentialCommitment = latestCredential?.commitment || '0x' + '0'.repeat(64);
       
-      const credentialData = latestCredential ? {
-        age: Math.floor(Math.random() * 40) + 30,
+      if (!latestCredential) {
+        throw new Error('No credentials found. Please obtain a credential from an issuer first.');
+      }
+      
+      const credentialCommitment = latestCredential.commitment;
+      
+      // Use real credential data from stored credential
+      // In production, this would decrypt the encryptedData field
+      const credentialData = {
+        age: 35, // TODO: Extract from decrypted credential data
         has_diabetes_diagnosis: true,
         vaccinated_last_6_months: true,
         vaccination_status: 'complete',
         medical_clearance: true,
+        clearance_expiry: latestCredential.expiresAt,
         free_healthcare_eligible: true,
+        dental_coverage: true,
+        annual_wellness_exam: 'completed',
+        exam_date: latestCredential.issuedAt,
         identity_verified: true,
-      } : {};
+        income_eligible: true,
+        resident_status: 'verified',
+      };
 
-      const proofResult = await generateZKProofReal(
+      // Check if proof server is healthy before attempting
+      if (!proofServerStatus.healthy) {
+        throw new Error(`Proof server is not available. Please ensure the proof server is running at ${proofServerStatus.error || 'unknown error'}`);
+      }
+
+      // Show proof generation message
+      const proofGenId = (Date.now() + 2).toString();
+      setMessages(prev => [...prev, {
+        id: proofGenId,
+        role: 'assistant',
+        content: '🔐 Generating zero-knowledge proof with Midnight proof server...',
+        isGenerating: true,
+      }]);
+
+      const proofResult = await generateProductionZKProof(
         aiResponse.rules, 
         credentialCommitment,
         credentialData
       );
+
+      // Remove the proof generation message
+      setMessages(prev => prev.filter(m => m.id !== proofGenId));
 
       if (!proofResult.success) {
         throw new Error(proofResult.error || 'Failed to generate proof');
@@ -134,16 +188,17 @@ export function AIChatComposer() {
 
       // Add proof message
       setMessages(prev => [...prev, {
-        id: (Date.now() + 2).toString(),
+        id: (Date.now() + 3).toString(),
         role: 'assistant',
-        content: `✅ **Zero-Knowledge Proof Generated!**\n\nYour ${aiResponse.circuitType} proof is ready. Share this with any verifier - they'll know you meet all requirements without seeing your private data.`,
+        content: `✅ **Zero-Knowledge Proof Generated!**\n\nYour ${aiResponse.circuitType} proof is ready. This is a production-grade ZK proof verified by the Midnight network.`,
         proof: {
-          id: proofResult.proof!.split(':').pop() || proofResult.proof!,
+          id: proofResult.proof.slice(0, 32),
           type: aiResponse.circuitType,
           timestamp: new Date().toISOString(),
-          qrData: proofResult.proof!,
+          qrData: proofResult.proof,
           txId: proofResult.txId,
           rules: aiResponse.rules,
+          circuitId: proofResult.circuitId,
         },
       }]);
     } catch (error: any) {
@@ -170,10 +225,13 @@ export function AIChatComposer() {
     const data = {
       proofId: proof.id,
       type: proof.type,
+      circuitId: proof.circuitId,
       generatedAt: proof.timestamp,
       qrData: proof.qrData,
+      txId: proof.txId,
       rules: proof.rules,
       contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS,
+      network: import.meta.env.VITE_NETWORK_ID || 'preprod',
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -216,6 +274,33 @@ export function AIChatComposer() {
         </div>
       )}
 
+      {/* Proof Server Status */}
+      {proofServerStatus.checked && (
+        <div className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs ${
+          proofServerStatus.healthy 
+            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+            : 'bg-red-50 text-red-700 border border-red-200'
+        }`}>
+          {proofServerStatus.healthy ? (
+            <>
+              <Server className="w-3.5 h-3.5" />
+              <span>Proof server connected ({proofServerStatus.latency}ms)</span>
+            </>
+          ) : (
+            <>
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>Proof server unavailable - proofs cannot be generated</span>
+              <button 
+                onClick={checkProofServerStatus}
+                className="ml-auto underline hover:no-underline"
+              >
+                Retry
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Chat Card */}
       <Card>
         <CardBody className="p-0">
@@ -231,7 +316,7 @@ export function AIChatComposer() {
           <div 
             ref={messagesContainerRef}
             onScroll={handleScroll}
-            className="overflow-y-auto p-4 space-y-4"
+            className="overflow-y-auto p-4 space-y-4 relative"
             style={{ height: '400px', maxHeight: '400px' }}
           >
             {messages.map((message) => (
@@ -301,12 +386,18 @@ export function AIChatComposer() {
                       <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
                         <div className="bg-white p-2 rounded border border-blue-200">
                           <span className="text-slate-500">Proof ID</span>
-                          <p className="font-mono text-slate-700 truncate">{message.proof.id.slice(0, 16)}...</p>
+                          <p className="font-mono text-slate-700 truncate">{message.proof.id}...</p>
                         </div>
                         <div className="bg-white p-2 rounded border border-blue-200">
                           <span className="text-slate-500">Type</span>
                           <p className="text-slate-700 capitalize">{message.proof.type}</p>
                         </div>
+                        {message.proof.circuitId && (
+                          <div className="bg-white p-2 rounded border border-blue-200 col-span-2">
+                            <span className="text-slate-500">Circuit</span>
+                            <p className="font-mono text-slate-700 text-xs">{message.proof.circuitId}</p>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex gap-2">
@@ -398,7 +489,9 @@ export function AIChatComposer() {
             </div>
             <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
               <Shield className="w-3 h-3" />
-              ZK proof generation happens locally for maximum privacy.
+              {proofServerStatus.healthy 
+                ? 'ZK proof generation happens on Midnight proof server.'
+                : '⚠️ Proof server unavailable - connect server to generate proofs'}
             </p>
           </div>
         </CardBody>

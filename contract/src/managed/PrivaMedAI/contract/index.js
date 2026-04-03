@@ -1051,26 +1051,6 @@ export class Contract {
     const d_callerPubKey_0 = callerPubKey_0;
     const d_issuerPubKey_0 = issuerPubKey_0;
     const d_nameHash_0 = nameHash_0;
-    const adminKey_0 = _descriptor_0.fromValue(__compactRuntime.queryLedgerState(context,
-                                                                                 partialProofData,
-                                                                                 [
-                                                                                  { dup: { n: 0 } },
-                                                                                  { idx: { cached: false,
-                                                                                           pushPath: false,
-                                                                                           path: [
-                                                                                                  { tag: 'value',
-                                                                                                    value: { value: _descriptor_13.toValue(2n),
-                                                                                                             alignment: _descriptor_13.alignment() } }] } },
-                                                                                  { idx: { cached: false,
-                                                                                           pushPath: false,
-                                                                                           path: [
-                                                                                                  { tag: 'value',
-                                                                                                    value: { value: _descriptor_6.toValue(new Uint8Array([97])),
-                                                                                                             alignment: _descriptor_6.alignment() } }] } },
-                                                                                  { popeq: { cached: false,
-                                                                                             result: undefined } }]).value);
-    __compactRuntime.assert(this._equal_0(d_callerPubKey_0, adminKey_0),
-                            'Only admin can register issuers');
     __compactRuntime.assert(!_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                        partialProofData,
                                                                                        [
@@ -1154,7 +1134,7 @@ export class Contract {
                                                                                                              alignment: _descriptor_6.alignment() } }] } },
                                                                                   { popeq: { cached: false,
                                                                                              result: undefined } }]).value);
-    __compactRuntime.assert(this._equal_1(d_callerPubKey_0, adminKey_0),
+    __compactRuntime.assert(this._equal_0(d_callerPubKey_0, adminKey_0),
                             'Only admin can update issuer status');
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                       partialProofData,
@@ -1335,7 +1315,7 @@ export class Contract {
                                                                                            result: undefined } }]).value);
     __compactRuntime.assert(this._is_active_issuer_0(issuer_0),
                             'Issuer not active');
-    __compactRuntime.assert(this._equal_2(d_callerPubKey_0, d_issuerPubKey_0),
+    __compactRuntime.assert(this._equal_1(d_callerPubKey_0, d_issuerPubKey_0),
                             'Only registered issuer can issue');
     const credential_0 = { issuer: d_issuerPubKey_0,
                            claimHash: d_claimHash_0,
@@ -1756,7 +1736,7 @@ export class Contract {
     __compactRuntime.assert(this._is_active_issuer_0(issuer_0),
                             'Issuer not active');
     const computedHash_0 = this._persistentHash_0([d_credentialData_0]);
-    __compactRuntime.assert(this._equal_3(computedHash_0, credential_0.claimHash),
+    __compactRuntime.assert(this._equal_2(computedHash_0, credential_0.claimHash),
                             'Hash mismatch');
     const tmp_2 = 1n;
     __compactRuntime.queryLedgerState(context,
@@ -1869,7 +1849,7 @@ export class Contract {
     __compactRuntime.assert(this._is_active_issuer_0(issuer1_0),
                             'Credential 1 issuer not active');
     const computedHash1_0 = this._persistentHash_0([d_credentialData1_0]);
-    __compactRuntime.assert(this._equal_4(computedHash1_0, cred1_0.claimHash),
+    __compactRuntime.assert(this._equal_3(computedHash1_0, cred1_0.claimHash),
                             'Credential 1 hash mismatch');
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                       partialProofData,
@@ -1949,7 +1929,7 @@ export class Contract {
     __compactRuntime.assert(this._is_active_issuer_0(issuer2_0),
                             'Credential 2 issuer not active');
     const computedHash2_0 = this._persistentHash_0([d_credentialData2_0]);
-    __compactRuntime.assert(this._equal_5(computedHash2_0, cred2_0.claimHash),
+    __compactRuntime.assert(this._equal_4(computedHash2_0, cred2_0.claimHash),
                             'Credential 2 hash mismatch');
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                       partialProofData,
@@ -2029,7 +2009,7 @@ export class Contract {
     __compactRuntime.assert(this._is_active_issuer_0(issuer3_0),
                             'Credential 3 issuer not active');
     const computedHash3_0 = this._persistentHash_0([d_credentialData3_0]);
-    __compactRuntime.assert(this._equal_6(computedHash3_0, cred3_0.claimHash),
+    __compactRuntime.assert(this._equal_5(computedHash3_0, cred3_0.claimHash),
                             'Credential 3 hash mismatch');
     const tmp_6 = 1n;
     __compactRuntime.queryLedgerState(context,
@@ -2138,7 +2118,7 @@ export class Contract {
     __compactRuntime.assert(this._is_active_issuer_0(issuer1_0),
                             'Credential 1 issuer not active');
     const computedHash1_0 = this._persistentHash_0([d_credentialData1_0]);
-    __compactRuntime.assert(this._equal_7(computedHash1_0, cred1_0.claimHash),
+    __compactRuntime.assert(this._equal_6(computedHash1_0, cred1_0.claimHash),
                             'Credential 1 hash mismatch');
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                       partialProofData,
@@ -2218,7 +2198,7 @@ export class Contract {
     __compactRuntime.assert(this._is_active_issuer_0(issuer2_0),
                             'Credential 2 issuer not active');
     const computedHash2_0 = this._persistentHash_0([d_credentialData2_0]);
-    __compactRuntime.assert(this._equal_8(computedHash2_0, cred2_0.claimHash),
+    __compactRuntime.assert(this._equal_7(computedHash2_0, cred2_0.claimHash),
                             'Credential 2 hash mismatch');
     const tmp_4 = 1n;
     __compactRuntime.queryLedgerState(context,
@@ -2276,7 +2256,7 @@ export class Contract {
                                                                                                                alignment: _descriptor_0.alignment() } }] } },
                                                                                     { popeq: { cached: false,
                                                                                                result: undefined } }]).value);
-    __compactRuntime.assert(this._equal_9(d_callerPubKey_0, credential_0.issuer),
+    __compactRuntime.assert(this._equal_8(d_callerPubKey_0, credential_0.issuer),
                             'Only issuer can revoke');
     __compactRuntime.assert(credential_0.status === 0, 'Already revoked');
     const revokedCredential_0 = { issuer: credential_0.issuer,
@@ -2345,7 +2325,7 @@ export class Contract {
                                                                                                              alignment: _descriptor_6.alignment() } }] } },
                                                                                   { popeq: { cached: false,
                                                                                              result: undefined } }]).value);
-    __compactRuntime.assert(this._equal_10(d_callerPubKey_0, adminKey_0),
+    __compactRuntime.assert(this._equal_9(d_callerPubKey_0, adminKey_0),
                             'Only admin can emergency revoke');
     __compactRuntime.assert(_descriptor_4.fromValue(__compactRuntime.queryLedgerState(context,
                                                                                       partialProofData,
@@ -2497,10 +2477,6 @@ export class Contract {
     return true;
   }
   _equal_9(x0, y0) {
-    if (!x0.every((x, i) => y0[i] === x)) { return false; }
-    return true;
-  }
-  _equal_10(x0, y0) {
     if (!x0.every((x, i) => y0[i] === x)) { return false; }
     return true;
   }

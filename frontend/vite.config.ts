@@ -27,6 +27,12 @@ export default defineConfig({
       'isomorphic-ws': 'isomorphic-ws/browser.js',
     },
   },
+  optimizeDeps: {
+    exclude: [
+      '@midnight-ntwrk/dapp-connector-api',
+      '@midnight-ntwrk/onchain-runtime',
+    ],
+  },
   build: {
     target: 'esnext',
   },
