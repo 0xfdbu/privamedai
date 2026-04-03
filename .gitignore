@@ -4,3 +4,15 @@ dist
 *.log
 .DS_Store
 .vscode/settings.json
+
+# Wallet state files
+.wallet-state.json
+.wallet-state-setup.json
+*.wallet.json
+
+# LevelDB data
+midnight-level-db/
+
+# Temporary files
+*.tmp
+*.temp
