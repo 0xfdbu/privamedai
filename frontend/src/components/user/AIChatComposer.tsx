@@ -87,7 +87,9 @@ export function AIChatComposer() {
     const result = await queryCredentialsOnChain(address);
     setOnChainCredentials({
       checked: true,
-      count: result.success ? (result.credentials?.length || 0) : 0,
+      count: result.success 
+        ? (Number(result.totalCredentials) || result.credentials?.length || 0) 
+        : 0,
       error: result.error,
     });
   };
@@ -167,9 +169,9 @@ export function AIChatComposer() {
         const wallet = getWalletState();
         const onChainResult = await queryCredentialsOnChain(wallet.address || '');
         
-        if (onChainResult.success && onChainResult.credentials && onChainResult.credentials.length > 0) {
+        if (onChainResult.success && onChainResult.totalCredentials && onChainResult.totalCredentials > 0) {
           throw new Error(
-            `Found ${onChainResult.credentials.length} credential(s) on-chain, but none in local storage. ` +
+            `Found ${onChainResult.totalCredentials} credential(s) on-chain, but none in local storage. ` +
             'This may be a sync issue. Try refreshing the page or re-importing your wallet.'
           );
         }
