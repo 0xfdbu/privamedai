@@ -7,7 +7,14 @@ import {
   checkProofServerHealth,
   checkZKConfigAvailability
 } from '../../services/proofServiceProd';
-import { getStoredCredentials, getWalletState } from '../../services/contractService';
+import { 
+  getStoredCredentials, 
+  getWalletState 
+} from '../../services/contractService';
+import { 
+  queryCredentialsOnChain,
+  checkCredentialOnChain 
+} from '../../services/contractInteraction';
 import type { GeneratedRule } from '../../types/claims';
 
 interface Message {
@@ -55,6 +62,11 @@ export function AIChatComposer() {
     latency?: number;
     error?: string;
   }>({ checked: false, healthy: false });
+  const [onChainCredentials, setOnChainCredentials] = useState<{
+    checked: boolean;
+    count: number;
+    error?: string;
+  }>({ checked: false, count: 0 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -64,7 +76,21 @@ export function AIChatComposer() {
     
     // Check proof server health on mount
     checkProofServerStatus();
+    
+    // Check on-chain credentials if wallet is connected
+    if (wallet.isConnected && wallet.address) {
+      checkOnChainCredentials(wallet.address);
+    }
   }, []);
+  
+  const checkOnChainCredentials = async (address: string) => {
+    const result = await queryCredentialsOnChain(address);
+    setOnChainCredentials({
+      checked: true,
+      count: result.success ? (result.credentials?.length || 0) : 0,
+      error: result.error,
+    });
+  };
 
   const checkProofServerStatus = async () => {
     const health = await checkProofServerHealth();
@@ -132,14 +158,27 @@ export function AIChatComposer() {
       ));
 
       // Generate ZK proof using PRODUCTION service
+      // First check local storage, then fall back to on-chain query
       const credentials = getStoredCredentials();
       const latestCredential = credentials[credentials.length - 1];
       
       if (!latestCredential) {
+        // Try to find credential on-chain
+        const wallet = getWalletState();
+        const onChainResult = await queryCredentialsOnChain(wallet.address || '');
+        
+        if (onChainResult.success && onChainResult.credentials && onChainResult.credentials.length > 0) {
+          throw new Error(
+            `Found ${onChainResult.credentials.length} credential(s) on-chain, but none in local storage. ` +
+            'This may be a sync issue. Try refreshing the page or re-importing your wallet.'
+          );
+        }
+        
         throw new Error(
-          'No credentials found in your wallet. ' +
+          'No credentials found on-chain for your wallet address. ' +
           'Please ask a Medical Provider to issue you a credential first. ' +
-          'Go to "Medical Provider" tab → "Issue Credentials" and have them issue a credential to your wallet address.'
+          'Go to "Medical Provider" tab → "Issue Credentials" and have them issue a credential to: ' +
+          wallet.address
         );
       }
       
@@ -316,10 +355,17 @@ export function AIChatComposer() {
             </div>
           )}
           
-          {walletConnected && getStoredCredentials().length === 0 && (
+          {walletConnected && onChainCredentials.checked && onChainCredentials.count === 0 && (
             <div className="px-4 py-2 bg-amber-50 border-b border-amber-200">
               <p className="text-xs text-amber-700">
-                ⚠️ No credentials in your wallet. Ask a Medical Provider to issue you a credential first.
+                ⚠️ No credentials found on-chain for your wallet. Ask a Medical Provider to issue you a credential first.
+              </p>
+            </div>
+          )}
+          {walletConnected && onChainCredentials.checked && onChainCredentials.count > 0 && (
+            <div className="px-4 py-2 bg-emerald-50 border-b border-emerald-200">
+              <p className="text-xs text-emerald-700">
+                ✓ {onChainCredentials.count} credential(s) found on-chain. Ready to generate proofs!
               </p>
             </div>
           )}

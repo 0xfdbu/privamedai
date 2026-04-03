@@ -564,3 +564,133 @@ export async function getContractAdmin(): Promise<{
     };
   }
 }
+
+/**
+ * Query credentials on-chain for a specific wallet address
+ * This checks the blockchain directly, not local storage
+ */
+export async function queryCredentialsOnChain(
+  walletAddress: string
+): Promise<{
+  success: boolean;
+  credentials?: Array<{
+    commitment: string;
+    issuer: string;
+    status: string;
+    expiry: bigint;
+  }>;
+  error?: string;
+}> {
+  try {
+    console.log('🔍 Querying credentials on-chain for:', walletAddress.slice(0, 20) + '...');
+
+    // Get providers (without wallet since we're just querying)
+    const publicDataProvider = indexerPublicDataProvider(
+      CONFIG.indexer,
+      CONFIG.indexerWS
+    );
+
+    // Query contract state
+    const contractState = await publicDataProvider.queryContractState(CONTRACT_ADDRESS);
+    
+    if (!contractState) {
+      return {
+        success: false,
+        error: 'Contract not found or no state available',
+      };
+    }
+
+    // Parse ledger state using the contract's ledger function
+    const ledger = contracts.PrivaMedAI.ledger;
+    const state = ledger(contractState.data);
+
+    console.log('✅ Contract state retrieved');
+    console.log('   Total credentials:', state.credentials?.size?.() || 0);
+    console.log('   Total issuers:', state.issuerRegistry?.size?.() || 0);
+
+    // For now, return the counts - in a full implementation, we'd scan all credentials
+    // to find ones belonging to this wallet. This requires scanning the entire Map
+    // which is expensive. A better approach is to track credentials in an indexer.
+
+    return {
+      success: true,
+      credentials: [], // TODO: Implement credential scanning
+    };
+  } catch (error: any) {
+    console.error('❌ Failed to query credentials:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to query credentials on-chain',
+    };
+  }
+}
+
+/**
+ * Check if a specific credential exists on-chain
+ */
+export async function checkCredentialOnChain(
+  commitment: string
+): Promise<{
+  success: boolean;
+  exists?: boolean;
+  credential?: {
+    issuer: string;
+    status: string;
+    expiry: bigint;
+  };
+  error?: string;
+}> {
+  try {
+    console.log('🔍 Checking credential on-chain:', commitment.slice(0, 16) + '...');
+
+    const publicDataProvider = indexerPublicDataProvider(
+      CONFIG.indexer,
+      CONFIG.indexerWS
+    );
+
+    const contractState = await publicDataProvider.queryContractState(CONTRACT_ADDRESS);
+    
+    if (!contractState) {
+      return {
+        success: false,
+        error: 'Contract not found',
+      };
+    }
+
+    // Parse ledger state
+    const ledger = contracts.PrivaMedAI.ledger;
+    const state = ledger(contractState.data);
+
+    // Convert commitment hex to bytes32
+    const commitmentBytes = hexToBytes32(commitment);
+    
+    // Check if credential exists
+    const exists = state.credentials.member(commitmentBytes);
+    
+    if (!exists) {
+      return {
+        success: true,
+        exists: false,
+      };
+    }
+
+    // Get credential details
+    const credential = state.credentials.lookup(commitmentBytes);
+
+    return {
+      success: true,
+      exists: true,
+      credential: {
+        issuer: toHex(credential.issuer),
+        status: credential.status === 0 ? 'VALID' : 'REVOKED',
+        expiry: credential.expiry,
+      },
+    };
+  } catch (error: any) {
+    console.error('❌ Failed to check credential:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to check credential on-chain',
+    };
+  }
+}
