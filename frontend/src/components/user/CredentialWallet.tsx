@@ -43,11 +43,12 @@ export function CredentialWallet() {
   };
 
   const exportAllCredentials = () => {
+    // Export all credentials as an array (same format as importing multiple)
     const credentialsWithBytes = credentials.map(ensureClaimDataBytes);
-    const exportData = {
-      credentials: credentialsWithBytes,
+    const exportData = credentialsWithBytes.map(cred => ({
+      ...cred,
       downloadDate: new Date().toISOString(),
-    };
+    }));
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -59,8 +60,19 @@ export function CredentialWallet() {
 
   const exportSingleCredential = (cred: Credential) => {
     const credentialWithBytes = ensureClaimDataBytes(cred);
+    // Match the exact format from Issuer page
     const credentialData = {
-      ...credentialWithBytes,
+      id: credentialWithBytes.id,
+      issuer: credentialWithBytes.issuer,
+      claimType: credentialWithBytes.claimType,
+      issuedAt: credentialWithBytes.issuedAt,
+      expiresAt: credentialWithBytes.expiresAt,
+      isRevoked: credentialWithBytes.isRevoked,
+      encryptedData: credentialWithBytes.encryptedData,
+      commitment: credentialWithBytes.commitment,
+      claimHash: credentialWithBytes.claimHash,
+      healthClaim: credentialWithBytes.healthClaim,
+      claimDataBytes: credentialWithBytes.claimDataBytes,
       downloadDate: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(credentialData, null, 2)], { type: 'application/json' });
@@ -68,7 +80,9 @@ export function CredentialWallet() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `credential-${cred.id.slice(0, 8)}.json`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
