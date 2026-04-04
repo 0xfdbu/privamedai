@@ -25,7 +25,7 @@ interface IssuerInfo {
   publicKey: string;
   name: string;
   status: 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'REVOKED';
-  credentialCount: number;
+
 }
 
 export function IssuerManagement() {
@@ -65,7 +65,7 @@ export function IssuerManagement() {
             publicKey: wallet.coinPublicKey.slice(0, 20) + '...',
             name: wallet.address?.slice(0, 16) + '...' || 'Your Organization',
             status: issuerResult.info.status === 1 ? 'ACTIVE' : 'PENDING',
-            credentialCount: Number(issuerResult.info.credentialCount || 0),
+
           });
         }
       }
@@ -80,7 +80,7 @@ export function IssuerManagement() {
             publicKey: adminShort,
             name: 'Contract Admin',
             status: 'ACTIVE',
-            credentialCount: 0,
+
           });
         }
       }
@@ -383,12 +383,9 @@ export function IssuerManagement() {
                             <code className="text-xs text-slate-500 font-mono">
                               {issuer.publicKey}
                             </code>
-                            <div className="flex items-center gap-3 mt-2">
+                            <div className="mt-2">
                               <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border ${getStatusColor(issuer.status)}`}>
                                 {issuer.status}
-                              </span>
-                              <span className="text-xs text-slate-500">
-                                {issuer.credentialCount.toLocaleString()} credentials issued
                               </span>
                             </div>
                           </div>

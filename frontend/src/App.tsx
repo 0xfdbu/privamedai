@@ -58,8 +58,7 @@ const patientNav: NavItem[] = [
 const issuerNav: NavItem[] = [
   { path: '/issuer/issue', label: 'Issue Credentials', icon: Plus },
   { path: '/issuer/manage', label: 'Manage Credentials', icon: Users },
-  { path: '/issuer/register', label: 'Register', icon: Hash },
-  { path: '/issuer/issuers', label: 'Registered Issuers', icon: Users },
+  { path: '/issuer/issuers', label: 'Issuers', icon: Users },
 ];
 
 // Verifier sub-navigation
