@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Users, Shield, AlertCircle, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardBody, Badge } from '../common';
 import { getWalletState } from '../../services/contractService';
+import { getContractAdmin, checkIssuerOnChain } from '../../services/contractInteraction';
 
 interface IssuerInfo {
   publicKey: string;
@@ -26,21 +27,46 @@ export function RegisteredIssuers() {
     setError(null);
 
     try {
-      // For now, show the current user as a registered issuer
-      // In a full implementation, this would query the contract for all issuers
-      const mockIssuers: IssuerInfo[] = [
-        {
-          publicKey: wallet.coinPublicKey?.slice(0, 20) + '...' || 'Unknown',
-          name: wallet.address?.slice(0, 16) + '...' || 'Your Organization',
-          status: 'ACTIVE',
-          credentialCount: 0,
-        },
-      ];
+      // Get current wallet info
+      const wallet = getWalletState();
+      if (!wallet.coinPublicKey) {
+        setIssuers([]);
+        setIsLoading(false);
+        return;
+      }
 
-      // TODO: Implement actual contract query to get all registered issuers
-      // This would require a new circuit in the contract to list all issuers
+      // Try to get issuer info for the current wallet from the contract
+      const issuerResult = await checkIssuerOnChain(wallet.coinPublicKey.slice(0, 64));
       
-      setIssuers(mockIssuers);
+      const issuerList: IssuerInfo[] = [];
+      
+      if (issuerResult.registered && issuerResult.info) {
+        issuerList.push({
+          publicKey: wallet.coinPublicKey.slice(0, 20) + '...',
+          name: wallet.address?.slice(0, 16) + '...' || 'Your Organization',
+          status: issuerResult.info.status === 1 ? 'ACTIVE' : 'PENDING',
+          credentialCount: Number(issuerResult.info.credentialCount || 0),
+        });
+      }
+
+      // Also get admin info
+      const adminResult = await getContractAdmin();
+      if (adminResult.success && adminResult.admin) {
+        // Check if admin is already in the list
+        const adminShort = adminResult.admin.slice(0, 20) + '...';
+        const exists = issuerList.some(i => i.publicKey === adminShort);
+        
+        if (!exists) {
+          issuerList.push({
+            publicKey: adminShort,
+            name: 'Contract Admin',
+            status: 'ACTIVE',
+            credentialCount: 0,
+          });
+        }
+      }
+
+      setIssuers(issuerList);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch registered issuers');
     } finally {

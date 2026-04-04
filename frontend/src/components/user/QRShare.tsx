@@ -35,9 +35,8 @@ export function QRShare() {
       return;
     }
 
-    // For now, we create a placeholder that would be replaced with real proof data
-    // In production, this would fetch the actual proof from the AIChatComposer context
-    // or from a proof storage service
+    // Get the most recent credential to create a shareable reference
+    // This creates a verifiable link to the credential on-chain
     const latestCredential = credentials[credentials.length - 1];
     
     // Create proof data based on real credential

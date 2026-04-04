@@ -1,24 +1,18 @@
 /**
- * PRODUCTION ZK Proof Service using Midnight SDK
+ * CRYPTOGRAPHIC ZK Proof Service using Midnight SDK
  * 
- * REAL ZK proof generation only - NO MOCK DATA, NO FALLBACKS
- * If the proof server is unavailable, the function will throw an error.
+ * Uses the compiled PrivaMedAI contract to simulate circuit execution
+ * and generate proper proof data for the proof server.
  */
 
-import { 
-  ZKConfigProvider,
-  createVerifierKey,
-  createProverKey,
-  createZKIR,
-  type VerifierKey,
-  type ZKIR,
-  type ProverKey,
-  type ZKConfig,
-} from '@midnight-ntwrk/midnight-js-types';
-import { toHex } from '@midnight-ntwrk/compact-runtime';
+import { toHex, createCircuitContext, ChargedState, StateValue, StateMap, bigIntToValue, persistentHash, CompactTypeVector, CompactTypeBytes } from '@midnight-ntwrk/compact-runtime';
+import { proofDataIntoSerializedPreimage } from '@midnight-ntwrk/ledger-v8';
+import { httpClientProvingProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
+import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-config-provider';
+import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import type { GeneratedRule } from '../types/claims';
+import { CONFIG, getContractAddress } from './contractService';
 
-// Contract circuit keys type
 export type PrivaMedAICircuit = 
   | 'verifyCredential'
   | 'bundledVerify2Credentials'
@@ -28,20 +22,12 @@ export type PrivaMedAICircuit =
 export interface ZKProofResult {
   success: boolean;
   proof: string;
+  publicInputs: string;
   circuitId: string;
   txId: string;
+  verificationResult?: boolean;
   error?: string;
 }
-
-
-
-// Environment helpers
-const getZkConfigUrl = () => {
-  const url = import.meta.env.VITE_ZK_CONFIG_URL;
-  if (url && url !== 'undefined') return url;
-  if (typeof window !== 'undefined') return window.location.origin;
-  return 'http://localhost:3000';
-};
 
 const getProofServerUrl = () => {
   const url = import.meta.env.VITE_PROOF_SERVER_URL;
@@ -49,112 +35,13 @@ const getProofServerUrl = () => {
   return 'http://localhost:6300';
 };
 
-const getContractAddress = () => {
-  const addr = import.meta.env.VITE_CONTRACT_ADDRESS;
-  if (addr && addr !== 'undefined' && addr !== 'your-contract-address-here') {
-    return addr;
+const getZkConfigBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/managed/PrivaMedAI`;
   }
-  return '3bbe38546b2c698379620495dfb7ffc8e39d52441b1ad8bad17f7893db94cf46';
+  return 'http://localhost:3000/managed/PrivaMedAI';
 };
 
-/**
- * Production ZK Config Provider
- * Fetches actual verifier keys and ZKIR files from compiled contract artifacts
- */
-export class ProductionZkConfigProvider<K extends string> extends ZKConfigProvider<K> {
-  private baseUrl: string;
-  private fetchFn: typeof fetch;
-  private cache: Map<string, Uint8Array> = new Map();
-  private contractName: string;
-
-  constructor(
-    baseUrl: string, 
-    fetchFn: typeof fetch,
-    contractName: string = 'PrivaMedAI'
-  ) {
-    super();
-    this.baseUrl = baseUrl.replace(/\/$/, '');
-    this.fetchFn = fetchFn;
-    this.contractName = contractName;
-  }
-
-  private getArtifactUrl(circuitId: string, type: 'verifier' | 'prover' | 'zkir'): string {
-    const managedPath = `/managed/${this.contractName}`;
-    switch (type) {
-      case 'verifier':
-        return `${this.baseUrl}${managedPath}/keys/${circuitId}.verifier`;
-      case 'prover':
-        return `${this.baseUrl}${managedPath}/keys/${circuitId}.prover`;
-      case 'zkir':
-        return `${this.baseUrl}${managedPath}/zkir/${circuitId}.zkir`;
-    }
-  }
-
-  async getVerifierKey(circuitId: K): Promise<VerifierKey> {
-    const cacheKey = `vk:${circuitId}`;
-    if (this.cache.has(cacheKey)) {
-      return createVerifierKey(this.cache.get(cacheKey)!);
-    }
-
-    const response = await this.fetchFn(this.getArtifactUrl(circuitId, 'verifier'));
-    if (!response.ok) {
-      throw new Error(`Failed to fetch verifier key for ${circuitId}: HTTP ${response.status}`);
-    }
-    const vk = new Uint8Array(await response.arrayBuffer());
-    this.cache.set(cacheKey, vk);
-    return createVerifierKey(vk);
-  }
-
-  async getZKIR(circuitId: K): Promise<ZKIR> {
-    const cacheKey = `zkir:${circuitId}`;
-    if (this.cache.has(cacheKey)) {
-      return createZKIR(this.cache.get(cacheKey)!);
-    }
-
-    const response = await this.fetchFn(this.getArtifactUrl(circuitId, 'zkir'));
-    if (!response.ok) {
-      throw new Error(`Failed to fetch ZKIR for ${circuitId}: HTTP ${response.status}`);
-    }
-    const zkir = new Uint8Array(await response.arrayBuffer());
-    this.cache.set(cacheKey, zkir);
-    return createZKIR(zkir);
-  }
-
-  async getProverKey(circuitId: K): Promise<ProverKey> {
-    const cacheKey = `pk:${circuitId}`;
-    if (this.cache.has(cacheKey)) {
-      return createProverKey(this.cache.get(cacheKey)!);
-    }
-
-    const response = await this.fetchFn(this.getArtifactUrl(circuitId, 'prover'));
-    if (!response.ok) {
-      throw new Error(`Failed to fetch prover key for ${circuitId}: HTTP ${response.status}`);
-    }
-    const pk = new Uint8Array(await response.arrayBuffer());
-    this.cache.set(cacheKey, pk);
-    return createProverKey(pk);
-  }
-
-  async get(circuitId: K): Promise<ZKConfig<K>> {
-    const [proverKey, verifierKey, zkir] = await Promise.all([
-      this.getProverKey(circuitId),
-      this.getVerifierKey(circuitId),
-      this.getZKIR(circuitId),
-    ]);
-    return { circuitId, proverKey, verifierKey, zkir };
-  }
-
-  async getVerifierKeys(circuitIds: K[]): Promise<[K, VerifierKey][]> {
-    const entries = await Promise.all(
-      circuitIds.map(async (id) => [id, await this.getVerifierKey(id)] as [K, VerifierKey])
-    );
-    return entries;
-  }
-}
-
-/**
- * Circuit selection based on rule count
- */
 function selectCircuitForRules(rules: GeneratedRule[]): PrivaMedAICircuit {
   const count = rules.length;
   if (count === 1) return 'verifyCredential';
@@ -163,173 +50,499 @@ function selectCircuitForRules(rules: GeneratedRule[]): PrivaMedAICircuit {
 }
 
 /**
- * Build witness data for circuit
+ * Serialize credential data into Bytes<32> format
+ * 
+ * Returns both the raw bytes (for the circuit) and the hash (for claimHash)
  */
-function buildWitness(
-  rules: GeneratedRule[],
-  credentialData: Record<string, any>
-): Record<string, any> {
-  return {
-    credentialData,
-    verificationRules: rules.map(r => ({
-      field: r.field,
-      operator: r.operator,
-      value: String(r.value),
-    })),
-  };
+function serializeCredentialData(credentialData: Record<string, any>): {
+  rawBytes: Uint8Array;
+  hash: Uint8Array;
+} {
+  // Sort keys for deterministic serialization
+  const sortedData = Object.keys(credentialData).sort().reduce((acc, key) => {
+    acc[key] = credentialData[key];
+    return acc;
+  }, {} as Record<string, any>);
+  
+  // Convert to JSON string
+  const jsonStr = JSON.stringify(sortedData);
+  const encoder = new TextEncoder();
+  const dataBytes = encoder.encode(jsonStr);
+  
+  // Pad to 32 bytes (the credentialData field in the circuit is Bytes<32>)
+  const rawBytes = new Uint8Array(32);
+  rawBytes.set(dataBytes.slice(0, 32));
+  
+  // Compute the hash: persistentHash<Vector<1, Bytes<32>>>([rawBytes])
+  // This is what the contract stores as claimHash
+  const bytes32Type = new CompactTypeBytes(32);
+  const vectorType = new CompactTypeVector(1, bytes32Type);
+  const hash = persistentHash(vectorType, [rawBytes]);
+  
+  return { rawBytes, hash };
 }
 
 /**
- * Generate a proof based on AI rules and credential data
- * 
- * This creates a structured proof that can be verified by checking
- * that the credential data satisfies the specified rules.
- * 
- * Note: For production, this would use actual ZK circuits. For this demo,
- * we create a signed proof structure that verifiers can check.
+ * Convert hex string to Uint8Array (32 bytes)
  */
-async function generateProofFromRules(
-  rules: GeneratedRule[],
-  credentialCommitment: string,
-  credentialData: Record<string, any>
-): Promise<Uint8Array> {
-  console.log('   Checking rules against credential data:');
-  console.log('   Rules:', rules);
-  console.log('   Credential data:', credentialData);
-  
-  // Check each rule against credential data
-  const ruleResults = rules.map(rule => {
-    const fieldValue = credentialData[rule.field];
-    const ruleValueStr = String(rule.value).toLowerCase();
-    const ruleValueNum = parseFloat(rule.value);
-    let satisfied = false;
-    
-    console.log(`   Checking rule: ${rule.field} ${rule.operator} ${rule.value}`);
-    console.log(`   Field value: ${fieldValue} (type: ${typeof fieldValue})`);
-    
-    switch (rule.operator) {
-      case '>=':
-        satisfied = Number(fieldValue) >= ruleValueNum;
-        break;
-      case '<=':
-        satisfied = Number(fieldValue) <= ruleValueNum;
-        break;
-      case '==':
-        // Handle boolean comparison
-        if (ruleValueStr === 'true') {
-          satisfied = fieldValue === true || fieldValue === 'true' || fieldValue === 1;
-        } else if (ruleValueStr === 'false') {
-          satisfied = fieldValue === false || fieldValue === 'false' || fieldValue === 0;
-        } else {
-          satisfied = fieldValue == rule.value || Number(fieldValue) === ruleValueNum;
-        }
-        break;
-      case '>':
-        satisfied = Number(fieldValue) > ruleValueNum;
-        break;
-      case '<':
-        satisfied = Number(fieldValue) < ruleValueNum;
-        break;
-      default:
-        satisfied = Boolean(fieldValue);
-    }
-    
-    console.log(`   Result: ${satisfied ? '✅ SATISFIED' : '❌ FAILED'}`);
-    
-    return {
-      field: rule.field,
-      operator: rule.operator,
-      value: rule.value,
-      actualValue: fieldValue,
-      satisfied,
-    };
-  });
-  
-  // All rules must be satisfied
-  const allSatisfied = ruleResults.every(r => r.satisfied);
-  
-  if (!allSatisfied) {
-    const failed = ruleResults.filter(r => !r.satisfied);
-    throw new Error(`Verification failed for rules: ${failed.map(r => r.field).join(', ')}`);
+function hexToBytes32(hex: string): Uint8Array {
+  const cleanHex = hex.startsWith('0x') ? hex.slice(2) : hex;
+  const bytes = new Uint8Array(32);
+  for (let i = 0; i < 32 && i < cleanHex.length / 2; i++) {
+    bytes[i] = parseInt(cleanHex.slice(i * 2, i * 2 + 2), 16);
   }
-  
-  // Create proof structure
-  const proofData = {
-    type: 'rule-based-verification',
-    version: '1.0',
-    credentialCommitment,
-    verifiedAt: Date.now(),
-    rules: ruleResults,
-    allSatisfied,
-    // In a real ZK implementation, this would contain the ZK proof
-    proofType: 'structured-attestation',
-  };
-  
-  // Encode as bytes
-  const proofString = JSON.stringify(proofData, null, 2);
-  const proofBytes = new TextEncoder().encode(proofString);
-  
-  return proofBytes;
+  return bytes;
 }
 
 /**
- * Generate a REAL ZK proof using the Midnight proof server
+ * Generate a REAL cryptographic ZK proof using OFFICIAL Midnight SDK
  * 
- * NO FALLBACK - throws error if proof generation fails
+ * This function simulates the circuit execution using the compiled contract
+ * to generate proper proof data, then sends it to the proof server.
  */
 export async function generateProductionZKProof(
   rules: GeneratedRule[],
   credentialCommitment: string,
-  credentialData: Record<string, any>,
+  claimDataBytes: Uint8Array,
   options?: {
     contractAddress?: string;
     proofServerUrl?: string;
-    zkConfigUrl?: string;
   }
 ): Promise<ZKProofResult> {
-  const contractAddress = options?.contractAddress || getContractAddress();
-  const proofServerUrl = options?.proofServerUrl || getProofServerUrl();
-  const zkConfigUrl = options?.zkConfigUrl || getZkConfigUrl();
-  
-  if (!contractAddress || contractAddress === 'undefined') {
-    throw new Error('Contract address not configured. Set VITE_CONTRACT_ADDRESS environment variable.');
-  }
-
-  console.log('🔐 Generating rule-based verification proof...');
-  console.log('   Contract:', contractAddress);
-
-  // Select circuit (for reference)
   const circuitId = selectCircuitForRules(rules);
+  
+  console.log('🔐 Generating CRYPTOGRAPHIC ZK Proof...');
   console.log('   Circuit:', circuitId);
-
-  // Generate proof by checking rules against credential data
-  console.log('   Verifying rules against credential data...');
-  const startTime = performance.now();
+  console.log('   Rules:', rules.length);
   
-  const proofBytes = await generateProofFromRules(
-    rules,
-    credentialCommitment,
-    credentialData
-  );
-  
-  const proofTime = Math.round(performance.now() - startTime);
-  console.log(`✅ Proof generated in ${proofTime}ms`);
-  console.log('   Proof size:', proofBytes.length, 'bytes');
-
-  const proofHex = '0x' + toHex(proofBytes);
-  const txId = '0x' + proofHex.slice(2, 66);
-
-  return {
-    success: true,
-    proof: proofHex,
-    circuitId,
-    txId,
-  };
+  try {
+    const proofServerUrl = options?.proofServerUrl || getProofServerUrl();
+    
+    const health = await checkProofServerHealth(proofServerUrl);
+    if (!health.healthy) {
+      throw new Error(`Proof server unavailable: ${health.error}`);
+    }
+    
+    const commitmentBytes = hexToBytes32(credentialCommitment);
+    
+    // Use the ORIGINAL claimData bytes that were hashed during issuance
+    // These must be the EXACT same bytes that created the claimHash on-chain
+    const credentialDataBytes = claimDataBytes.slice(0, 32); // Ensure exactly 32 bytes
+    
+    // Compute the hash that the circuit will compare against
+    const bytes32Type = new CompactTypeBytes(32);
+    const vectorType = new CompactTypeVector(1, bytes32Type);
+    const credentialDataHash = persistentHash(vectorType, [credentialDataBytes]);
+    
+    console.log('   Commitment:', toHex(commitmentBytes));
+    console.log('   Data Bytes:', toHex(credentialDataBytes));
+    console.log('   Data Hash:', toHex(credentialDataHash));
+    
+    const zkConfig = await fetchZKConfig(circuitId);
+    
+    console.log('   Executing circuit to generate proof data...');
+    const proofData = await executeCircuitAndGetProofData(
+      circuitId,
+      commitmentBytes,
+      credentialDataBytes,
+      credentialDataHash
+    );
+    
+    console.log('   Proof data generated:');
+    console.log('     - Input fields:', proofData.input?.value?.length || 0);
+    console.log('     - Output fields:', proofData.output?.value?.length || 0);
+    console.log('     - Public transcript operations:', proofData.publicTranscript?.length || 0);
+    console.log('     - Private transcript outputs:', proofData.privateTranscriptOutputs?.length || 0);
+    
+    // Debug: Log the public transcript to inspect operations
+    console.log('   Public transcript sample:');
+    proofData.publicTranscript?.slice(0, 3).forEach((op: any, i: number) => {
+      console.log(`     [${i}]:`, JSON.stringify(op).slice(0, 100));
+    });
+    
+    console.log('   Creating serialized preimage...');
+    
+    // Log the structure of inputs being passed
+    console.log('   Input structure:', JSON.stringify({
+      input: proofData.input,
+      output: proofData.output,
+      publicTranscriptLength: proofData.publicTranscript?.length,
+      privateTranscriptOutputsLength: proofData.privateTranscriptOutputs?.length,
+      circuitId
+    }, null, 2).slice(0, 500));
+    
+    const serializedPreimage = proofDataIntoSerializedPreimage(
+      proofData.input,
+      proofData.output,
+      proofData.publicTranscript,
+      proofData.privateTranscriptOutputs,
+      circuitId
+    );
+    
+    console.log('   Serialized preimage size:', serializedPreimage.length, 'bytes');
+    console.log('   Serialized preimage (hex):', toHex(serializedPreimage).slice(0, 200) + '...');
+    
+    console.log('   Calling proof server...');
+    
+    // Use the official FetchZkConfigProvider which handles correct file paths
+    // It expects files at: {baseUrl}/keys/{circuitId}.prover, .verifier, and {baseUrl}/zkir/{circuitId}.bzkir
+    const zkConfigProvider = new FetchZkConfigProvider<PrivaMedAICircuit>(
+      getZkConfigBaseUrl(),
+      fetch.bind(window)
+    );
+    
+    // Debug: Check if artifacts are loading correctly
+    try {
+      const zkConfig = await zkConfigProvider.get(circuitId);
+      console.log('   ZK artifacts loaded:');
+      console.log('     - proverKey:', zkConfig.proverKey.length, 'bytes');
+      console.log('     - verifierKey:', zkConfig.verifierKey.length, 'bytes');
+      console.log('     - zkir:', zkConfig.zkir.length, 'bytes');
+    } catch (e: any) {
+      console.error('   ❌ Failed to load ZK artifacts:', e.message);
+      throw new Error(`Failed to load ZK artifacts: ${e.message}`);
+    }
+    
+    const provingProvider = httpClientProvingProvider(
+      proofServerUrl,
+      zkConfigProvider,
+      { timeout: 300000 }
+    );
+    
+    let proof: Uint8Array;
+    
+    // Debug: Try to get more detailed error from proof server
+    try {
+      proof = await provingProvider.prove(serializedPreimage, circuitId, undefined);
+    } catch (proveError: any) {
+      console.error('   Proof server error:', proveError.message);
+      
+      // Try to manually call the proof server to get error details
+      try {
+        const { createProvingPayload } = await import('@midnight-ntwrk/ledger-v8');
+        const { zkConfigToProvingKeyMaterial } = await import('@midnight-ntwrk/midnight-js-types');
+        const zkConfig = await zkConfigProvider.get(circuitId);
+        const keyMaterial = (zkConfigToProvingKeyMaterial as any)(zkConfig);
+        const payload = createProvingPayload(serializedPreimage, undefined, keyMaterial);
+        
+        console.log('   Payload size:', payload.length, 'bytes');
+        
+        const response = await fetch(`${proofServerUrl}/prove`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: payload as any,
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('   Proof server error response:', errorText);
+        }
+      } catch (debugErr: any) {
+        console.error('   Debug request failed:', debugErr.message);
+      }
+      
+      throw proveError;
+    }
+    
+    console.log('✅ ZK Proof generated successfully!');
+    
+    return {
+      success: true,
+      proof: '0x' + toHex(proof),
+      publicInputs: JSON.stringify({
+        commitment: toHex(commitmentBytes),
+        credentialDataHash: toHex(credentialDataHash),
+        rules: rules.map(r => ({
+          field: r.field,
+          operator: r.operator,
+          value: String(r.value),
+        })),
+      }),
+      circuitId,
+      txId: '0x' + toHex(proof.slice(0, 32)),
+      verificationResult: true,
+    };
+    
+  } catch (error: any) {
+    console.error('❌ ZK Proof generation failed:', error);
+    
+    return {
+      success: false,
+      proof: '',
+      publicInputs: '',
+      circuitId,
+      txId: '',
+      error: error.message || 'Failed to generate cryptographic proof',
+    };
+  }
 }
 
 /**
- * Check if proof server is healthy
+ * Fetch the actual on-chain contract state from the indexer.
+ * This returns the real state that the proof server will validate against.
+ * 
+ * Uses the raw ledger bytes directly (ChargedState) rather than trying to
+ * reconstruct from parsed state, which avoids type conversion issues.
  */
+async function fetchContractState(_commitmentBytes?: Uint8Array): Promise<{ chargedState: ChargedState; parsedState: any } | null> {
+  try {
+    console.log('   Fetching on-chain contract state...');
+    
+    const publicDataProvider = indexerPublicDataProvider(
+      CONFIG.indexer,
+      CONFIG.indexerWS
+    );
+    
+    const contractState = await publicDataProvider.queryContractState(getContractAddress());
+    
+    if (!contractState) {
+      console.error('   Contract not found on-chain');
+      return null;
+    }
+    
+    // Parse the ledger state using the contract's ledger function for logging
+    const contractModule = await import('@midnight-ntwrk/contract/dist/index.browser.js');
+    const { contracts } = contractModule;
+    const ledger = contracts.PrivaMedAI.ledger;
+    
+    if (!ledger) {
+      throw new Error('Ledger function not found in contract');
+    }
+    
+    // Parse the contract state for logging
+    const parsedState = ledger(contractState.data);
+    
+    console.log('   On-chain state loaded:');
+    console.log('     - Credentials:', parsedState.credentials?.size?.() || 0);
+    console.log('     - Issuers:', parsedState.issuerRegistry?.size?.() || 0);
+    
+    // Log specific credential info if commitment provided
+    let credentialExists = false;
+    if (_commitmentBytes) {
+      try {
+        credentialExists = parsedState.credentials.member(_commitmentBytes);
+        if (credentialExists) {
+          const cred = parsedState.credentials.lookup(_commitmentBytes);
+          console.log('   Credential found:');
+          console.log('     - Stored claimHash:', toHex(cred.claimHash));
+          console.log('     - Issuer:', toHex(cred.issuer).slice(0, 20) + '...');
+          console.log('     - Expiry:', cred.expiry);
+          console.log('     - Status:', cred.status);
+          
+          // Try to decode claimHash as UTF-8 to see if it's text
+          try {
+            const text = new TextDecoder().decode(cred.claimHash);
+            console.log('     - claimHash as text:', text.slice(0, 50));
+          } catch {}
+        } else {
+          console.error('   ❌ CRITICAL: Credential NOT FOUND in on-chain state!');
+          console.error('   Cannot generate valid proof for non-existent credential.');
+          throw new Error('Credential does not exist on-chain. Cannot generate proof.');
+        }
+      } catch (e: any) {
+        if (e.message.includes('does not exist')) {
+          throw e;
+        }
+        console.log('   Error looking up credential:', e.message);
+      }
+    }
+    
+    return { chargedState: contractState.data, parsedState };
+    
+  } catch (error: any) {
+    console.error('   Failed to fetch contract state:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Execute the circuit using REAL on-chain state to generate proof data.
+ * 
+ * This queries the actual contract state from the blockchain and uses it
+ * to execute the circuit. The proof server validates against this real state.
+ */
+async function executeCircuitAndGetProofData(
+  circuitId: PrivaMedAICircuit,
+  commitmentBytes: Uint8Array,
+  credentialDataBytes: Uint8Array,
+  _credentialDataHash: Uint8Array
+): Promise<{
+  input: any;
+  output: any;
+  publicTranscript: any[];
+  privateTranscriptOutputs: any[];
+}> {
+  // Import the browser-compatible contract entry point
+  const contractModule = await import('@midnight-ntwrk/contract/dist/index.browser.js');
+  const { contracts } = contractModule;
+  
+  const PrivaMedAI = contracts.PrivaMedAI;
+  if (!PrivaMedAI) {
+    throw new Error('PrivaMedAI contract not found in compiled module');
+  }
+  
+  const { Contract } = PrivaMedAI;
+  if (!Contract) {
+    throw new Error('Contract class not found in PrivaMedAI module');
+  }
+  
+  // Create contract instance with empty witnesses
+  const contract = new Contract({});
+  
+  // Fetch the REAL on-chain state (pass commitment to log credential details)
+  const onChainState = await fetchContractState(commitmentBytes);
+  if (!onChainState) {
+    throw new Error('Failed to fetch on-chain contract state. Cannot generate valid proof without real state.');
+  }
+  
+  const { dummyContractAddress } = await import('@midnight-ntwrk/compact-runtime');
+  
+  // Create the circuit context with the REAL on-chain state
+  const circuitContext = createCircuitContext(
+    dummyContractAddress(),
+    '0'.repeat(64),
+    onChainState.chargedState,
+    {} // privateState
+  );
+  
+  let circuitResult;
+  switch (circuitId) {
+    case 'verifyCredential':
+      circuitResult = contract.circuits.verifyCredential(
+        circuitContext,
+        commitmentBytes,
+        credentialDataBytes  // Pass raw bytes, circuit will hash them
+      );
+      break;
+    case 'bundledVerify2Credentials':
+      circuitResult = contract.circuits.bundledVerify2Credentials(
+        circuitContext,
+        commitmentBytes, credentialDataBytes,
+        commitmentBytes, credentialDataBytes
+      );
+      break;
+    case 'bundledVerify3Credentials':
+      circuitResult = contract.circuits.bundledVerify3Credentials(
+        circuitContext,
+        commitmentBytes, credentialDataBytes,
+        commitmentBytes, credentialDataBytes,
+        commitmentBytes, credentialDataBytes
+      );
+      break;
+    default:
+      throw new Error(`Unsupported circuit: ${circuitId}`);
+  }
+  
+  if (!circuitResult || !circuitResult.proofData) {
+    throw new Error('Circuit execution did not return proof data');
+  }
+  
+  return circuitResult.proofData;
+}
+
+/**
+ * Create a StateValue for a Credential struct
+ * Credential { issuer: Bytes<32>, claimHash: Bytes<32>, expiry: Uint<64>, status: CredentialStatus }
+ * 
+ * The struct is stored as a single Cell with concatenated values and alignments.
+ */
+function createCredentialValue(
+  issuer: Uint8Array,
+  claimHash: Uint8Array,
+  expiry: bigint,
+  status: number
+): StateValue {
+  // Concatenate all field values and alignments
+  // Bytes<32> values need trailing zeros stripped
+  const issuerValue = trimTrailingZeros(issuer);
+  const claimHashValue = trimTrailingZeros(claimHash);
+  
+  // Build the concatenated value and alignment
+  const value = [
+    issuerValue,
+    claimHashValue,
+    ...bigIntToValue(expiry),  // Spread the array
+    ...bigIntToValue(BigInt(status))  // Spread the array
+  ];
+  
+  const alignment = [
+    { tag: 'atom', value: { tag: 'bytes', length: 32 } },
+    { tag: 'atom', value: { tag: 'bytes', length: 32 } },
+    { tag: 'atom', value: { tag: 'field' } },
+    { tag: 'atom', value: { tag: 'bytes', length: 1 } }
+  ];
+  
+  return StateValue.newCell({ value, alignment } as any);
+}
+
+/**
+ * Create a StateValue for an Issuer struct
+ * Issuer { publicKey: Bytes<32>, status: IssuerStatus, nameHash: Bytes<32>, credentialCount: Uint<64> }
+ */
+function createIssuerValue(
+  publicKey: Uint8Array,
+  status: number,
+  nameHash: Uint8Array,
+  credentialCount: bigint
+): StateValue {
+  const pubkeyValue = trimTrailingZeros(publicKey);
+  const nameHashValue = trimTrailingZeros(nameHash);
+  
+  const value = [
+    pubkeyValue,
+    ...bigIntToValue(BigInt(status)),
+    nameHashValue,
+    ...bigIntToValue(credentialCount)
+  ];
+  
+  const alignment = [
+    { tag: 'atom', value: { tag: 'bytes', length: 32 } },
+    { tag: 'atom', value: { tag: 'bytes', length: 1 } },
+    { tag: 'atom', value: { tag: 'bytes', length: 32 } },
+    { tag: 'atom', value: { tag: 'field' } }
+  ];
+  
+  return StateValue.newCell({ value, alignment } as any);
+}
+
+/**
+ * Strip trailing zeros from a Uint8Array
+ * Required for AlignedValue to be in "normal form"
+ */
+function trimTrailingZeros(bytes: Uint8Array): Uint8Array {
+  let end = bytes.length;
+  while (end > 0 && bytes[end - 1] === 0) {
+    end--;
+  }
+  return bytes.slice(0, end);
+}
+
+async function fetchZKConfig(circuitId: string): Promise<{
+  proverKey: Uint8Array;
+  verifierKey: Uint8Array;
+  ir: Uint8Array;
+}> {
+  const baseUrl = getZkConfigBaseUrl();
+  
+  const [proverRes, verifierRes, irRes] = await Promise.all([
+    fetch(`${baseUrl}/keys/${circuitId}.prover`),
+    fetch(`${baseUrl}/keys/${circuitId}.verifier`),
+    fetch(`${baseUrl}/zkir/${circuitId}.zkir`),
+  ]);
+  
+  if (!proverRes.ok) throw new Error(`Failed to fetch prover key: ${proverRes.status}`);
+  if (!verifierRes.ok) throw new Error(`Failed to fetch verifier key: ${verifierRes.status}`);
+  if (!irRes.ok) throw new Error(`Failed to fetch ZKIR: ${irRes.status}`);
+  
+  const [proverKey, verifierKey, ir] = await Promise.all([
+    proverRes.arrayBuffer().then(b => new Uint8Array(b)),
+    verifierRes.arrayBuffer().then(b => new Uint8Array(b)),
+    irRes.arrayBuffer().then(b => new Uint8Array(b)),
+  ]);
+  
+  return { proverKey, verifierKey, ir };
+}
+
 export async function checkProofServerHealth(url?: string): Promise<{
   healthy: boolean;
   version?: string;
@@ -370,69 +583,6 @@ export async function checkProofServerHealth(url?: string): Promise<{
   }
 }
 
-/**
- * Check ZK config availability for a circuit
- */
-export async function checkZKConfigAvailability(
-  circuitId: string,
-  baseUrl?: string
-): Promise<{
-  available: boolean;
-  verifierKey?: boolean;
-  proverKey?: boolean;
-  zkir?: boolean;
-  error?: string;
-}> {
-  const url = (baseUrl || getZkConfigUrl()).replace(/\/$/, '');
-  const managedPath = `/managed/PrivaMedAI`;
-
-  try {
-    const [vkRes, pkRes, zkirRes] = await Promise.all([
-      fetch(`${url}${managedPath}/keys/${circuitId}.verifier`, { method: 'HEAD' }),
-      fetch(`${url}${managedPath}/keys/${circuitId}.prover`, { method: 'HEAD' }),
-      fetch(`${url}${managedPath}/zkir/${circuitId}.zkir`, { method: 'HEAD' }),
-    ]);
-
-    return {
-      available: vkRes.ok && pkRes.ok && zkirRes.ok,
-      verifierKey: vkRes.ok,
-      proverKey: pkRes.ok,
-      zkir: zkirRes.ok,
-    };
-  } catch (error) {
-    return {
-      available: false,
-      error: error instanceof Error ? error.message : 'Failed to check artifacts',
-    };
-  }
-}
-
-/**
- * Preload ZK config artifacts for faster proof generation
- */
-export async function preloadZKArtifacts(
-  circuitIds: string[],
-  baseUrl?: string
-): Promise<{
-  loaded: string[];
-  failed: string[];
-}> {
-  const url = baseUrl || getZkConfigUrl();
-  const provider = new ProductionZkConfigProvider(url, fetch.bind(window));
-
-  const loaded: string[] = [];
-  const failed: string[] = [];
-
-  await Promise.all(
-    circuitIds.map(async (circuitId) => {
-      try {
-        await provider.get(circuitId as PrivaMedAICircuit);
-        loaded.push(circuitId);
-      } catch {
-        failed.push(circuitId);
-      }
-    })
-  );
-
-  return { loaded, failed };
-}
+// Note: The Midnight proof server does not have a /verify endpoint.
+// Real proof verification happens on-chain when the transaction is submitted.
+// This is the standard approach for ZK proofs in the Midnight ecosystem.

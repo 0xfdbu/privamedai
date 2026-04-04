@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Building2, Key, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, Input, Alert } from '../common';
+import { getWalletState } from '../../services/contractService';
+import { registerIssuerOnChain, checkIssuerOnChain } from '../../services/contractInteraction';
 
 interface RegistrationStatus {
   isRegistered: boolean;
@@ -14,34 +16,95 @@ export function IssuerRegistration() {
   const [formData, setFormData] = useState({
     name: '',
     licenseNumber: '',
-    publicKey: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  const wallet = getWalletState();
+
+  useEffect(() => {
+    checkRegistration();
+  }, []);
+
   const checkRegistration = async () => {
-    // Mock checking on-chain status
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    // For demo, show as not registered
-    setStatus({ isRegistered: false, isPending: false });
+    setIsChecking(true);
+    try {
+      const wallet = getWalletState();
+      if (!wallet.coinPublicKey) {
+        setStatus({ isRegistered: false, isPending: false });
+        setIsChecking(false);
+        return;
+      }
+
+      // Check on-chain status
+      const issuerResult = await checkIssuerOnChain(wallet.coinPublicKey.slice(0, 64));
+      
+      if (issuerResult.registered && issuerResult.info) {
+        setStatus({
+          isRegistered: issuerResult.info.status === 1, // 1 = ACTIVE
+          isPending: issuerResult.info.status === 0,    // 0 = PENDING
+          name: wallet.address?.slice(0, 16) + '...',
+          publicKey: wallet.coinPublicKey.slice(0, 20) + '...',
+        });
+      } else {
+        setStatus({ isRegistered: false, isPending: false });
+      }
+    } catch (error) {
+      console.error('Failed to check registration:', error);
+      setStatus({ isRegistered: false, isPending: false });
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setResult(null);
     
-    // Simulate on-chain registration
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setResult({
-      success: true,
-      message: 'Registration submitted! Your issuer status is now pending admin approval.',
-    });
-    setStatus({ isRegistered: false, isPending: true, name: formData.name });
-    setIsSubmitting(false);
-    
-    setTimeout(() => setResult(null), 5000);
+    try {
+      const result = await registerIssuerOnChain(formData.name);
+      
+      if (result.success) {
+        setResult({
+          success: true,
+          message: 'Registration submitted successfully! Transaction: ' + result.txId?.slice(0, 20) + '...',
+        });
+        // Re-check status after registration
+        await checkRegistration();
+      } else {
+        setResult({
+          success: false,
+          message: result.error || 'Registration failed',
+        });
+      }
+    } catch (error: any) {
+      setResult({
+        success: false,
+        message: error.message || 'Registration failed',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (isChecking) {
+    return (
+      <Card>
+        <CardHeader 
+          title="Issuer Registration"
+          subtitle="Checking your registration status..."
+          icon={Building2}
+        />
+        <CardBody>
+          <div className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+          </div>
+        </CardBody>
+      </Card>
+    );
+  }
 
   if (status.isRegistered) {
     return (
@@ -102,7 +165,7 @@ export function IssuerRegistration() {
       />
       <CardBody>
         {result ? (
-          <Alert variant="success" title="Registration Submitted">
+          <Alert variant={result.success ? 'success' : 'error'} title={result.success ? 'Registration Submitted' : 'Registration Failed'}>
             {result.message}
           </Alert>
         ) : (
@@ -116,32 +179,38 @@ export function IssuerRegistration() {
             />
             
             <Input
-              label="License Number"
+              label="License Number (Optional)"
               placeholder="Medical institution license number"
               value={formData.licenseNumber}
               onChange={(e) => setFormData(prev => ({ ...prev, licenseNumber: e.target.value }))}
-              required
             />
             
-            <Input
-              label="Public Key"
-              placeholder="Your wallet's public key (auto-filled)"
-              value={formData.publicKey}
-              onChange={(e) => setFormData(prev => ({ ...prev, publicKey: e.target.value }))}
-              leftIcon={<Key className="w-4 h-4" />}
-            />
+            <div className="p-3 bg-slate-50 rounded-lg">
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Public Key
+              </label>
+              <div className="flex items-center gap-2">
+                <Key className="w-4 h-4 text-slate-400" />
+                <code className="text-sm text-slate-600 font-mono">
+                  {wallet.coinPublicKey ? wallet.coinPublicKey.slice(0, 20) + '...' : 'Not connected'}
+                </code>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Your wallet's public key will be used as the issuer identifier
+              </p>
+            </div>
 
             <Alert variant="info">
-              Registration requires admin approval. Once approved, you'll be able to issue privacy-preserving credentials to patients.
+              Registration requires your wallet to be connected. Once registered, you'll be able to issue privacy-preserving credentials to patients.
             </Alert>
 
             <Button 
               type="submit"
               isLoading={isSubmitting}
-              disabled={isSubmitting}
+              disabled={isSubmitting || !wallet.isConnected}
               className="w-full"
             >
-              Submit Registration
+              {!wallet.isConnected ? 'Connect Wallet First' : 'Submit Registration'}
             </Button>
           </form>
         )}

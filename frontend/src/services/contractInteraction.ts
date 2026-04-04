@@ -110,7 +110,7 @@ async function initializeProviders() {
     getEncryptionPublicKey() {
       return wallet.encryptionPublicKey || '';
     },
-    async balanceTx(tx: any, _newCoins?: any[]) {
+    async balanceTx(tx: any, _ttl?: Date) {
       if (!laceAPI) {
         throw new Error('No wallet connected. Please connect Lace wallet.');
       }
@@ -127,7 +127,7 @@ async function initializeProviders() {
         'proof',
         'binding',
         fromHex(received.tx),
-      );
+      ) as any;
     },
   };
 
@@ -229,7 +229,7 @@ export function hexStringToBytes32(hex: string): Uint8Array {
 export function bech32mToBytes32(address: string): Uint8Array {
   try {
     // Decode bech32m address
-    const decoded = bech32m.decode(address);
+    const decoded = bech32m.decode(address as `${string}1${string}`);
     const data = bech32m.fromWords(decoded.words);
     // Take first 32 bytes or pad
     const result = new Uint8Array(32);
@@ -269,15 +269,21 @@ export async function registerIssuerOnChain(
 
     console.log('📤 Submitting registerIssuer transaction...');
 
-    const result = await submitCallTx(providers, {
-      contractAddress: CONTRACT_ADDRESS,
-      compiledContract: providers.compiledContract,
-      circuitId: CIRCUIT_REGISTER_ISSUER,
-      privateStateId: 'privamedai-private-state',
-      args: [pubKeyBytes, pubKeyBytes, nameHash],
-    });
+    // Add timeout to prevent infinite hanging
+    const submitWithTimeout = Promise.race([
+      (submitCallTx as any)(providers, {
+        contractAddress: CONTRACT_ADDRESS,
+        compiledContract: providers.compiledContract,
+        circuitId: CIRCUIT_REGISTER_ISSUER,
+        args: [pubKeyBytes, pubKeyBytes, nameHash],
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Transaction timeout - proof server may be slow or unresponsive')), 120000)
+      )
+    ]);
 
-    const txId = result?.public?.txId;
+    const result = await submitWithTimeout;
+    const txId = (result as any)?.public?.txId;
     console.log('✅ Issuer registered successfully:', txId);
 
     return {
@@ -360,15 +366,24 @@ export async function issueCredentialOnChain(
       claimHash: toHex(claimHash),
       expiry: expiryTimestamp.toString(),
     });
+    console.log('   Proof server:', CONFIG.proofServer);
+    console.log('   Wallet connected:', !!wallet.coinPublicKey);
 
-    const result = await submitCallTx(providers, {
-      contractAddress: CONTRACT_ADDRESS,
-      compiledContract: providers.compiledContract,
-      circuitId: CIRCUIT_ISSUE_CREDENTIAL,
-      args: [pubKeyBytes, commitment, pubKeyBytes, claimHash, expiryTimestamp],
-    });
+    // Add timeout to prevent infinite hanging
+    const submitWithTimeout = Promise.race([
+      (submitCallTx as any)(providers, {
+        contractAddress: CONTRACT_ADDRESS,
+        compiledContract: providers.compiledContract,
+        circuitId: CIRCUIT_ISSUE_CREDENTIAL,
+        args: [pubKeyBytes, commitment, pubKeyBytes, claimHash, expiryTimestamp],
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Transaction timeout - proof server may be slow or unresponsive')), 120000)
+      )
+    ]);
 
-    const txId = result?.public?.txId;
+    const result = await submitWithTimeout;
+    const txId = (result as any)?.public?.txId;
     console.log('✅ Credential issued successfully:', txId);
 
     // Store credential locally for proof generation
@@ -394,8 +409,37 @@ export async function issueCredentialOnChain(
     };
   } catch (error: any) {
     console.error('❌ Failed to issue credential:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error cause:', error.cause);
+    console.error('Error stack:', error.stack);
     
     const message = error.message || '';
+    
+    // Check for timeout
+    if (message.includes('timeout')) {
+      return { 
+        success: false, 
+        error: 'Transaction timed out after 2 minutes. The proof server may be slow or the network is congested. Try again or check proof server logs.' 
+      };
+    }
+    
+    // Check for scoped transaction submission error
+    if (message.includes('Unexpected error submitting scoped transaction')) {
+      const causeMsg = error.cause?.message || '';
+      const causeStack = error.cause?.stack || '';
+      console.error('Root cause message:', causeMsg);
+      console.error('Root cause stack:', causeStack);
+      
+      // Common causes based on Midnight.js source
+      if (!causeMsg || causeMsg === 'Error') {
+        return { 
+          success: false, 
+          error: 'Transaction submission failed after wallet signature. This usually means:\n1. Proof server connection lost\n2. Network congestion\n3. Transaction failed during proving\n\nCheck proof server logs and try again.' 
+        };
+      }
+    }
+    
     if (message.includes('already exists')) {
       return { success: false, error: 'Credential already exists' };
     }
@@ -442,7 +486,7 @@ export async function revokeCredentialOnChain(
 
     console.log('📤 Submitting revokeCredential transaction...');
 
-    const result = await submitCallTx(providers, {
+    const result = await (submitCallTx as any)(providers, {
       contractAddress: CONTRACT_ADDRESS,
       compiledContract: providers.compiledContract,
       circuitId: CIRCUIT_REVOKE_CREDENTIAL,
@@ -503,7 +547,7 @@ export async function verifyCredentialOnChain(
 
     console.log('📤 Submitting verifyCredential transaction...');
 
-    const result = await submitCallTx(providers, {
+    const result = await (submitCallTx as any)(providers, {
       contractAddress: CONTRACT_ADDRESS,
       compiledContract: providers.compiledContract,
       circuitId: CIRCUIT_VERIFY_CREDENTIAL,
@@ -557,7 +601,7 @@ export async function getContractAdmin(): Promise<{
 
     const providers = await initializeProviders();
 
-    const result = await submitCallTx(providers, {
+    const result = await (submitCallTx as any)(providers, {
       contractAddress: CONTRACT_ADDRESS,
       compiledContract: providers.compiledContract,
       circuitId: 'getAdmin',
@@ -622,8 +666,8 @@ export async function queryCredentialsOnChain(
     const state = ledger(contractState.data);
 
     console.log('✅ Contract state retrieved');
-    const totalCredentials = state.credentials?.size?.() || 0;
-    const totalIssuers = state.issuerRegistry?.size?.() || 0;
+    const totalCredentials = BigInt(state.credentials?.size?.() || 0);
+    const totalIssuers = BigInt(state.issuerRegistry?.size?.() || 0);
     console.log('   Total credentials:', totalCredentials);
     console.log('   Total issuers:', totalIssuers);
 
@@ -720,6 +764,169 @@ export async function checkCredentialOnChain(
     return {
       success: false,
       error: error.message || 'Failed to check credential on-chain',
+    };
+  }
+}
+
+
+/**
+ * Check if an issuer is registered on-chain
+ */
+export async function checkIssuerOnChain(
+  publicKeyHex: string
+): Promise<{
+  registered: boolean;
+  info?: {
+    status: number;
+    credentialCount: bigint;
+    nameHash: Uint8Array;
+  };
+}> {
+  try {
+    console.log('🔍 Checking issuer on-chain:', publicKeyHex.slice(0, 16) + '...');
+
+    const publicDataProvider = indexerPublicDataProvider(
+      CONFIG.indexer,
+      CONFIG.indexerWS
+    );
+
+    const contractState = await publicDataProvider.queryContractState(CONTRACT_ADDRESS);
+    
+    if (!contractState) {
+      return { registered: false };
+    }
+
+    // Parse ledger state
+    const ledger = contracts.PrivaMedAI.ledger;
+    const state = ledger(contractState.data);
+
+    // Convert public key hex to bytes32
+    const pubKeyBytes = hexToBytes32(publicKeyHex);
+    
+    // Check if issuer exists
+    const exists = state.issuerRegistry.member(pubKeyBytes);
+    
+    if (!exists) {
+      return { registered: false };
+    }
+
+    // Get issuer details
+    const issuer = state.issuerRegistry.lookup(pubKeyBytes);
+
+    return {
+      registered: true,
+      info: {
+        status: issuer.status,
+        credentialCount: issuer.credentialCount,
+        nameHash: issuer.nameHash,
+      },
+    };
+  } catch (error: any) {
+    console.error('❌ Failed to check issuer:', error);
+    return { registered: false };
+  }
+}
+
+/**
+ * Submit proof verification on-chain
+ */
+export async function submitProofVerification(
+  commitmentHex: string,
+  credentialDataBytes: Uint8Array,
+  circuitId: string = 'verifyCredential'
+): Promise<{
+  success: boolean;
+  txId?: string;
+  error?: string;
+}> {
+  try {
+    console.log('🔍 Submitting proof verification on-chain...');
+
+    const providers = await initializeProviders();
+    const wallet = getWalletState();
+    
+    if (!wallet.coinPublicKey) {
+      return { success: false, error: 'Wallet not connected' };
+    }
+
+    // Convert commitment hex to bytes32
+    const commitmentBytes = hexToBytes32(commitmentHex);
+
+    const result = await (submitCallTx as any)(providers, {
+      contractAddress: CONTRACT_ADDRESS,
+      compiledContract: providers.compiledContract,
+      circuitId: circuitId,
+      args: [commitmentBytes, credentialDataBytes],
+    });
+
+    const txId = result?.public?.txId;
+    console.log('✅ Proof verification submitted:', txId);
+
+    return {
+      success: true,
+      txId: txId ? String(txId) : undefined,
+    };
+  } catch (error: any) {
+    console.error('❌ Failed to submit proof verification:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to submit proof verification',
+    };
+  }
+}
+
+
+/**
+ * Deploy a new contract instance
+ * NOTE: This is for testing/development only
+ */
+export async function deployNewContract(
+  initialAdmin?: string
+): Promise<{
+  success: boolean;
+  contractAddress?: string;
+  txId?: string;
+  error?: string;
+}> {
+  try {
+    console.log('🚀 Deploying new contract...');
+
+    const providers = await initializeProviders();
+    const wallet = getWalletState();
+    
+    if (!wallet.coinPublicKey) {
+      return { success: false, error: 'Wallet not connected' };
+    }
+
+    // Use provided admin or default to wallet
+    const adminPubKey = initialAdmin || wallet.coinPublicKey.slice(0, 64);
+    const adminBytes = hexToBytes32(adminPubKey);
+
+    console.log('📤 Deploying contract with admin:', adminPubKey.slice(0, 16) + '...');
+
+    const result = await (deployContract as any)(providers, {
+      compiledContract: providers.compiledContract,
+      initialPrivateState: {},
+      args: [adminBytes],
+    });
+
+    const contractAddress = (result as any)?.contractAddress;
+    const txId = (result as any)?.txId;
+    
+    console.log('✅ Contract deployed!');
+    console.log('   Address:', contractAddress);
+    console.log('   Tx ID:', txId);
+
+    return {
+      success: true,
+      contractAddress: contractAddress ? String(contractAddress) : undefined,
+      txId: txId ? String(txId) : undefined,
+    };
+  } catch (error: any) {
+    console.error('❌ Failed to deploy contract:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to deploy contract',
     };
   }
 }

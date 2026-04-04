@@ -1,10 +1,21 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, Shield, Check, Copy, Download, Loader2, ChevronDown } from 'lucide-react';
+import { Send, Sparkles, Shield, Check, Copy, Download, Loader2, ChevronDown, AlertCircle } from 'lucide-react';
 import { parseNaturalLanguage } from '../../services/xaiService';
 import { generateProductionZKProof } from '../../services/proofServiceProd';
-import { getWalletState, getStoredCredentials } from '../../services/contractService';
-import { queryCredentialsOnChain } from '../../services/contractInteraction';
+import { getWalletState } from '../../services/contractService';
+import { queryCredentialsOnChain, checkCredentialOnChain } from '../../services/contractInteraction';
 import type { GeneratedRule } from '../../types/claims';
+
+// Credential data interface for patient's stored credentials
+interface PatientCredential {
+  commitment: string;
+  claimType: string;
+  claimData: Record<string, any>;
+  claimDataBytes: number[];
+  issuedAt: number;
+  expiresAt: number;
+  issuer: string;
+}
 
 interface Message {
   id: string;
@@ -24,6 +35,8 @@ interface GeneratedProof {
   txId?: string;
   rules: GeneratedRule[];
   circuitId?: string;
+  publicInputs?: string; // Required for cryptographic verification
+  credentialDataBytes?: number[]; // For on-chain submission
 }
 
 const SUGGESTED_PROMPTS = [
@@ -33,12 +46,38 @@ const SUGGESTED_PROMPTS = [
   "Prove I'm eligible for free healthcare and dental coverage",
 ];
 
+/**
+ * Normalize values for comparison - handles type coercion
+ * e.g., 'true' (string) === true (boolean)
+ * e.g., '50' (string) === 50 (number)
+ */
+function normalizeValue(value: any): string | number | boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value;
+  if (typeof value !== 'string') return String(value);
+  
+  const lower = value.toLowerCase().trim();
+  
+  // Boolean strings
+  if (lower === 'true') return true;
+  if (lower === 'false') return false;
+  
+  // Numeric strings
+  if (/^-?\d+$/.test(value)) return parseInt(value, 10);
+  if (/^-?\d+\.\d+$/.test(value)) return parseFloat(value);
+  
+  // Keep as string
+  return value;
+}
+
 export function AIChatComposer() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [walletConnected, setWalletConnected] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [patientCredentials, setPatientCredentials] = useState<PatientCredential[]>([]);
+  const [showCredentialImporter, setShowCredentialImporter] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -127,57 +166,163 @@ export function AIChatComposer() {
         );
       }
       
-      const storedCredentials = getStoredCredentials();
-      const latestCredential = storedCredentials[storedCredentials.length - 1];
-      
-      if (!latestCredential) {
+      // Check if patient has credentials loaded
+      if (patientCredentials.length === 0) {
+        setShowCredentialImporter(true);
         throw new Error(
-          'Found credentials on-chain but none in local storage. ' +
-          'Please ask your Medical Provider to re-issue the credential.'
+          'No credentials found in your wallet. ' +
+          'Please import your credentials first. ' +
+          'In a production system, these would be stored in your wallet or fetched from encrypted storage.'
         );
       }
       
-      let credentialData: Record<string, any>;
-      try {
-        const encryptedData = JSON.parse(latestCredential.encryptedData || '{}');
-        const claimDataStr = encryptedData.claimData || '{}';
-        credentialData = typeof claimDataStr === 'string' 
-          ? JSON.parse(claimDataStr) 
-          : claimDataStr;
-      } catch (e) {
-        credentialData = {
-          age: 35,
-          has_diabetes_diagnosis: false,
-          vaccinated_last_6_months: false,
-          vaccination_status: 'partial',
-          medical_clearance: false,
-          free_healthcare_eligible: false,
-          dental_coverage: false,
-          annual_wellness_exam: 'pending',
-          identity_verified: true,
-          income_eligible: false,
-          resident_status: 'pending',
-        };
+      // Find a credential that ACTUALLY SATISFIES the rules
+      // AND exists on-chain
+      console.log('=== CREDENTIAL SELECTION DEBUG ===');
+      console.log(`Rules to satisfy:`, aiResponse.rules);
+      console.log(`Total on-chain credentials: ${onChainResult.totalCredentials}`);
+      console.log(`Patient credentials (${patientCredentials.length}):`);
+      
+      let selectedCredential: PatientCredential | null = null;
+      let bestMatchScore = 0;
+      
+      for (let i = 0; i < patientCredentials.length; i++) {
+        const cred = patientCredentials[i];
+        try {
+          const claimData = cred.claimData || {};
+          
+          console.log(`\n[${i + 1}] Credential: ${cred.claimType}`);
+          console.log(`    Commitment: ${(cred.commitment || '').slice(0, 20)}...`);
+          console.log(`    Available fields:`, Object.keys(claimData));
+          
+          // CRITICAL: Check if this credential actually exists on-chain
+          if (!cred.commitment) {
+            console.log(`    ❌ No commitment - skipping`);
+            continue;
+          }
+          
+          const checkResult = await checkCredentialOnChain(cred.commitment);
+          if (!checkResult.success || !checkResult.exists) {
+            console.log(`    ❌ NOT FOUND on-chain - skipping`);
+            console.log(`       Check result:`, checkResult);
+            continue;
+          }
+          console.log(`    ✅ Found on-chain (issuer: ${checkResult.credential?.issuer.slice(0, 16)}...)`);
+          
+          // Check if credential ACTUALLY SATISFIES ALL rules
+          let allRulesSatisfied = true;
+          let matchScore = 0;
+          
+          for (const rule of aiResponse.rules) {
+            if (claimData[rule.field] !== undefined) {
+              const ruleValue = rule.value;
+              const credValue = claimData[rule.field];
+              const operator = rule.operator || '==';
+              
+              // Type-aware comparison - handle string vs boolean/number mismatch
+              const normalizedRuleValue = normalizeValue(ruleValue);
+              const normalizedCredValue = normalizeValue(credValue);
+              
+              console.log(`    Rule ${rule.field} ${operator} ${JSON.stringify(ruleValue)}: cred=${JSON.stringify(credValue)}`);
+              
+              // Use the actual operator for comparison
+              let rulePassed = false;
+              switch (operator) {
+                case '==':
+                case '=':
+                  rulePassed = normalizedCredValue === normalizedRuleValue;
+                  break;
+                case '>=':
+                  rulePassed = normalizedCredValue >= normalizedRuleValue;
+                  break;
+                case '>':
+                  rulePassed = normalizedCredValue > normalizedRuleValue;
+                  break;
+                case '<=':
+                  rulePassed = normalizedCredValue <= normalizedRuleValue;
+                  break;
+                case '<':
+                  rulePassed = normalizedCredValue < normalizedRuleValue;
+                  break;
+                case '!=':
+                  rulePassed = normalizedCredValue !== normalizedRuleValue;
+                  break;
+                default:
+                  rulePassed = normalizedCredValue === normalizedRuleValue;
+              }
+              
+              if (rulePassed) {
+                matchScore += 3;
+                console.log(`    ✅ MATCH (${normalizedCredValue} ${operator} ${normalizedRuleValue})`);
+              } else {
+                console.log(`    ❌ FAIL (${normalizedCredValue} ${operator} ${normalizedRuleValue})`);
+                allRulesSatisfied = false;
+                break;
+              }
+            } else {
+              console.log(`    ❌ Field '${rule.field}' NOT FOUND in credential`);
+              allRulesSatisfied = false;
+              break;
+            }
+          }
+          
+          if (allRulesSatisfied) {
+            console.log(`    ✅ ALL RULES SATISFIED (score: ${matchScore})`);
+            if (matchScore > bestMatchScore) {
+              bestMatchScore = matchScore;
+              selectedCredential = cred;
+              console.log(`    -> SELECTED as best match`);
+            }
+          } else {
+            console.log(`    ❌ Some rules not satisfied`);
+          }
+        } catch (e) {
+          console.log(`    ❌ Error parsing credential:`, e);
+        }
       }
       
-      credentialData.clearance_expiry = latestCredential.expiresAt;
-      credentialData.exam_date = latestCredential.issuedAt;
+      console.log(`\n=== SELECTION RESULT ===`);
+      console.log(`Selected: ${selectedCredential ? selectedCredential.claimType : 'NONE'}`);
       
-      const credentialCommitment = latestCredential.commitment || '0x' + '0'.repeat(64);
+      // No credential satisfies the rules
+      if (!selectedCredential) {
+        throw new Error(
+          'None of your credentials satisfy the requirements: ' +
+          aiResponse.rules.map((r: any) => `${r.field} = ${r.value}`).join(', ') +
+          '. Please request a new credential from your Medical Provider that meets these requirements.'
+        );
+      }
+      
+      const credentialData = { ...selectedCredential.claimData };
+      credentialData.clearance_expiry = selectedCredential.expiresAt;
+      credentialData.exam_date = selectedCredential.issuedAt;
+      
+      if (!selectedCredential.commitment) {
+        throw new Error('Selected credential is missing commitment hash');
+      }
+      const credentialCommitment = selectedCredential.commitment;
 
-      // Show proof generation message
+      // Extract the ORIGINAL claimData bytes for proof generation
+      let claimDataBytes: Uint8Array;
+      if (selectedCredential.claimDataBytes && Array.isArray(selectedCredential.claimDataBytes)) {
+        claimDataBytes = new Uint8Array(selectedCredential.claimDataBytes);
+      } else {
+        throw new Error('Credential missing claimDataBytes - cannot generate proof');
+      }
+
+      // Show proof generation message with credential info
       const proofGenId = (Date.now() + 2).toString();
       setMessages(prev => [...prev, {
         id: proofGenId,
         role: 'assistant',
-        content: '🔐 Generating verification proof...',
+        content: `🔐 Generating proof using: **${selectedCredential.claimType}**...`,
         isGenerating: true,
       }]);
 
       const proofResult = await generateProductionZKProof(
         aiResponse.rules, 
         credentialCommitment,
-        credentialData
+        claimDataBytes
       );
 
       // Remove the proof generation message
@@ -191,7 +336,7 @@ export function AIChatComposer() {
       setMessages(prev => [...prev, {
         id: (Date.now() + 3).toString(),
         role: 'assistant',
-        content: `**Zero-Knowledge Proof Generated Successfully**`,
+        content: `**✅ Zero-Knowledge Proof Generated Successfully**\n\n**Credential Used:** ${selectedCredential.claimType}\n**Issued:** ${new Date(selectedCredential.issuedAt).toLocaleDateString()}`,
         proof: {
           id: proofResult.proof.slice(0, 32),
           type: aiResponse.circuitType,
@@ -200,6 +345,8 @@ export function AIChatComposer() {
           txId: proofResult.txId,
           rules: aiResponse.rules,
           circuitId: proofResult.circuitId,
+          publicInputs: proofResult.publicInputs, // Include for cryptographic verification
+          credentialDataBytes: Array.from(claimDataBytes), // Store for on-chain submission
         },
       }]);
     } catch (error: any) {
@@ -219,30 +366,39 @@ export function AIChatComposer() {
   };
 
   const copyProof = (proof: GeneratedProof) => {
+    // Include qrData and publicInputs for cryptographic verification
     const proofData = {
-      type: 'rule-based-verification',
-      version: '1.0',
-      credentialCommitment: proof.id,
-      verifiedAt: new Date(proof.timestamp).getTime(),
-      rules: proof.rules?.map(r => ({
-        field: r.field,
-        operator: r.operator,
-        value: r.value,
-        actualValue: true,
-        satisfied: true,
-      })) || [],
-      allSatisfied: true,
+      proofId: proof.id,
+      type: proof.type,
+      circuitId: proof.circuitId,
+      generatedAt: proof.timestamp,
+      qrData: proof.qrData,
+      publicInputs: proof.publicInputs, // Required for verification
+      credentialDataBytes: proof.credentialDataBytes, // For on-chain submission
+      txId: proof.txId,
+      rules: proof.rules,
+      contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS,
+      network: import.meta.env.VITE_NETWORK_ID || 'preprod',
     };
     navigator.clipboard.writeText(JSON.stringify(proofData, null, 2));
   };
 
   const downloadProof = (proof: GeneratedProof) => {
+    // Validate proof data before download
+    if (!proof.qrData || proof.qrData.length < 64) {
+      console.error('Invalid proof data - qrData is missing or too short:', proof);
+      alert('Error: Proof data is incomplete. Please try generating the proof again.');
+      return;
+    }
+    
     const data = {
       proofId: proof.id,
       type: proof.type,
       circuitId: proof.circuitId,
       generatedAt: proof.timestamp,
       qrData: proof.qrData,
+      publicInputs: proof.publicInputs, // Required for cryptographic verification
+      credentialDataBytes: proof.credentialDataBytes, // For on-chain submission
       txId: proof.txId,
       rules: proof.rules,
       contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS,
@@ -266,8 +422,96 @@ export function AIChatComposer() {
 
   const isEmpty = messages.length === 0;
 
+  // Credential Import Handler
+  const handleImportCredentials = (jsonString: string) => {
+    try {
+      const data = JSON.parse(jsonString);
+      
+      // Handle array of credentials
+      const credentials = Array.isArray(data) ? data : [data];
+      
+      const validCredentials: PatientCredential[] = credentials.filter((cred: any) => {
+        return cred.commitment && cred.claimData && Array.isArray(cred.claimDataBytes);
+      });
+      
+      if (validCredentials.length === 0) {
+        throw new Error('No valid credentials found in file');
+      }
+      
+      setPatientCredentials(validCredentials);
+      setShowCredentialImporter(false);
+      
+      // Add system message
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: `✅ **${validCredentials.length} credential(s) imported successfully**\n\nYou can now request ZK proofs using these credentials.`,
+      }]);
+    } catch (error: any) {
+      alert('Failed to import credentials: ' + error.message);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-white">
+      {/* Credential Importer Modal */}
+      {showCredentialImporter && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900">Import Your Credentials</h3>
+                <p className="text-sm text-slate-500">Credentials are stored in your wallet, not on this device</p>
+              </div>
+            </div>
+            
+            <div className="bg-slate-50 rounded-xl p-4 mb-4 text-sm text-slate-600">
+              <p className="mb-2">
+                In a real deployment, your credentials would be:
+              </p>
+              <ul className="list-disc list-inside space-y-1 ml-1">
+                <li>Stored in your <strong>Lace wallet</strong> secure storage</li>
+                <li>Or fetched from <strong>encrypted cloud storage</strong> tied to your wallet</li>
+                <li>Never stored in browser localStorage for security</li>
+              </ul>
+            </div>
+            
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-slate-700">
+                Upload Credential File
+              </label>
+              <input
+                type="file"
+                accept=".json"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const text = await file.text();
+                    handleImportCredentials(text);
+                  }
+                }}
+                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+              />
+              <p className="text-xs text-slate-400">
+                Upload the credential file provided by your Medical Provider
+              </p>
+            </div>
+            
+            <div className="mt-6">
+              <button
+                onClick={() => setShowCredentialImporter(false)}
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Messages Area */}
       <div 
         ref={messagesContainerRef}
@@ -430,12 +674,31 @@ export function AIChatComposer() {
       {/* Input Area - Fixed at bottom */}
       <div className="fixed bottom-0 left-64 right-0 bg-white border-t border-slate-100 z-20">
         <div className="max-w-3xl mx-auto px-4 py-4">
-          {!walletConnected && (
-            <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              Connect your wallet to generate proofs
-            </div>
-          )}
+          {/* Status Bar */}
+          <div className="flex gap-2 mb-3">
+            {!walletConnected ? (
+              <div className="flex-1 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                Connect your wallet to generate proofs
+              </div>
+            ) : patientCredentials.length === 0 ? (
+              <button
+                onClick={() => setShowCredentialImporter(true)}
+                className="flex-1 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 flex items-center gap-2 hover:bg-amber-100 transition-colors"
+              >
+                <AlertCircle className="w-4 h-4" />
+                Import your credentials to generate proofs
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowCredentialImporter(true)}
+                className="flex-1 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 flex items-center gap-2 hover:bg-emerald-100 transition-colors"
+              >
+                <Shield className="w-4 h-4" />
+                {patientCredentials.length} credential(s) loaded • Click to manage
+              </button>
+            )}
+          </div>
           
           <div className="relative flex items-end gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3 focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
             <textarea
