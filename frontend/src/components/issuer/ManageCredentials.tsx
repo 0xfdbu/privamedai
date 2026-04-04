@@ -28,6 +28,7 @@ export function ManageCredentials() {
   const [revokingCommitment, setRevokingCommitment] = useState<string | null>(null);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const [walletAddress, setWalletAddress] = useState('');
+  const [onChainStats, setOnChainStats] = useState<{ total: number; issuers: number } | null>(null);
 
   useEffect(() => {
     const wallet = getWalletState();
@@ -40,6 +41,15 @@ export function ManageCredentials() {
   const loadCredentials = async () => {
     setIsLoading(true);
     try {
+      // Fetch on-chain stats
+      const statsResult = await queryCredentialsOnChain(walletAddress);
+      if (statsResult.success) {
+        setOnChainStats({
+          total: Number(statsResult.totalCredentials || 0),
+          issuers: Number(statsResult.totalIssuers || 0),
+        });
+      }
+
       // Get credentials from localStorage (issued by this provider)
       const stored = localStorage.getItem('privamedai_issued_credentials');
       if (stored) {
@@ -125,19 +135,46 @@ export function ManageCredentials() {
           icon={ShieldAlert}
         />
         <CardBody>
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="bg-slate-50 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-slate-900">{credentials.length}</p>
-              <p className="text-sm text-slate-500">Total Issued</p>
+          {/* Stats - Two sections: On-chain totals vs This provider */}
+          <div className="space-y-4 mb-6">
+            {/* On-chain totals */}
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <h4 className="text-sm font-medium text-blue-800 mb-3 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Network-Wide (On-Chain)
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-blue-700">{onChainStats?.total ?? '-'}</p>
+                  <p className="text-sm text-blue-600">Total Credentials Issued</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-blue-700">{onChainStats?.issuers ?? '-'}</p>
+                  <p className="text-sm text-blue-600">Registered Issuers</p>
+                </div>
+              </div>
             </div>
-            <div className="bg-emerald-50 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-emerald-600">{validCount}</p>
-              <p className="text-sm text-slate-500">Active</p>
-            </div>
-            <div className="bg-red-50 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-red-600">{revokedCount}</p>
-              <p className="text-sm text-slate-500">Revoked</p>
+
+            {/* This provider's credentials */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+              <h4 className="text-sm font-medium text-slate-700 mb-3 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                Your Organization (This Session)
+              </h4>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-slate-900">{credentials.length}</p>
+                  <p className="text-sm text-slate-500">Issued by You</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-emerald-600">{validCount}</p>
+                  <p className="text-sm text-slate-500">Active</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-red-600">{revokedCount}</p>
+                  <p className="text-sm text-slate-500">Revoked</p>
+                </div>
+              </div>
             </div>
           </div>
 
