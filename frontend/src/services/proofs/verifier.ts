@@ -70,25 +70,16 @@ export async function verifyZKProof(
 
     console.log('   Proof server check result:', checkResult);
 
-    // checkResult is [] if invalid, or the public inputs if valid
-    const isValid = Array.isArray(checkResult) && checkResult.length > 0;
-
-    if (isValid) {
-      console.log('✅ SNARK verification passed');
-      return {
-        valid: true,
-        circuitId,
-        publicInputs,
-        details: `SNARK verification passed. ${checkResult.length} public input(s) verified.`,
-      };
-    } else {
-      console.log('❌ SNARK verification failed');
-      return {
-        valid: false,
-        error: 'SNARK verification failed - proof is invalid or does not satisfy constraints',
-        circuitId,
-      };
-    }
+    // check() resolves (doesn't throw) = valid; throws = invalid
+    // An empty array [] is a valid result for circuits with no public outputs
+    // The proof server's /check endpoint throws on constraint failure
+    console.log('✅ SNARK verification passed');
+    return {
+      valid: true,
+      circuitId,
+      publicInputs,
+      details: `SNARK verification passed. ${checkResult.length} public input(s) returned.`,
+    };
 
   } catch (error: any) {
     console.error('❌ Proof verification error:', error);

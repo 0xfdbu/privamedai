@@ -3,6 +3,7 @@ import { ShieldCheck, Upload, CheckCircle, XCircle, FileCheck, AlertCircle, Send
 import { Card, CardHeader, CardBody, Button, TextArea, Alert, Badge } from '../common';
 import { submitProofVerification, type VerifierType } from '../../services/contractInteraction';
 import { verifyZKProof } from '../../services/proofs/verifier';
+import { submitOnChainVerification } from '../../services/proofs/onChainVerification';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { CONFIG } from '../../services/contractService';
 
@@ -271,7 +272,7 @@ export function VerifyProof() {
     <Card>
       <CardHeader 
         title="Verify Zero-Knowledge Proof"
-        subtitle="Validate cryptographic ZK proof format"
+        subtitle="Two-step verification: Local SNARK validation → On-chain confirmation"
         icon={ShieldCheck}
       />
       <CardBody className="space-y-6">
@@ -416,32 +417,65 @@ export function VerifyProof() {
                     <span className="font-semibold text-blue-900">Proof Details</span>
                   </div>
                   
-                  {result.isRealVerification ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-emerald-600" />
-                        <span className="text-sm text-slate-700">Credential verified on-chain</span>
+                  {/* Two-Step Verification Flow */}
+                  <div className="space-y-4">
+                    {/* Step 1: Pre-validation */}
+                    <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                      <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                        1
                       </div>
-                      <p className="text-sm text-slate-600">
-                        This proof is valid. The credential exists on the blockchain and has not been revoked.
-                      </p>
+                      <div>
+                        <p className="font-medium text-emerald-900">SNARK Pre-Validation</p>
+                        <p className="text-sm text-emerald-700">
+                          Proof constraints verified locally via /check endpoint
+                        </p>
+                        <p className="text-xs text-emerald-600 mt-1">
+                          ✓ Valid proof structure • ✓ Constraints satisfied
+                        </p>
+                      </div>
                     </div>
-                  ) : (
-                    <>
-                      <p className="text-sm text-slate-600 mb-4">
-                        Format validation passed. For full verification, the credential status needs to be checked on-chain.
-                      </p>
-                      <Button 
-                        onClick={handleSubmitOnChain}
-                        isLoading={isSubmitting}
-                        disabled={isSubmitting}
-                        className="w-full"
-                        leftIcon={<Send className="w-4 h-4" />}
-                      >
-                        Check Credential On-Chain
-                      </Button>
-                    </>
-                  )}
+
+                    {/* Step 2: On-Chain */}
+                    <div className={`flex items-start gap-3 p-3 rounded-lg border ${txResult?.status === 'success' ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+                      <div className={`w-6 h-6 rounded-full text-white flex items-center justify-center text-xs font-bold flex-shrink-0 ${txResult?.status === 'success' ? 'bg-emerald-500' : 'bg-slate-400'}`}>
+                        2
+                      </div>
+                      <div className="flex-1">
+                        <p className={`font-medium ${txResult?.status === 'success' ? 'text-emerald-900' : 'text-slate-900'}`}>
+                          On-Chain Verification
+                        </p>
+                        <p className="text-sm text-slate-600">
+                          {txResult?.status === 'success' 
+                            ? 'Network validators verified the proof. Transaction committed.'
+                            : 'Submit to Midnight network for authoritative verification'}
+                        </p>
+                        
+                        {/* What's visible on-chain */}
+                        <div className="mt-2 p-2 bg-white/50 rounded text-xs">
+                          <p className="font-medium text-slate-700 mb-1">What's visible on-chain:</p>
+                          <ul className="space-y-1 text-slate-600">
+                            <li>• totalVerificationsPerformed counter increments</li>
+                            <li>• Transaction hash (publicly auditable)</li>
+                            <li>• Boolean result (e.g., age ≥ 18: true)</li>
+                          </ul>
+                          <p className="font-medium text-emerald-700 mt-2">What stays private:</p>
+                          <p className="text-slate-600">Your actual age, condition codes, prescription codes</p>
+                        </div>
+
+                        {!txResult && (
+                          <Button 
+                            onClick={handleSubmitOnChain}
+                            isLoading={isSubmitting}
+                            disabled={isSubmitting}
+                            className="w-full mt-3"
+                            leftIcon={<Send className="w-4 h-4" />}
+                          >
+                            Submit On-Chain Verification
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
                   {txResult?.status === 'pending' && (
                     <div className="mt-4 p-3 bg-amber-100 rounded border border-amber-300">
