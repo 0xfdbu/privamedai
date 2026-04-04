@@ -596,12 +596,16 @@ export function VerifyProof() {
                         <div className="mt-2 p-2 bg-white/50 rounded text-xs">
                           <p className="font-medium text-slate-700 mb-1">What's visible on-chain:</p>
                           <ul className="space-y-1 text-slate-600">
-                            <li>• totalVerificationsPerformed counter increments</li>
                             <li>• Transaction hash (publicly auditable)</li>
-                            <li>• Boolean result (e.g., age ≥ 18: true)</li>
+                            <li>• Verification counter increments</li>
+                            <li>• Credential commitment (hash identifier)</li>
+                            <li>• Threshold values checked (e.g., age ≥ 18)</li>
                           </ul>
-                          <p className="font-medium text-emerald-700 mt-2">What stays private:</p>
-                          <p className="text-slate-600">Your actual age, condition codes, prescription codes</p>
+                          <p className="font-medium text-emerald-700 mt-2">What stays private (ZK-protected):</p>
+                          <ul className="space-y-1 text-slate-600">
+                            <li>• Your actual age, condition codes, prescription codes</li>
+                            <li>• All personal health data</li>
+                          </ul>
                         </div>
 
                         {!txResult && (

@@ -35,17 +35,17 @@ The following features are intentionally simplified for hackathon demo purposes:
 
 ### 🔒 Privacy Guarantees
 
-**What stays private (never on-chain):**
-- Actual age value
-- Condition codes
-- Prescription codes
-- Full credential data
+**What stays private (ZK-protected, never on-chain):**
+- Actual age value (e.g., 35)
+- Condition codes (e.g., 100 = diabetes)
+- Prescription codes (e.g., 500)
+- All health claim data
 
-**What's visible on-chain:**
-- Credential commitment hash
-- Boolean assertion results (e.g., "age ≥ 18: true")
+**What's visible on-chain (public):**
+- Transaction hash
 - Verification counter increments
-- Transaction metadata
+- Credential commitment (hash identifier)
+- Threshold values checked (e.g., "age ≥ 18", "condition = 100")
 
 ## 🌟 Features
 
@@ -225,6 +225,87 @@ HealthClaim           Witness Data        Boolean Result
 (age, condition,      + Private Key       (valid/invalid)
 prescription)         + On-Chain State
 ```
+
+## 🧠 How ZK Proofs Work (Beginner's Guide)
+
+### The Magic: Proving Without Revealing
+
+Think of a ZK proof like showing you know a password without actually telling me the password:
+
+**Traditional Verification:**
+```
+Doctor: "Show me your medical record"
+You:    "Here, I'm 35 with diabetes"
+Result: Doctor sees ALL your data
+```
+
+**ZK Verification:**
+```
+Clinic: "Prove you're over 18"
+You:    "Here's a proof that I know my age is ≥ 18"
+Result: Clinic learns ONLY "age ≥ 18: true"
+```
+
+### Key Concepts
+
+| Concept | Simple Explanation | Example |
+|---------|-------------------|---------|
+| **Claim** | A statement about your data | "My age is 35" |
+| **Public Input** | What everyone can see | Threshold: "age ≥ 18" |
+| **Private Witness** | Your secret data | Actual age: 35 |
+| **Proof** | Cryptographic evidence | "I know a value ≥ 18 that matches the claim hash" |
+| **Verification** | Checking the proof | Circuit validates without learning the actual age |
+
+### How It Works in PrivaMedAI
+
+```
+1. ISSUANCE (Doctor → Patient)
+   ├─ Doctor issues credential with health data
+   ├─ Data is hashed: claimHash = hash([age, condition, prescription])
+   └─ Stored on-chain: commitment → claimHash
+
+2. PROOF GENERATION (Patient)
+   ├─ Patient wants to prove: "I'm over 18 AND have diabetes"
+   ├─ Circuit inputs:
+   │   ├─ Public: commitment, minAge=18, requiredCondition=100
+     │   └─ Private (witness): age=35, conditionCode=100, prescriptionCode=500
+   ├─ Circuit checks:
+   │   ├─ Does hash([age, condition, prescription]) == claimHash? ✓
+   │   ├─ Is age ≥ minAge? ✓ (35 ≥ 18)
+   │   └─ Is condition == requiredCondition? ✓ (100 == 100)
+   └─ Generates ZK proof: "Valid proof that checks pass"
+
+3. VERIFICATION (Blockchain)
+   ├─ Verifier sees: proof + public inputs
+   ├─ Verifier checks: Is the proof valid?
+   └─ Result: "Proof is valid" (never learns actual values!)
+```
+
+### The Math Magic (Simplified)
+
+**Commitment:** Hash of your data
+```
+claimHash = hash("privamed:claim:" + age + condition + prescription)
+```
+
+**Proof:** 
+- Proves: "I know values that hash to claimHash AND satisfy the conditions"
+- Without revealing: The actual values
+
+**Why It's Secure:**
+- One-way hash: Can't reverse-engineer data from claimHash
+- ZK circuits: Prove statements without revealing inputs
+- On-chain: Only public inputs are visible
+
+### Real-World Analogy
+
+Imagine a **sealed envelope system**:
+
+1. **Issuance:** Doctor puts your health record in an envelope, writes a summary on the outside
+2. **Proof:** You open the envelope privately, check the requirements, then give the verifier a signed attestation
+3. **Verification:** Verifier checks the signature (proof) knows the attestation is valid without seeing inside the envelope
+
+The difference: In ZK, the "envelope" is mathematics, not paper!
 
 ## 🧪 Testing
 
