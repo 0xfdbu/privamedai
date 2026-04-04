@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { ShieldCheck, Upload, CheckCircle, XCircle, FileCheck, AlertCircle, Send, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, TextArea, Alert, Badge } from '../common';
 import { submitProofVerification, type VerifierType } from '../../services/contractInteraction';
+import { verifyZKProof } from '../../services/proofs/verifier';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { CONFIG } from '../../services/contractService';
 
@@ -142,108 +143,54 @@ export function VerifyProof() {
       hasQrData: !!proofData.qrData,
       qrDataType: typeof proofData.qrData,
       qrDataLength: proofData.qrData?.length,
-      qrDataPreview: proofData.qrData ? String(proofData.qrData).slice(0, 50) + '...' : 'N/A',
       hasProof: !!proofData.proof,
       hasCircuitId: !!proofData.circuitId,
       hasTimestamp: !!(proofData.timestamp || proofData.generatedAt),
+      hasPublicInputs: !!proofData.publicInputs,
       keys: Object.keys(proofData),
     });
     
-    // Normalize field names - AI Chat download uses 'generatedAt' instead of 'timestamp'
-    const timestamp = proofData.timestamp || proofData.generatedAt;
-    const type = proofData.type || 'ZK Proof';
+    // Get the serialized preimage and circuit ID
+    // NOTE: serializedPreimage is what check() expects, NOT the proof bytes
+    const serializedPreimage = proofData.serializedPreimage;
+    const circuitId = proofData.circuitId;
+    const publicInputs = typeof proofData.publicInputs === 'string' 
+      ? JSON.parse(proofData.publicInputs) 
+      : proofData.publicInputs;
     
-    // Handle downloaded proof file format (from AI Chat)
-    // Format: { qrData: "hex proof", circuitId: "...", timestamp: "...", publicInputs: "..." }
-    if (proofData.qrData && typeof proofData.qrData === 'string') {
-      const hexProof = proofData.qrData.startsWith('0x') 
-        ? proofData.qrData.slice(2) 
-        : proofData.qrData;
-      
-      const isValidHex = /^[0-9a-fA-F]+$/.test(hexProof);
-      console.log('qrData validation:', { isValidHex, length: hexProof.length, hasPublicInputs: !!proofData.publicInputs });
-      
-      if (isValidHex && hexProof.length >= 64) {
-        // Note: The Midnight proof server does not have a /verify endpoint.
-        // Real verification happens on-chain when the proof is submitted.
-        // We can validate the format and check if the credential exists.
-        const hasPublicInputs = !!proofData.publicInputs;
-        
-        if (hasPublicInputs && proofData.circuitId) {
-          // Validate format and public inputs are present
-          // Real cryptographic verification requires on-chain submission
-          setResult({
-            valid: true,
-            type: 'ZK Proof (Format Validated)',
-            proofSize: hexProof.length / 2,
-            verifiedAt: new Date(timestamp || Date.now()).toLocaleString(),
-            circuitId: proofData.circuitId,
-            details: `✅ Proof format is valid. This proof was generated for ${proofData.circuitId} circuit.\n\nReady for on-chain verification.`,
-            isRealVerification: false,
-            proofData: proofData, // Store for on-chain submission
-          });
-          return;
-        }
-        
-        // No publicInputs - do format validation only
-        setResult({
-          valid: true,
-          type: 'ZK Proof (Format Validated Only)',
-          proofSize: hexProof.length / 2,
-          verifiedAt: new Date(timestamp || Date.now()).toLocaleString(),
-          circuitId: proofData.circuitId || 'verifyCredential',
-          details: `⚠️ Format is valid but cryptographic verification requires publicInputs. This proof may be from an older version.`,
-          isRealVerification: false,
-        });
-        return;
-      }
+    if (!serializedPreimage || !circuitId) {
+      setResult({
+        valid: false,
+        error: 'Invalid proof format. Missing serializedPreimage or circuit ID. Please generate a new proof with the latest version.',
+      });
+      return;
     }
     
-    // Check for alternative format: { proof: "hex", circuitId: "...", timestamp: "..." }
-    if (proofData.proof && typeof proofData.proof === 'string' && proofData.circuitId) {
-      const hexProof = proofData.proof.startsWith('0x') 
-        ? proofData.proof.slice(2) 
-        : proofData.proof;
-      
-      if (/^[0-9a-fA-F]+$/.test(hexProof) && hexProof.length >= 64) {
-        setResult({
-          valid: true,
-          type: 'ZK Proof (Format Validated Only)',
-          proofSize: hexProof.length / 2,
-          verifiedAt: new Date(proofData.timestamp || Date.now()).toLocaleString(),
-          circuitId: proofData.circuitId,
-          details: '⚠️ Format is valid but publicInputs are missing for cryptographic verification.',
-          isRealVerification: false,
-        });
-        return;
-      }
+    // Convert serializedPreimage array back to Uint8Array
+    const preimageBytes = new Uint8Array(serializedPreimage);
+    
+    // Perform real SNARK verification
+    setIsVerifying(true);
+    const verificationResult = await verifyZKProof(preimageBytes, circuitId, publicInputs);
+    setIsVerifying(false);
+    
+    if (verificationResult.valid) {
+      setResult({
+        valid: true,
+        type: 'ZK Proof (SNARK Verified)',
+        proofSize: preimageBytes.length,
+        verifiedAt: new Date().toLocaleString(),
+        circuitId: verificationResult.circuitId,
+        details: verificationResult.details,
+        isRealVerification: true,
+        proofData: proofData,
+      });
+    } else {
+      setResult({
+        valid: false,
+        error: verificationResult.error,
+      });
     }
-    
-    // Provide specific error based on what was detected
-    let errorMsg = 'Invalid proof format. Expected:\n1. Raw hex proof (starting with 0x or plain hex), OR\n2. JSON file with qrData/circuitId/timestamp fields from AI Chat download';
-    
-    if (proofData.qrData && typeof proofData.qrData === 'string') {
-      const hexProof = proofData.qrData.startsWith('0x') 
-        ? proofData.qrData.slice(2) 
-        : proofData.qrData;
-      if (!/^[0-9a-fA-F]+$/.test(hexProof)) {
-        errorMsg = 'Invalid proof: qrData field contains non-hex characters. The proof may be corrupted.';
-      } else if (hexProof.length < 64) {
-        errorMsg = `Invalid proof: qrData is too short (${hexProof.length} chars). Expected at least 64 hex characters.`;
-      }
-    } else if (!proofData.qrData && !proofData.proof) {
-      // Check if this is the old copy format without qrData
-      if (proofData.credentialCommitment && proofData.type === 'rule-based-verification') {
-        errorMsg = 'This proof was copied using an older format that does not include the cryptographic proof data. Please download the proof file instead of copying it, or generate a new proof and copy it again.';
-      } else {
-        errorMsg = `Invalid proof format. Missing required field: qrData or proof. Found keys: ${Object.keys(proofData).join(', ')}`;
-      }
-    }
-    
-    setResult({
-      valid: false,
-      error: errorMsg,
-    });
   };
 
   const reset = () => {
@@ -408,14 +355,14 @@ export function VerifyProof() {
                 <div>
                   <h3 className={`text-xl font-bold ${result.valid ? (result.isRealVerification ? 'text-emerald-700' : 'text-amber-700') : 'text-red-700'}`}>
                     {result.valid 
-                      ? (result.isRealVerification ? 'Proof Cryptographically Verified ✓' : 'Proof Format Valid ✓')
+                      ? (result.isRealVerification ? 'Proof Verified ✓' : 'Proof Format Valid ✓')
                       : 'Proof Invalid'}
                   </h3>
                   <p className="text-slate-600">
                     {result.valid 
                       ? (result.isRealVerification 
-                        ? 'This proof has been verified against the blockchain'
-                        : 'The proof structure is valid (but not cryptographically verified)')
+                        ? 'Credential verified on-chain. The proof is valid.'
+                        : 'The proof structure is valid (credential status unknown)')
                       : 'This proof could not be validated'}
                   </p>
                 </div>
@@ -461,27 +408,40 @@ export function VerifyProof() {
                 </div>
               )}
 
-              {/* On-Chain Verification Section */}
+              {/* Proof Details Section */}
               {result.valid && result.proofData && (
                 <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
                   <div className="flex items-center gap-2 mb-3">
                     <ShieldCheck className="w-5 h-5 text-blue-600" />
-                    <span className="font-semibold text-blue-900">On-Chain Verification</span>
+                    <span className="font-semibold text-blue-900">Proof Details</span>
                   </div>
-                  <p className="text-sm text-slate-600 mb-4">
-                    Submit this proof to the blockchain for cryptographic verification. 
-                    This will call the {result.circuitId} circuit on-chain.
-                  </p>
                   
-                  <Button 
-                    onClick={handleSubmitOnChain}
-                    isLoading={isSubmitting}
-                    disabled={isSubmitting}
-                    className="w-full"
-                    leftIcon={<Send className="w-4 h-4" />}
-                  >
-                    Submit Verification to Blockchain
-                  </Button>
+                  {result.isRealVerification ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-emerald-600" />
+                        <span className="text-sm text-slate-700">Credential verified on-chain</span>
+                      </div>
+                      <p className="text-sm text-slate-600">
+                        This proof is valid. The credential exists on the blockchain and has not been revoked.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm text-slate-600 mb-4">
+                        Format validation passed. For full verification, the credential status needs to be checked on-chain.
+                      </p>
+                      <Button 
+                        onClick={handleSubmitOnChain}
+                        isLoading={isSubmitting}
+                        disabled={isSubmitting}
+                        className="w-full"
+                        leftIcon={<Send className="w-4 h-4" />}
+                      >
+                        Check Credential On-Chain
+                      </Button>
+                    </>
+                  )}
 
                   {txResult?.status === 'pending' && (
                     <div className="mt-4 p-3 bg-amber-100 rounded border border-amber-300">

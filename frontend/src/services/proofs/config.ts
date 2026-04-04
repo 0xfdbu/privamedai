@@ -14,6 +14,7 @@ export type PrivaMedAICircuit =
 export interface ZKProofResult {
   success: boolean;
   proof: string;
+  serializedPreimage?: Uint8Array;  // For verification
   publicInputs: string;
   circuitId: string;
   txId: string;

@@ -164,6 +164,7 @@ export async function generateProductionZKProof(
     return {
       success: true,
       proof: '0x' + toHex(proof),
+      serializedPreimage,  // Include for verification
       publicInputs: JSON.stringify({
         commitment: toHex(commitmentBytes),
         credentialDataHash: toHex(credentialDataHash),

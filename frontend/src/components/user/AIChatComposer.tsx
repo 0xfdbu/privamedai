@@ -42,6 +42,7 @@ interface GeneratedProof {
   circuitId?: string;
   publicInputs?: string; // Required for cryptographic verification
   credentialDataBytes?: number[]; // For on-chain submission
+  serializedPreimage?: number[]; // For verification (proof preimage)
 }
 
 const SUGGESTED_PROMPTS = [
@@ -452,6 +453,7 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
           circuitId: circuitId, // Use the selective disclosure circuit
           publicInputs: proofResult.publicInputs,
           credentialDataBytes: Array.from(claimDataBytes),
+          serializedPreimage: proofResult.serializedPreimage ? Array.from(proofResult.serializedPreimage) : undefined,
           // Include selective disclosure info
           verifierType: verifierType !== 'standard' ? verifierType : undefined,
           disclosedFields,
@@ -477,13 +479,14 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
   };
 
   const copyProof = (proof: GeneratedProof) => {
-    // Include qrData and publicInputs for cryptographic verification
+    // Include all data needed for verification
     const proofData = {
       proofId: proof.id,
       type: proof.type,
       circuitId: proof.circuitId,
       generatedAt: proof.timestamp,
       qrData: proof.qrData,
+      serializedPreimage: proof.serializedPreimage, // Required for SNARK verification
       publicInputs: proof.publicInputs, // Required for verification
       credentialDataBytes: proof.credentialDataBytes, // For on-chain submission
       txId: proof.txId,
@@ -508,6 +511,7 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
       circuitId: proof.circuitId,
       generatedAt: proof.timestamp,
       qrData: proof.qrData,
+      serializedPreimage: proof.serializedPreimage, // Required for SNARK verification
       publicInputs: proof.publicInputs, // Required for cryptographic verification
       credentialDataBytes: proof.credentialDataBytes, // For on-chain submission
       txId: proof.txId,
