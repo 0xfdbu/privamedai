@@ -7,7 +7,7 @@ import {
   ShieldCheck, 
   Sparkles, 
   CreditCard, 
-  Share2,
+
   Plus,
   Hash,
   Users,
@@ -21,7 +21,7 @@ import { Footer } from './components/layout/Footer';
 // User Portal Pages
 import { AIChatComposer } from './components/user/AIChatComposer';
 import { CredentialWallet } from './components/user/CredentialWallet';
-import { QRShare } from './components/user/QRShare';
+
 
 // Issuer Portal Pages
 import { IssueCredential } from './components/issuer/IssueCredential';
@@ -51,7 +51,7 @@ const mainNav: NavItem[] = [
 const patientNav: NavItem[] = [
   { path: '/patient/ai', label: 'AI Composer', icon: Sparkles },
   { path: '/patient/credentials', label: 'My Credentials', icon: CreditCard },
-  { path: '/patient/share', label: 'Share', icon: Share2 },
+
 ];
 
 // Issuer sub-navigation
@@ -176,7 +176,7 @@ function PatientLayout() {
         </div>
       } />
       <Route path="credentials" element={<CredentialWalletPage />} />
-      <Route path="share" element={<QRSharePage />} />
+
     </Routes>
   );
 }
@@ -191,20 +191,6 @@ function CredentialWalletPage() {
           <p className="text-sm text-slate-500">View and manage your medical credentials</p>
         </div>
         <CredentialWallet />
-      </div>
-    </div>
-  );
-}
-
-function QRSharePage() {
-  return (
-    <div className="min-h-screen p-4 sm:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Share Proof</h1>
-          <p className="text-sm text-slate-500">Share your credentials via QR code</p>
-        </div>
-        <QRShare />
       </div>
     </div>
   );

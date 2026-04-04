@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CreditCard, Calendar, Shield, Download, Trash2, Eye, EyeOff } from 'lucide-react';
+import { CreditCard, Calendar, Shield, Download, Trash2, Eye, EyeOff, FileJson } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, Badge } from '../common';
 import { Credential } from '../../types';
 
@@ -28,12 +28,33 @@ export function CredentialWallet() {
     localStorage.setItem('privamedai_credentials', JSON.stringify(updated));
   };
 
-  const exportCredentials = () => {
-    const blob = new Blob([JSON.stringify(credentials, null, 2)], { type: 'application/json' });
+  const exportAllCredentials = () => {
+    const exportData = {
+      type: 'privamedai-credentials-backup',
+      exportedAt: new Date().toISOString(),
+      count: credentials.length,
+      credentials: credentials,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `privamedai-credentials-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportSingleCredential = (cred: Credential) => {
+    const exportData = {
+      type: 'privamedai-credential',
+      exportedAt: new Date().toISOString(),
+      ...cred,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `credential-${cred.id.slice(0, 8)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -48,8 +69,8 @@ export function CredentialWallet() {
         icon={CreditCard}
         action={
           credentials.length > 0 && (
-            <Button variant="secondary" size="sm" onClick={exportCredentials} leftIcon={<Download className="w-4 h-4" />}>
-              Export
+            <Button variant="secondary" size="sm" onClick={exportAllCredentials} leftIcon={<Download className="w-4 h-4" />}>
+              Export All
             </Button>
           )
         }
@@ -68,7 +89,7 @@ export function CredentialWallet() {
             {credentials.map((cred) => (
               <div 
                 key={cred.id}
-                className="p-4 bg-slate-50 border border-slate-200 rounded-lg"
+                className="p-4 bg-slate-50 border border-slate-200 rounded-lg hover:border-emerald-300 transition-colors"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div>
@@ -84,16 +105,25 @@ export function CredentialWallet() {
                     </div>
                     <p className="text-sm text-slate-500">Issuer: {cred.issuer.slice(0, 20)}...</p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
+                    <button 
+                      onClick={() => exportSingleCredential(cred)}
+                      className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                      title="Download credential"
+                    >
+                      <FileJson className="w-4 h-4" />
+                    </button>
                     <button 
                       onClick={() => toggleShowEncrypted(cred.id)}
-                      className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                      className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                      title="View encrypted data"
                     >
                       {showEncrypted[cred.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                     <button 
                       onClick={() => deleteCredential(cred.id)}
-                      className="p-2 text-slate-400 hover:text-red-600 transition-colors"
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete from wallet"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
