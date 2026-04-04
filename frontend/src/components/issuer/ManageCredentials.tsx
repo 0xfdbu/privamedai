@@ -265,7 +265,7 @@ export function ManageCredentials() {
                           </p>
                         )}
                         <p className="text-xs text-slate-400 mt-1">
-                          Issued: {new Date(cred.issuedAt).toLocaleDateString()}
+                          Issued: {new Date(cred.issuedAt).toLocaleString()}
                         </p>
                       </div>
                       
