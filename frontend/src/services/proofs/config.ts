@@ -73,6 +73,12 @@ export function selectCircuitForRules(
     return 'verifyForHospital';
   }
   
+  // Hospital circuit: conditionCode only (use default age)
+  if (hasConditionRule) {
+    console.log('   → Selected: verifyForHospital (condition only, default age)');
+    return 'verifyForHospital';
+  }
+  
   // Pharmacy circuit: requires prescription rule
   if (hasPrescriptionRule) {
     console.log('   → Selected: verifyForPharmacy (prescription)');
