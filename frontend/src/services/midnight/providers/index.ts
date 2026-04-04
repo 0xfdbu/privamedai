@@ -12,12 +12,12 @@ import * as ledger from '@midnight-ntwrk/ledger-v8';
 import { getWalletState, getLaceAPI, CONFIG } from '../../contractService';
 import { getCompiledContract } from './contract';
 
-// Private state storage (in-memory for demo)
-const privateStateStore: Record<string, any> = {};
-const signingKeys: Record<string, any> = {};
+// Private state storage with contract address scoping
+const privateStates = new Map<string, any>();
+const signingKeys = new Map<string, any>();
+let currentContractAddress: string | null = null;
 
 export interface MidnightProviders {
-  compiledContract: any;
   zkConfigProvider: any;
   publicDataProvider: any;
   proofProvider: any;
@@ -36,7 +36,7 @@ export async function initializeProviders(): Promise<MidnightProviders> {
     throw new Error('Wallet not connected');
   }
 
-  const compiledContract = getCompiledContract();
+  const compiledContract = await getCompiledContract();
   const zkConfigBaseUrl = `${window.location.protocol}//${window.location.host}/managed/PrivaMedAI`;
   
   const zkConfigProvider = new FetchZkConfigProvider(
@@ -90,59 +90,57 @@ export async function initializeProviders(): Promise<MidnightProviders> {
     },
   };
 
+  // Proper private state provider with contract address scoping
   const privateStateProvider = {
-    async get(id: string) {
-      return privateStateStore[id] || {};
+    // setContractAddress MUST be synchronous
+    setContractAddress(address: string): void {
+      currentContractAddress = address;
     },
-    async set(id: string, state: any) {
-      privateStateStore[id] = state;
+    async get(key: string): Promise<any> {
+      const scoped = currentContractAddress ? `${currentContractAddress}:${key}` : key;
+      return privateStates.get(scoped) ?? null;
     },
-    async remove(id: string) {
-      delete privateStateStore[id];
+    async set(key: string, value: any): Promise<void> {
+      const scoped = currentContractAddress ? `${currentContractAddress}:${key}` : key;
+      privateStates.set(scoped, value);
     },
-    async clear() {
-      Object.keys(privateStateStore).forEach(k => delete privateStateStore[k]);
+    async remove(key: string): Promise<void> {
+      const scoped = currentContractAddress ? `${currentContractAddress}:${key}` : key;
+      privateStates.delete(scoped);
     },
-    setContractAddress(_address: string) {},
-    async setSigningKey(id: string, key: any) {
-      signingKeys[id] = key;
+    async clear(): Promise<void> {
+      privateStates.clear();
     },
-    async getSigningKey(id: string) {
-      return signingKeys[id];
+    async getSigningKey(address: string): Promise<any> {
+      return signingKeys.get(address) ?? null;
     },
-    async removeSigningKey(id: string) {
-      delete signingKeys[id];
+    async setSigningKey(address: string, key: any): Promise<void> {
+      signingKeys.set(address, key);
     },
-    async clearSigningKeys() {
-      Object.keys(signingKeys).forEach(k => delete signingKeys[k]);
+    async removeSigningKey(address: string): Promise<void> {
+      signingKeys.delete(address);
     },
-    async getAllSigningKeys() {
-      return Object.entries(signingKeys);
+    async clearSigningKeys(): Promise<void> {
+      signingKeys.clear();
     },
-    async exportPrivateStates() {
-      return { 
-        format: 'midnight-private-state-export' as const,
-        encryptedPayload: '',
-        salt: '',
-      };
+    async getAllSigningKeys(): Promise<[string, any][]> {
+      return Array.from(signingKeys.entries());
     },
-    async importPrivateStates(_states: any) {
-      return { imported: 0, failed: 0, skipped: 0, overwritten: 0 };
+    async exportPrivateStates(): Promise<any> {
+      throw new Error('Not supported');
     },
-    async exportSigningKeys() {
-      return { 
-        format: 'midnight-signing-key-export' as const,
-        encryptedPayload: '',
-        salt: '',
-      };
+    async importPrivateStates(_states: any): Promise<any> {
+      throw new Error('Not supported');
     },
-    async importSigningKeys(_keys: Record<string, any>) {
-      return { imported: 0, failed: 0, skipped: 0, overwritten: 0 };
+    async exportSigningKeys(): Promise<any> {
+      throw new Error('Not supported');
+    },
+    async importSigningKeys(_keys: Record<string, any>): Promise<any> {
+      throw new Error('Not supported');
     },
   };
 
   return {
-    compiledContract,
     zkConfigProvider,
     publicDataProvider,
     proofProvider,

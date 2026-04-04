@@ -1,16 +1,9 @@
 /**
- * Contract Interaction Service (Legacy Export)
+ * Contract Interaction Service
  * 
- * This file is kept for backwards compatibility.
- * All functionality has been moved to the modular structure in ./midnight/
- * 
- * New code should import directly from ./midnight/
+ * Main entry point for blockchain interactions
  */
 
-// Re-export everything from the modular midnight service
-export * from './midnight';
-
-// Legacy specific exports for backwards compatibility
 export { 
   registerIssuerOnChain,
   checkIssuerOnChain, 
@@ -18,18 +11,14 @@ export {
 } from './midnight/circuits/issuer';
 export { 
   issueCredentialOnChain, 
-  revokeCredentialOnChain,
+  queryCredentialsOnChain,
   checkCredentialOnChain,
-  queryCredentialsOnChain 
+  revokeCredentialOnChain
 } from './midnight/circuits/credential';
-export { verifyCredentialOnChain, submitProofVerification } from './midnight/circuits/verification';
-export { deployNewContract } from './midnight/circuits/deploy';
+export { submitProofVerification, type VerifierType } from './midnight/circuits/verification';
 export { 
   hashString, 
-  hexToBytes32, 
-  hexToBytes, 
-  hexStringToBytes32, 
-  bech32mToBytes32 
+  hexToBytes32 
 } from './midnight/utils/bytes';
 export { initializeProviders, getCompiledContract, clearContractCache } from './midnight/providers';
 export { CONTRACT_ADDRESS, CIRCUITS, NETWORK_CONFIG } from './midnight/config';

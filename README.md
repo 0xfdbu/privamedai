@@ -1,132 +1,256 @@
-# 🌙 PrivaCred
+# PrivaMedAI - Zero-Knowledge Medical Credentials
 
-Privacy-first verifiable credentials dApp on the **Midnight Network**.
+[![Midnight](https://img.shields.io/badge/Midnight-Preprod-blue)](https://midnight.network)
+[![Compact](https://img.shields.io/badge/Compact-0.30.0-green)](https://docs.midnight.network)
+[![License](https://img.shields.io/badge/License-Apache%202.0-yellow)](LICENSE)
 
-Users receive credentials (age, education, health status, etc.) from trusted issuers. They can then prove specific claims to verifiers **without ever revealing the raw data** — only a ZK proof goes on-chain. Data stays 100% private in the user's local storage.
+PrivaMedAI is a privacy-preserving medical credential platform built on the Midnight blockchain. It enables healthcare providers to issue verifiable credentials while allowing patients to prove specific claims without revealing sensitive health data through zero-knowledge proofs and selective disclosure.
 
-Built for the "Into the Midnight" Hackathon (April 1–10 2026).
+## 🌟 Features
 
----
+### Core Capabilities
+- **🔐 Zero-Knowledge Credentials** - Medical credentials issued on-chain with cryptographic privacy
+- **🎯 Selective Disclosure** - Prove specific claims (age, prescriptions, conditions) without revealing full health records
+- **🏥 Multi-Role Verifiers** - Different verification levels for clinics, pharmacies, and hospitals
+- **✅ Verifiable Proofs** - On-chain verification with immutable audit trails
+- **🤖 AI-Powered Interface** - Natural language proof generation
 
-## 🏗️ Architecture
-
-```
-priva-cred/
-├── contract/          # Compact smart contract (PrivaCred.compact)
-├── api/               # Node.js issuer backend (signs & issues credentials)
-└── frontend/          # React 19 + Vite app (3 portals)
-```
-
-### Core Midnight Primitives
-- **Compact contract** with `Map<Bytes<32>, Credential>` ledger
-- **3 circuits**: `issueCredential`, `verifyCredential`, `revokeCredential`
-- **Witness functions** for private credential data (never touches chain)
-- **midnight.js SDK** for wallet + proof generation
-- **Lace Beta wallet** (preprod)
-
----
+### Selective Disclosure Verifiers
+| Verifier | Discloses | Keeps Private |
+|----------|-----------|---------------|
+| **Free Health Clinic** | Age ≥ threshold | Actual age, conditions, prescriptions |
+| **Pharmacy** | Prescription code match | Age, condition details |
+| **Hospital** | Age ≥ threshold + Condition match | Specific values, prescriptions |
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Node.js 22+
-- `compactc` compiler installed (see below)
-- Midnight Lace wallet
+- Lace Wallet (browser extension)
+- Midnight tDUST tokens (from [faucet](https://faucet.preprod.midnight.network/))
 
-### 1. Install Compact Compiler
-
-```bash
-curl --proto '=https' --tlsv1.2 -LsSf \
-  https://github.com/midnightntwrk/compact/releases/latest/download/compact-installer.sh | sh
-compact update 0.30.0
-```
-
-### 2. Install Dependencies
+### Installation
 
 ```bash
+# Clone and install dependencies
+cd /home/user/Desktop/midnight/repo
 npm install
-```
 
-### 3. Compile Contract
-
-```bash
+# Build the contract
 cd contract
-export PATH="$HOME/.compact/versions/0.30.0/x86_64-unknown-linux-musl:$PATH"
-npm run compact && npm run build
+npm run build
+
+# Start the proof server
 cd ..
-```
+./proof-server
 
-### 4. Start the Issuer API
-
-```bash
-cd api
-npm run dev
-```
-
-API runs on `http://localhost:3001`.
-
-### 5. Start the Frontend
-
-```bash
+# In a new terminal - start the frontend
 cd frontend
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5173`.
+The app will be available at `http://localhost:5173`
+
+## 📋 Deployed Contract
+
+| Detail | Value |
+|--------|-------|
+| **Network** | Midnight Preprod |
+| **Contract Address** | `18610af33928fa54fd2393c54413a1724e781922b0277c630bb1658475249a31` |
+| **Transaction ID** | `007c1086b4e1fcb2412e07fc4c9bf5498ec49d254c468972270d543bec3dd69269` |
+| **Block Height** | 204246 |
+| **Circuits** | 12 |
+
+### Available Circuits
+
+**Admin & Issuer Management:**
+- `initialize` - Set contract admin
+- `getAdmin` - Query admin address
+- `registerIssuer` - Open issuer registration
+- `getIssuerInfo` - Query issuer details
+- `updateIssuerStatus` - Admin manage issuers
+
+**Credential Lifecycle:**
+- `issueCredential` - Issue single credential
+- `revokeCredential` - Issuer revocation
+- `adminRevokeCredential` - Admin emergency revocation
+- `checkCredentialStatus` - Query credential state
+
+**🎯 Selective Disclosure (ZK Proofs):**
+- `verifyForFreeHealthClinic` - Prove age ≥ minAge
+- `verifyForPharmacy` - Prove prescription match
+- `verifyForHospital` - Prove age + condition match
+
+## 🏗️ Architecture
+
+```
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│   Frontend      │────▶│  Midnight Node   │────▶│  Smart Contract │
+│  (React/Vite)   │     │  (Preprod)       │     │  (12 Circuits)  │
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+        │                        │
+        ▼                        ▼
+┌─────────────────┐     ┌──────────────────┐
+│  Proof Server   │     │  Indexer (v4)    │
+│  (localhost)    │     │  (GraphQL/WS)    │
+└─────────────────┘     └──────────────────┘
+```
+
+## 📁 Project Structure
+
+```
+repo/
+├── contract/                 # Compact smart contract
+│   ├── src/
+│   │   └── PrivaMedAI.compact    # Main contract (12 circuits)
+│   └── dist/                     # Compiled artifacts
+├── frontend/                 # React frontend
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── user/            # AI Chat, Wallet, QR Share
+│   │   │   ├── issuer/          # Issue Credential, Register Issuer
+│   │   │   └── verifier/        # Verify Proof, Network Stats
+│   │   └── services/
+│   │       ├── midnight/        # Contract integration
+│   │       └── proofs/          # ZK proof generation
+│   └── public/managed/          # ZK config files
+└── scripts/
+    └── deploy-privamedai.ts     # Deployment script
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+**Frontend (`.env`):**
+```env
+VITE_CONTRACT_ADDRESS=18610af33928fa54fd2393c54413a1724e781922b0277c630bb1658475249a31
+VITE_NETWORK_ID=preprod
+VITE_PROOF_SERVER_URL=http://localhost:6300
+```
+
+**Contract (`scripts/deploy-privamedai.ts`):**
+```typescript
+const NETWORK_CONFIG = {
+  indexerUri: 'https://indexer.preprod.midnight.network/api/v4/graphql',
+  indexerWsUri: 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws',
+  proofServerUri: 'http://127.0.0.1:6300',
+};
+```
+
+## 📝 Usage Guide
+
+### 1. Register as Issuer
+
+1. Connect your Lace wallet
+2. Navigate to **Medical Provider → Register**
+3. Enter your organization name
+4. Submit registration (open registration - no admin approval needed)
+
+### 2. Issue a Credential
+
+1. Go to **Medical Provider → Issue Credentials**
+2. Enter patient wallet address
+3. Select medical conditions
+4. Set selective disclosure codes (age, condition, prescription)
+5. Submit and download credential JSON
+
+### 3. Generate ZK Proof (Patient)
+
+1. Go to **Patient Portal → AI Composer**
+2. Import your credential file
+3. Describe what you need to prove (e.g., "prove I'm over 18 for clinic")
+4. AI generates selective disclosure proof
+5. Download or share QR code
+
+### 4. Verify Proof (Verifier)
+
+1. Go to **Verifier Portal → Verify Proof**
+2. Upload proof file or paste proof data
+3. Submit to blockchain for verification
+4. View verification result
+
+## 🔐 Selective Disclosure Flow
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Patient   │────▶│   ZK Proof  │────▶│   Verifier  │
+│  (Prover)   │     │  Generation │     │  (On-Chain) │
+└─────────────┘     └─────────────┘     └─────────────┘
+       │                    │                   │
+       ▼                    ▼                   ▼
+HealthClaim           Witness Data        Boolean Result
+(age, condition,      + Private Key       (valid/invalid)
+prescription)         + On-Chain State
+```
+
+## 🧪 Testing
+
+```bash
+# Compile contract
+cd contract
+npm run compact
+
+# Type check frontend
+cd ../frontend
+npx tsc --noEmit
+
+# Build for production
+npm run build
+```
+
+## 🛠️ Development
+
+### Contract Development
+
+```bash
+cd contract
+
+# Compile with compactc
+npm run compact
+
+# Build TypeScript
+npm run build
+```
+
+### Frontend Development
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev
+
+# Build for production
+npm run build
+```
+
+## 📚 Key Technologies
+
+- **Midnight Blockchain** - Privacy-preserving L1 with ZK primitives
+- **Compact Language** - Smart contract DSL with native ZK support
+- **Midnight.js** - TypeScript SDK for contract interaction
+- **Lace Wallet** - Browser wallet for signing transactions
+- **Proof Server** - Local ZK proof generation service
+
+## 🔗 Resources
+
+- [Midnight Documentation](https://docs.midnight.network)
+- [Compact Language Reference](https://docs.midnight.network/develop/reference/compact/lang-ref)
+- [Midnight.js Examples](https://github.com/midnightntwrk/midnight-js)
+- [Preprod Faucet](https://faucet.preprod.midnight.network/)
+
+## 📄 License
+
+Apache 2.0 - See [LICENSE](LICENSE) for details.
+
+## 🤝 Contributing
+
+This is a hackathon project demonstrating selective disclosure on Midnight. Feel free to fork and extend!
 
 ---
 
-## 🎭 Three Portals
-
-### 1. Issuer Portal
-Connect wallet → Create credential → Send to user's localStorage
-
-### 2. User Portal
-View my credentials (local only) → Generate ZK proof for a claim → Share proof
-
-### 3. Verifier Portal
-Paste proof → Call contract → See TRUE/FALSE result only
-
----
-
-## 🔐 ZK Proof Flow
-
-1. User's device runs witness + circuit locally
-2. Proof π is generated (data never leaves device)
-3. Only proof + public commitment hash is sent to Midnight
-4. Verifier queries ledger → gets boolean
-
----
-
-## 📝 Contract API
-
-### `issueCredential(commitment, issuer, claimHash, expiry)`
-Stores a new credential with `VALID` status.
-
-### `verifyCredential(commitment) -> Boolean`
-Returns `true` if the credential exists, is valid, and the private claim data matches the on-chain hash.
-
-### `revokeCredential(commitment)`
-Marks a credential as `REVOKED` (only the original issuer can call this).
-
----
-
-## 🎥 Demo Video Script
-
-1. **Issuer** opens Issuer Portal, connects Lace wallet, creates an "Age Over 18" credential for a subject.
-2. **User** opens User Portal, sees the credential in local storage, clicks "Generate ZK Proof".
-3. **Verifier** opens Verifier Portal, pastes the proof, clicks verify — sees ✅ VALID without seeing the age.
-
----
-
-## ✅ Hackathon Success Criteria
-
-- [x] Working issue → prove → verify flow
-- [x] Zero raw data ever on-chain
-- [x] Clean 3-portal UI
-- [ ] Deployed on preprod
-- [ ] 60-second demo video
-
----
-
-Built with ❤️ using Midnight MCP & `create-midnight-app`.
+**Note:** This project runs on Midnight Preprod testnet. Do not use with real medical data or mainnet assets.

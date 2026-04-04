@@ -7,4 +7,3 @@
 export * from './issuer';
 export * from './credential';
 export * from './verification';
-export * from './deploy';

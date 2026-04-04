@@ -12,22 +12,17 @@ export interface AIResponse {
 
 const SYSTEM_PROMPT = `You are an AI Claim Composer for PrivaMedAI, a privacy-preserving medical credential system using zero-knowledge proofs.
 
-Your task: Convert natural language requests into precise verification rules that can be executed as zero-knowledge proofs.
+Your task: Convert natural language requests into precise verification rules for selective disclosure proofs.
 
-Available credential fields:
-- age (number)
-- has_diabetes_diagnosis (boolean)
-- vaccinated_last_6_months (boolean)
-- vaccination_status (string: complete/partial/none)
-- medical_clearance (boolean)
-- clearance_expiry (date)
-- free_healthcare_eligible (boolean)
-- dental_coverage (boolean)
-- annual_wellness_exam (string: completed/pending)
-- exam_date (date)
-- identity_verified (boolean)
-- income_eligible (boolean)
-- resident_status (string: verified/pending)
+IMPORTANT: Only these selective disclosure circuits are available:
+1. verifyForFreeHealthClinic - proves age >= threshold (DEFAULT: use 18 if no specific age mentioned)
+2. verifyForPharmacy - proves prescription code match (use prescriptionCode: 500)
+3. verifyForHospital - proves age >= threshold AND condition code match (DEFAULT: use 18 and conditionCode: 100)
+
+Available credential fields for selective disclosure:
+- age (number) - used with >= operator. DEFAULT TO 18 unless user specifies a different age (like "over 65")
+- conditionCode (number) - medical condition identifier (default: 100)
+- prescriptionCode (number) - prescription identifier (default: 500)
 
 Operators: ==, !=, >, <, >=, <=
 
@@ -49,9 +44,7 @@ Rules:
 
 export async function parseNaturalLanguage(input: string): Promise<AIResponse> {
   if (!API_KEY || API_KEY === 'your-xai-api-key-here') {
-    console.warn('AI API key not configured. Get your key from https://x.ai and set VITE_XAI_API_KEY in .env');
-    console.warn('Using fallback parser for now.');
-    return fallbackParser(input);
+    throw new Error('AI API key not configured. Please set VITE_XAI_API_KEY in your .env file. Get your key from https://x.ai');
   }
 
   try {
@@ -96,54 +89,8 @@ export async function parseNaturalLanguage(input: string): Promise<AIResponse> {
       circuitType: parsed.circuitType || (parsed.rules?.length > 1 ? 'bundled' : 'single'),
     };
   } catch (error) {
-    console.error('AI parsing failed, using fallback:', error);
-    return fallbackParser(input);
+    console.error('AI parsing failed:', error);
+    throw error;
   }
 }
 
-function fallbackParser(input: string): AIResponse {
-  const lower = input.toLowerCase();
-  const rules: GeneratedRule[] = [];
-  
-  if (lower.includes('diabetes') || lower.includes('clinical trial')) {
-    rules.push(
-      { field: 'age', operator: '>=', value: '50', description: 'Age at least 50 years' },
-      { field: 'has_diabetes_diagnosis', operator: '==', value: 'true', description: 'Has diabetes diagnosis' },
-      { field: 'vaccinated_last_6_months', operator: '==', value: 'true', description: 'Vaccinated within last 6 months' },
-    );
-  } else if (lower.includes('travel') || (lower.includes('vaccinat') && lower.includes('18'))) {
-    rules.push(
-      { field: 'age', operator: '>=', value: '18', description: 'Age at least 18 years' },
-      { field: 'vaccination_status', operator: '==', value: 'complete', description: 'Vaccination complete' },
-    );
-  } else if (lower.includes('medical clearance') || lower.includes('sports')) {
-    rules.push(
-      { field: 'medical_clearance', operator: '==', value: 'true', description: 'Medical clearance granted' },
-      { field: 'clearance_expiry', operator: '>', value: 'today', description: 'Clearance not expired' },
-    );
-  } else if (lower.includes('free') || lower.includes('healthcare')) {
-    rules.push(
-      { field: 'free_healthcare_eligible', operator: '==', value: 'true', description: 'Eligible for free healthcare' },
-      { field: 'dental_coverage', operator: '==', value: 'true', description: 'Dental coverage included' },
-    );
-  } else if (lower.includes('wellness') || lower.includes('annual exam')) {
-    rules.push(
-      { field: 'annual_wellness_exam', operator: '==', value: 'completed', description: 'Annual wellness exam completed' },
-      { field: 'exam_date', operator: '>', value: '1_year_ago', description: 'Exam within last 12 months' },
-    );
-  } else if (lower.includes('senior') || lower.includes('65') || lower.includes('elderly')) {
-    rules.push(
-      { field: 'age', operator: '>=', value: '65', description: 'Age 65 or older' },
-    );
-  } else {
-    rules.push(
-      { field: 'identity_verified', operator: '==', value: 'true', description: 'Identity verified' },
-    );
-  }
-  
-  return {
-    rules,
-    explanation: `Verification for: ${input.slice(0, 50)}...`,
-    circuitType: rules.length > 1 ? 'bundled' : 'single',
-  };
-}

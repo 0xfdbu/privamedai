@@ -43,6 +43,9 @@ interface CredentialData {
     vaccination_status: 'none' | 'partial' | 'complete';
     annual_wellness_exam: 'pending' | 'completed';
     identity_verified: boolean;
+    // HealthClaim fields for selective disclosure
+    conditionCode: number;
+    prescriptionCode: number;
   };
 }
 
@@ -68,6 +71,8 @@ export function IssueCredential() {
       vaccination_status: 'none',
       annual_wellness_exam: 'pending',
       identity_verified: true,
+      conditionCode: 100, // Default condition code for selective disclosure
+      prescriptionCode: 500, // Default prescription code for selective disclosure
     },
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -92,6 +97,9 @@ export function IssueCredential() {
       identity_verified: formData.medicalData.identity_verified,
       vaccination_status: formData.medicalData.vaccination_status,
       annual_wellness_exam: formData.medicalData.annual_wellness_exam,
+      // Include health claim data for selective disclosure
+      conditionCode: formData.medicalData.conditionCode,
+      prescriptionCode: formData.medicalData.prescriptionCode,
     };
 
     // Add selected conditions
@@ -100,6 +108,15 @@ export function IssueCredential() {
     });
 
     return claimData;
+  };
+
+  const generateHealthClaim = () => {
+    // Generate HealthClaim for selective disclosure
+    return {
+      age: formData.medicalData.age,
+      conditionCode: formData.medicalData.conditionCode,
+      prescriptionCode: formData.medicalData.prescriptionCode,
+    };
   };
 
   const detectCredentialType = (): string => {
@@ -137,7 +154,14 @@ export function IssueCredential() {
         throw new Error(result.error || 'Transaction failed');
       }
 
-      // Create credential for download
+      // Create credential for download with HealthClaim for selective disclosure
+      const healthClaim = generateHealthClaim();
+      
+      // Create claimDataBytes for cryptographic proof generation (must be 32 bytes)
+      const encoder = new TextEncoder();
+      const claimDataBytes = new Uint8Array(32);
+      claimDataBytes.set(encoder.encode(claimDataJson).slice(0, 32));
+      
       const credential: Credential = {
         id: result.commitment || '',
         issuer: getWalletState().coinPublicKey || '',
@@ -152,6 +176,8 @@ export function IssueCredential() {
         }),
         commitment: result.commitment || '',
         claimHash: result.claimHash || '',
+        healthClaim, // Include HealthClaim for selective disclosure
+        claimDataBytes: Array.from(claimDataBytes), // Include bytes for proof generation
       };
 
       setResult({
@@ -161,6 +187,17 @@ export function IssueCredential() {
         claimHash: result.claimHash,
         credential,
       });
+
+      // Save to localStorage for credential management
+      const existing = localStorage.getItem('privamedai_issued_credentials');
+      const issued = existing ? JSON.parse(existing) : [];
+      issued.push({
+        commitment: result.commitment,
+        claimType,
+        issuedAt: new Date().toISOString(),
+        patientAddress: formData.patientAddress,
+      });
+      localStorage.setItem('privamedai_issued_credentials', JSON.stringify(issued));
 
       // Reset form
       setFormData({
@@ -172,6 +209,8 @@ export function IssueCredential() {
           vaccination_status: 'none',
           annual_wellness_exam: 'pending',
           identity_verified: true,
+          conditionCode: 100,
+          prescriptionCode: 500,
         },
       });
 
@@ -381,6 +420,51 @@ export function IssueCredential() {
                   <option value="pending">Pending</option>
                   <option value="completed">Completed</option>
                 </select>
+              </div>
+            </div>
+
+            {/* HealthClaim Fields for Selective Disclosure */}
+            <div className="p-4 bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200 rounded-xl">
+              <div className="flex items-center gap-2 mb-3">
+                <Shield className="w-4 h-4 text-purple-600" />
+                <span className="text-sm font-medium text-purple-800">Selective Disclosure Data (Private)</span>
+              </div>
+              <p className="text-xs text-purple-600 mb-3">
+                These codes are used for zero-knowledge selective disclosure. They remain private and are only revealed through specific verification circuits.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Condition Code
+                  </label>
+                  <Input
+                    type="number"
+                    value={formData.medicalData.conditionCode}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      medicalData: { ...prev.medicalData, conditionCode: parseInt(e.target.value) || 0 }
+                    }))}
+                    min={0}
+                    max={65535}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Medical condition identifier (Uint16)</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Prescription Code
+                  </label>
+                  <Input
+                    type="number"
+                    value={formData.medicalData.prescriptionCode}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      medicalData: { ...prev.medicalData, prescriptionCode: parseInt(e.target.value) || 0 }
+                    }))}
+                    min={0}
+                    max={65535}
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Prescription identifier (Uint16)</p>
+                </div>
               </div>
             </div>
 

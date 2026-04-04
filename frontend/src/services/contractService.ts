@@ -122,26 +122,14 @@ export async function connectLaceWallet(): Promise<{
 }
 
 /**
- * Legacy seed-based wallet connection (for backwards compatibility)
- * @deprecated Use connectLaceWallet() instead
+ * Get the Lace wallet API (for transaction signing)
  */
-export async function connectWallet(seed: string): Promise<{ success: boolean; address?: string; error?: string }> {
-  try {
-    if (!seed || seed.length !== 64) {
-      return { success: false, error: 'Invalid seed - must be 64 hex characters' };
-    }
+export function getLaceAPI(): ConnectedAPI | null {
+  return laceAPI;
+}
 
-    walletState.address = '0x' + seed.slice(0, 40);
-    walletState.pubKey = seed;
-    walletState.isConnected = true;
-
-    localStorage.setItem('privamedai_wallet_seed', seed);
-    localStorage.setItem('privamedai_wallet_address', walletState.address);
-
-    return { success: true, address: walletState.address };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
+export function getContractAddress(): string {
+  return CONTRACT_ADDRESS;
 }
 
 export function disconnectWallet(): void {
@@ -171,18 +159,6 @@ export function getWalletState() {
   return walletState;
 }
 
-/**
- * Get the Lace wallet API (for transaction signing)
- */
-export function getLaceAPI(): ConnectedAPI | null {
-  return laceAPI;
-}
-
-export function getContractAddress(): string {
-  return CONTRACT_ADDRESS;
-}
-
-// Stub for getStoredCredentials (to be implemented with real storage)
 export function getStoredCredentials(): Credential[] {
   const stored = localStorage.getItem('privamedai_credentials');
   return stored ? JSON.parse(stored) : [];
@@ -196,12 +172,4 @@ export function storeCredential(credential: Credential): void {
   filtered.push(credential);
   localStorage.setItem('privamedai_credentials', JSON.stringify(filtered));
   console.log('💾 Credential saved to localStorage:', credential.id);
-}
-
-// Issuer operations
-export async function registerIssuer(
-  _nameHash: string,
-  _publicKey: string
-): Promise<{ success: boolean; txId?: string; error?: string }> {
-  return { success: false, error: 'Use contractInteraction.registerIssuerOnChain()' };
 }

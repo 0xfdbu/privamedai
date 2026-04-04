@@ -15,6 +15,11 @@ interface PatientCredential {
   issuedAt: number;
   expiresAt: number;
   issuer: string;
+  healthClaim?: {
+    age: number;
+    conditionCode: number;
+    prescriptionCode: number;
+  };
 }
 
 interface Message {
@@ -40,10 +45,9 @@ interface GeneratedProof {
 }
 
 const SUGGESTED_PROMPTS = [
-  "I need proof I'm eligible for the new diabetes clinical trial",
-  "Prove I'm vaccinated and over 18 for international travel",
-  "Show I have medical clearance for sports competition",
-  "Prove I'm eligible for free healthcare and dental coverage",
+  "🏥 Prove my age for free clinic eligibility",
+  "💊 Prove I have prescription authorization at pharmacy",
+  "🏨 Prove my age and condition for hospital treatment",
 ];
 
 /**
@@ -310,19 +314,97 @@ export function AIChatComposer() {
         throw new Error('Credential missing claimDataBytes - cannot generate proof');
       }
 
+      // Determine verifier type and circuit based on rules
+      const userMessageLower = userMessage.toLowerCase();
+      let verifierType: 'standard' | 'freeHealthClinic' | 'pharmacy' | 'hospital' = 'standard';
+      let circuitId: string = 'verifyCredential';
+      let selectiveDisclosureParams: { minAge?: number; requiredPrescription?: number; requiredCondition?: number } = {};
+      let disclosedFields: string[] = [];
+      let privateFields: string[] = ['age', 'conditionCode', 'prescriptionCode'];
+      
+      // Check if credential has healthClaim for selective disclosure
+      const hasHealthClaim = selectedCredential.healthClaim !== undefined;
+      console.log('Proof debug - userMessage:', userMessage);
+      console.log('Proof debug - selectedCredential.healthClaim:', selectedCredential.healthClaim);
+      console.log('Proof debug - hasHealthClaim:', hasHealthClaim);
+      
+      // Detect verifier type from AI-generated rules (NOT just user message)
+      // The rules tell us what circuit we actually need
+      const rulesHaveAge = aiResponse.rules.some((r: GeneratedRule) => r.field === 'age');
+      const rulesHaveCondition = aiResponse.rules.some((r: GeneratedRule) => r.field === 'conditionCode');
+      const rulesHavePrescription = aiResponse.rules.some((r: GeneratedRule) => r.field === 'prescriptionCode');
+      
+      console.log('Proof debug - rule detection:', { rulesHaveAge, rulesHaveCondition, rulesHavePrescription });
+      
+      if (hasHealthClaim) {
+        // Detect verifier type based on what fields the rules need to prove
+        if (rulesHavePrescription) {
+          // Pharmacy: proves prescription code match
+          verifierType = 'pharmacy';
+          circuitId = 'verifyForPharmacy';
+          selectiveDisclosureParams.requiredPrescription = selectedCredential.healthClaim!.prescriptionCode;
+          disclosedFields = ['prescriptionCode match'];
+          privateFields = ['age', 'conditionCode'];
+        } else if (rulesHaveAge && rulesHaveCondition) {
+          // Hospital: proves age AND condition
+          verifierType = 'hospital';
+          circuitId = 'verifyForHospital';
+          selectiveDisclosureParams.minAge = selectedCredential.healthClaim!.age;
+          selectiveDisclosureParams.requiredCondition = selectedCredential.healthClaim!.conditionCode;
+          disclosedFields = ['age >= threshold', 'conditionCode match'];
+          privateFields = ['actual age value', 'prescriptionCode'];
+        } else if (rulesHaveAge) {
+          // Free Health Clinic: proves age only
+          verifierType = 'freeHealthClinic';
+          circuitId = 'verifyForFreeHealthClinic';
+          selectiveDisclosureParams.minAge = 18; // Default minimum age
+          disclosedFields = ['age >= 18'];
+          privateFields = ['actual age', 'conditionCode', 'prescriptionCode'];
+        }
+      }
+      
+      console.log('Proof debug - verifierType after detection:', verifierType);
+      console.log('Proof debug - circuitId:', circuitId);
+
       // Show proof generation message with credential info
       const proofGenId = (Date.now() + 2).toString();
       setMessages(prev => [...prev, {
         id: proofGenId,
         role: 'assistant',
-        content: `🔐 Generating proof using: **${selectedCredential.claimType}**...`,
+        content: `🔐 Generating ${verifierType !== 'standard' ? '**Selective Disclosure**' : ''} proof using: **${selectedCredential.claimType}**...`,
         isGenerating: true,
       }]);
 
+      // Generate proof with selective disclosure if applicable
+      const proofOptions: any = {};
+      console.log('Proof debug - BEFORE setting proofOptions:', { 
+        hasHealthClaim, 
+        verifierType, 
+        isStandard: verifierType === 'standard',
+        healthClaimData: selectedCredential.healthClaim 
+      });
+      if (hasHealthClaim && verifierType !== 'standard') {
+        proofOptions.healthClaim = selectedCredential.healthClaim;
+        console.log('Proof debug - healthClaim SET in proofOptions:', proofOptions.healthClaim);
+      } else {
+        console.log('Proof debug - healthClaim NOT set. Conditions:', { 
+          hasHealthClaim, 
+          verifierTypeNotStandard: verifierType !== 'standard',
+          selectedCredentialHasHealthClaim: !!selectedCredential.healthClaim
+        });
+      }
+      
+      console.log('Proof debug - FINAL proofOptions:', { 
+        hasHealthClaimKey: 'healthClaim' in proofOptions,
+        healthClaimValue: proofOptions.healthClaim,
+        proofOptionsKeys: Object.keys(proofOptions) 
+      });
+      
       const proofResult = await generateProductionZKProof(
         aiResponse.rules, 
         credentialCommitment,
-        claimDataBytes
+        claimDataBytes,
+        proofOptions
       );
 
       // Remove the proof generation message
@@ -332,11 +414,34 @@ export function AIChatComposer() {
         throw new Error(proofResult.error || 'Failed to generate proof');
       }
 
+      // Build selective disclosure message if applicable
+      let selectiveDisclosureMessage = '';
+      if (verifierType !== 'standard' && hasHealthClaim) {
+        selectiveDisclosureMessage = `
+
+🔒 **Selective Disclosure Enabled**
+**Verifier Type:** ${verifierType === 'freeHealthClinic' ? '🏥 Free Health Clinic' : verifierType === 'pharmacy' ? '💊 Pharmacy' : '🏨 Hospital'}
+
+📋 **Private Data (Witness):**
+• Age: ${selectedCredential.healthClaim!.age}
+• Condition Code: ${selectedCredential.healthClaim!.conditionCode}
+• Prescription Code: ${selectedCredential.healthClaim!.prescriptionCode}
+
+✅ **Disclosed to Verifier:**
+${disclosedFields.map(f => `• ${f}`).join('\n')}
+
+🔐 **Remains Private:**
+${privateFields.map(f => `• ${f}`).join('\n')}`;
+      }
+
       // Add proof message
       setMessages(prev => [...prev, {
         id: (Date.now() + 3).toString(),
         role: 'assistant',
-        content: `**✅ Zero-Knowledge Proof Generated Successfully**\n\n**Credential Used:** ${selectedCredential.claimType}\n**Issued:** ${new Date(selectedCredential.issuedAt).toLocaleDateString()}`,
+        content: `**✅ Zero-Knowledge Proof Generated Successfully**${selectiveDisclosureMessage}
+
+**Credential Used:** ${selectedCredential.claimType}
+**Issued:** ${new Date(selectedCredential.issuedAt).toLocaleDateString()}`,
         proof: {
           id: proofResult.proof.slice(0, 32),
           type: aiResponse.circuitType,
@@ -344,9 +449,15 @@ export function AIChatComposer() {
           qrData: proofResult.proof,
           txId: proofResult.txId,
           rules: aiResponse.rules,
-          circuitId: proofResult.circuitId,
-          publicInputs: proofResult.publicInputs, // Include for cryptographic verification
-          credentialDataBytes: Array.from(claimDataBytes), // Store for on-chain submission
+          circuitId: circuitId, // Use the selective disclosure circuit
+          publicInputs: proofResult.publicInputs,
+          credentialDataBytes: Array.from(claimDataBytes),
+          // Include selective disclosure info
+          verifierType: verifierType !== 'standard' ? verifierType : undefined,
+          disclosedFields,
+          privateFields,
+          selectiveDisclosureParams,
+          healthClaim: hasHealthClaim ? selectedCredential.healthClaim : undefined,
         },
       }]);
     } catch (error: any) {
@@ -430,8 +541,42 @@ export function AIChatComposer() {
       // Handle array of credentials
       const credentials = Array.isArray(data) ? data : [data];
       
-      const validCredentials: PatientCredential[] = credentials.filter((cred: any) => {
-        return cred.commitment && cred.claimData && Array.isArray(cred.claimDataBytes);
+      const validCredentials: PatientCredential[] = credentials.map((cred: any) => {
+        // Parse claimData from encryptedData if needed
+        let claimData = cred.claimData;
+        if (!claimData && cred.encryptedData) {
+          try {
+            const parsed = JSON.parse(cred.encryptedData);
+            claimData = parsed.claimData || parsed;
+          } catch (e) {
+            // encryptedData might not be JSON
+          }
+        }
+        
+        // Extract healthClaim - either from root or from claimData
+        let healthClaim = cred.healthClaim;
+        console.log('Import debug - cred.healthClaim:', cred.healthClaim);
+        console.log('Import debug - claimData:', claimData);
+        if (!healthClaim && claimData) {
+          // Try to build healthClaim from claimData fields
+          if (claimData.age !== undefined) {
+            healthClaim = {
+              age: Number(claimData.age),
+              conditionCode: Number(claimData.conditionCode || 0),
+              prescriptionCode: Number(claimData.prescriptionCode || 0),
+            };
+            console.log('Import debug - built healthClaim:', healthClaim);
+          }
+        }
+        
+        return {
+          ...cred,
+          claimData: claimData || {},
+          healthClaim,
+        };
+      }).filter((cred: any) => {
+        // Must have commitment and either claimDataBytes or be a valid credential
+        return cred.commitment && (Array.isArray(cred.claimDataBytes) || cred.claimHash);
       });
       
       if (validCredentials.length === 0) {

@@ -24,6 +24,7 @@ import { QRShare } from './components/user/QRShare';
 import { IssueCredential } from './components/issuer/IssueCredential';
 import { RegisterIssuer } from './components/issuer/RegisterIssuer';
 import { RegisteredIssuers } from './components/issuer/RegisteredIssuers';
+import { ManageCredentials } from './components/issuer/ManageCredentials';
 
 // Verifier Portal Pages
 import { VerifyProof } from './components/verifier/VerifyProof';
@@ -54,6 +55,7 @@ const patientNav: NavItem[] = [
 // Issuer sub-navigation
 const issuerNav: NavItem[] = [
   { path: '/issuer/issue', label: 'Issue Credentials', icon: Plus },
+  { path: '/issuer/manage', label: 'Manage Credentials', icon: Users },
   { path: '/issuer/register', label: 'Register', icon: Hash },
   { path: '/issuer/issuers', label: 'Registered Issuers', icon: Users },
 ];
@@ -204,6 +206,7 @@ function IssuerLayout() {
         <Routes>
           <Route path="/" element={<Navigate to="issue" replace />} />
           <Route path="issue" element={<IssueCredential />} />
+          <Route path="manage" element={<ManageCredentials />} />
           <Route path="register" element={<RegisterIssuer />} />
           <Route path="issuers" element={<RegisteredIssuers />} />
         </Routes>

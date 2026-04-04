@@ -26,8 +26,12 @@ export default defineConfig({
     alias: {
       'isomorphic-ws': 'isomorphic-ws/browser.js',
     },
+    dedupe: ['@midnight-ntwrk/midnight-js-network-id'],
   },
   optimizeDeps: {
+    include: [
+      '@midnight-ntwrk/midnight-js-network-id',
+    ],
     exclude: [
       '@midnight-ntwrk/dapp-connector-api',
       '@midnight-ntwrk/onchain-runtime',
@@ -35,6 +39,9 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
   },
   server: {
     port: 3000,

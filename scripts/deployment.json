@@ -1,9 +1,9 @@
 {
   "network": "preprod",
-  "contractAddress": "dfd5cc3242d5958bababee206981c7327be0a8f60d6669fca2488e34cad8755b",
+  "contractAddress": "18610af33928fa54fd2393c54413a1724e781922b0277c630bb1658475249a31",
   "contractName": "PrivaMedAI",
-  "txId": "00b2adc5f37a6619cd5913ef3691722c61970eb4819b414e8a5b56f219482a9793",
-  "blockHeight": "180003",
+  "txId": "007c1086b4e1fcb2412e07fc4c9bf5498ec49d254c468972270d543bec3dd69269",
+  "blockHeight": "204246",
   "adminAddress": {
     "type": "addr",
     "network": "preprod",
@@ -45,11 +45,15 @@
       ]
     }
   },
-  "deployedAt": "2026-04-03T00:08:00.903Z",
+  "adminPubKey": "af6c0cf81865ba35f9151fc3f849c0f30a6e607bfed2b5abb981e7a21199cf72",
+  "deployedAt": "2026-04-04T16:32:36.935Z",
   "features": [
     "Issuer Registry with open registration",
-    "Privacy-preserving credentials",
+    "Privacy-preserving credentials with selective disclosure",
     "Batch credential issuance",
-    "Credential verification"
+    "Credential verification",
+    "Role-specific verification: FreeHealthClinic (age only)",
+    "Role-specific verification: Pharmacy (prescription only)",
+    "Role-specific verification: Hospital (age + condition)"
   ]
 }

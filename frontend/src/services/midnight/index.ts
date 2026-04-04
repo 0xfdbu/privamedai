@@ -15,3 +15,6 @@ export * from './circuits';
 
 // Utilities
 export * from './utils/bytes';
+
+// Witnesses
+export * from './witnesses';

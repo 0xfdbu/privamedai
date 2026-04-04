@@ -4,11 +4,16 @@
  * On-chain issuer registration and management
  */
 
-import { submitCallTx } from '@midnight-ntwrk/midnight-js-contracts';
+import { submitCallTx, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { initializeProviders } from '../providers';
+import { getCompiledContract } from '../providers/contract';
+import { createInitialPrivateState } from '../witnesses';
 import { CIRCUITS, CONTRACT_ADDRESS } from '../config';
 import { hexToBytes32, hashString } from '../utils/bytes';
 import { getWalletState } from '../../contractService';
+
+// Private state ID for this contract
+const PRIVATE_STATE_ID = 'privamedai-private-state';
 
 /**
  * Register an issuer on-chain
@@ -20,10 +25,30 @@ export async function registerIssuerOnChain(
     console.log('📝 Registering issuer on-chain:', name);
 
     const providers = await initializeProviders();
+    const compiledContract = await getCompiledContract();
     const wallet = getWalletState();
     
     if (!wallet.coinPublicKey) {
       return { success: false, error: 'Wallet not connected' };
+    }
+
+    // First, find/join the deployed contract to seed the private state
+    console.log('🔍 Finding deployed contract...');
+    const initialPrivateState = createInitialPrivateState(
+      hexToBytes32(wallet.coinPublicKey.slice(0, 64))
+    );
+    
+    try {
+      await findDeployedContract(providers, {
+        contractAddress: CONTRACT_ADDRESS,
+        compiledContract,
+        privateStateId: PRIVATE_STATE_ID,
+        initialPrivateState,
+      });
+      console.log('✅ Found deployed contract and seeded private state');
+    } catch (findError: any) {
+      console.warn('⚠️ findDeployedContract warning (may be already joined):', findError.message);
+      // Continue anyway - we might already be joined
     }
 
     // Get public key bytes (first 64 hex chars = 32 bytes)
@@ -39,8 +64,9 @@ export async function registerIssuerOnChain(
     const submitWithTimeout = Promise.race([
       (submitCallTx as any)(providers, {
         contractAddress: CONTRACT_ADDRESS,
-        compiledContract: providers.compiledContract,
+        compiledContract,
         circuitId: CIRCUITS.REGISTER_ISSUER,
+        privateStateId: PRIVATE_STATE_ID,
         args: [pubKeyBytes, pubKeyBytes, nameHash],
       }),
       new Promise((_, reject) => 
@@ -60,17 +86,30 @@ export async function registerIssuerOnChain(
   } catch (error: any) {
     console.error('❌ Failed to register issuer:', error);
     
-    const message = error.message || '';
-    if (message.includes('already registered')) {
+    // Extract the real error from the FiberFailure wrapper
+    const cause = error.cause?.cause || error.cause;
+    const causeMessage = cause?.message || cause?.failure?.message || error.cause?.message || '';
+    
+    console.error('   Real cause:', cause);
+    console.error('   Cause message:', causeMessage);
+    
+    // Check for specific error conditions
+    if (causeMessage.includes('Insufficient Funds') || causeMessage.includes('could not balance dust')) {
+      return { 
+        success: false, 
+        error: 'Insufficient funds: Your wallet needs tDUST tokens. Get some from https://faucet.preprod.midnight.network/' 
+      };
+    }
+    if (causeMessage.includes('already registered')) {
       return { success: false, error: 'Issuer already registered' };
     }
-    if (message.includes('Only admin')) {
+    if (causeMessage.includes('Only admin')) {
       return { success: false, error: 'Only admin can register issuers' };
     }
     
     return {
       success: false,
-      error: error.message || 'Failed to register issuer on-chain',
+      error: causeMessage || error.message || 'Failed to register issuer on-chain',
     };
   }
 }
@@ -100,8 +139,7 @@ export async function checkIssuerOnChain(
     }
 
     // Parse ledger state
-    const { contracts } = await import('@midnight-ntwrk/contract/dist/index.browser.js');
-    const ledger = contracts.PrivaMedAI.ledger;
+    const { ledger } = await import('@midnight-ntwrk/contract/dist/managed/PrivaMedAI/contract/index.js');
     const state = ledger(contractState.data);
 
     // Convert public key hex to bytes32
@@ -133,6 +171,9 @@ export async function checkIssuerOnChain(
 
 /**
  * Get contract admin
+ * 
+ * Note: This is a read-only query that doesn't require submitCallTx.
+ * We read directly from the ledger state.
  */
 export async function getContractAdmin(): Promise<{
   success: boolean;
@@ -142,21 +183,35 @@ export async function getContractAdmin(): Promise<{
   try {
     console.log('🔍 Getting contract admin...');
 
-    const providers = await initializeProviders();
+    const { publicDataProvider } = await initializeProviders();
 
-    const result = await (submitCallTx as any)(providers, {
-      contractAddress: CONTRACT_ADDRESS,
-      compiledContract: providers.compiledContract,
-      circuitId: 'getAdmin',
-      args: [],
-    });
+    const contractState = await publicDataProvider.queryContractState(CONTRACT_ADDRESS);
+    
+    if (!contractState) {
+      return { success: false, error: 'Contract not found' };
+    }
 
-    const admin = (result as any)?.returnValue;
-    console.log('✅ Contract admin retrieved:', admin);
+    // Parse ledger state directly
+    const { ledger } = await import('@midnight-ntwrk/contract/dist/managed/PrivaMedAI/contract/index.js');
+    const state = ledger(contractState.data);
+
+    // Admin is stored in a Map with key 'a' (0x61)
+    const adminKey = new Uint8Array([97]); // 'a' in ASCII
+    const admin = state.admin.member(adminKey) ? state.admin.lookup(adminKey) : null;
+
+    if (!admin) {
+      return { success: false, error: 'Admin not found' };
+    }
+
+    const adminHex = Array.from(admin)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    console.log('✅ Contract admin retrieved:', adminHex.slice(0, 16) + '...');
 
     return {
       success: true,
-      admin: admin ? String(admin) : undefined,
+      admin: adminHex,
     };
   } catch (error: any) {
     console.error('❌ Failed to get contract admin:', error);

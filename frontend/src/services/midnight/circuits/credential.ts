@@ -4,14 +4,42 @@
  * On-chain credential lifecycle management
  */
 
-import { submitCallTx } from '@midnight-ntwrk/midnight-js-contracts';
+import { submitCallTx, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { toHex, persistentHash, CompactTypeVector, CompactTypeBytes } from '@midnight-ntwrk/compact-runtime';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { initializeProviders } from '../providers';
+import { getCompiledContract } from '../providers/contract';
+import { createInitialPrivateState } from '../witnesses';
 import { CIRCUITS, CONTRACT_ADDRESS, NETWORK_CONFIG } from '../config';
 import { hexToBytes32, hashString } from '../utils/bytes';
 import { getWalletState, storeCredential } from '../../contractService';
 import type { Credential } from '../../../types/claims';
+
+// Private state ID for this contract
+const PRIVATE_STATE_ID = 'privamedai-private-state';
+
+/**
+ * Helper to ensure contract is found and private state is seeded
+ */
+async function ensureContractJoined(providers: any, wallet: any): Promise<void> {
+  const compiledContract = await getCompiledContract();
+  const initialPrivateState = createInitialPrivateState(
+    hexToBytes32(wallet.coinPublicKey.slice(0, 64))
+  );
+  
+  try {
+    await findDeployedContract(providers, {
+      contractAddress: CONTRACT_ADDRESS,
+      compiledContract,
+      privateStateId: PRIVATE_STATE_ID,
+      initialPrivateState,
+    });
+    console.log('✅ Found deployed contract and seeded private state');
+  } catch (findError: any) {
+    console.warn('⚠️ findDeployedContract warning (may be already joined):', findError.message);
+    // Continue anyway - we might already be joined
+  }
+}
 
 /**
  * Issue a credential on-chain
@@ -32,11 +60,15 @@ export async function issueCredentialOnChain(
     console.log('📝 Issuing credential on-chain:', { patientAddress, claimType });
 
     const providers = await initializeProviders();
+    const compiledContract = await getCompiledContract();
     const wallet = getWalletState();
     
     if (!wallet.coinPublicKey) {
       return { success: false, error: 'Wallet not connected' };
     }
+
+    // Ensure contract is joined first
+    await ensureContractJoined(providers, wallet);
 
     // Generate commitment from credential data
     const commitment = hashString(
@@ -48,6 +80,23 @@ export async function issueCredentialOnChain(
       })
     );
 
+    // Parse claimData to extract health claim fields
+    let healthClaimFields = { age: 18n, conditionCode: 100n, prescriptionCode: 500n };
+    try {
+      const parsedClaimData = JSON.parse(claimData);
+      if (parsedClaimData.age !== undefined) {
+        healthClaimFields.age = BigInt(parsedClaimData.age);
+      }
+      if (parsedClaimData.conditionCode !== undefined) {
+        healthClaimFields.conditionCode = BigInt(parsedClaimData.conditionCode);
+      }
+      if (parsedClaimData.prescriptionCode !== undefined) {
+        healthClaimFields.prescriptionCode = BigInt(parsedClaimData.prescriptionCode);
+      }
+    } catch (e) {
+      console.warn('Could not parse claimData as JSON, using default health claim fields');
+    }
+
     // Create claimDataBytes (exactly 32 bytes) for the circuit
     const claimDataJson = JSON.stringify({
       type: claimType,
@@ -58,10 +107,36 @@ export async function issueCredentialOnChain(
     const claimDataBytes = new Uint8Array(32);
     claimDataBytes.set(encoder.encode(claimDataJson).slice(0, 32));
 
-    // Generate claimHash using persistentHash
+    // Generate claimHash using the SAME formula as the circuit's _verify_claim_hash_private
+    // Circuit computes: persistentHash([pad(32, "privamed:claim:"), age as Field, conditionCode as Field, prescriptionCode as Field])
+    // Domain separator: "privamed:claim:" padded to 32 bytes
+    const domainSep = new Uint8Array([112, 114, 105, 118, 97, 109, 101, 100, 58, 99, 108, 97, 105, 109, 58, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    
+    // Helper: Convert a bigint (Field) to 32-byte little-endian array
+    function fieldToBytes32(value: bigint): Uint8Array {
+      const bytes = new Uint8Array(32);
+      let temp = value;
+      for (let i = 0; i < 32 && temp > 0n; i++) {
+        bytes[i] = Number(temp & 0xffn);
+        temp >>= 8n;
+      }
+      return bytes;
+    }
+    
+    const ageBytes = fieldToBytes32(healthClaimFields.age);
+    const conditionBytes = fieldToBytes32(healthClaimFields.conditionCode);
+    const prescriptionBytes = fieldToBytes32(healthClaimFields.prescriptionCode);
+    
     const bytes32Type = new CompactTypeBytes(32);
-    const vectorType = new CompactTypeVector(1, bytes32Type);
-    const claimHash = persistentHash(vectorType, [claimDataBytes]);
+    const vectorType = new CompactTypeVector(4, bytes32Type);
+    const claimHash = persistentHash(vectorType, [domainSep, ageBytes, conditionBytes, prescriptionBytes]);
+    
+    console.log('   Health claim fields:', {
+      age: healthClaimFields.age.toString(),
+      conditionCode: healthClaimFields.conditionCode.toString(),
+      prescriptionCode: healthClaimFields.prescriptionCode.toString(),
+    });
+    console.log('   Computed claimHash:', toHex(claimHash));
 
     // Calculate expiry timestamp
     const expiryTimestamp = BigInt(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
@@ -77,8 +152,9 @@ export async function issueCredentialOnChain(
     const submitWithTimeout = Promise.race([
       (submitCallTx as any)(providers, {
         contractAddress: CONTRACT_ADDRESS,
-        compiledContract: providers.compiledContract,
+        compiledContract,
         circuitId: CIRCUITS.ISSUE_CREDENTIAL,
+        privateStateId: PRIVATE_STATE_ID,
         args: [pubKeyBytes, commitment, pubKeyBytes, claimHash, expiryTimestamp],
       }),
       new Promise((_, reject) => 
@@ -113,95 +189,98 @@ export async function issueCredentialOnChain(
     };
   } catch (error: any) {
     console.error('❌ Failed to issue credential:', error);
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Error cause:', error.cause);
     
-    const message = error.message || '';
+    // Extract the real error from the FiberFailure wrapper
+    const cause = error.cause?.cause || error.cause;
+    const causeMessage = cause?.message || cause?.failure?.message || error.cause?.message || '';
     
-    if (message.includes('timeout')) {
+    console.error('   Real cause:', cause);
+    console.error('   Cause message:', causeMessage);
+    
+    if (causeMessage.includes('Insufficient Funds') || causeMessage.includes('could not balance dust')) {
+      return { 
+        success: false, 
+        error: 'Insufficient funds: Your wallet needs tDUST tokens. Get some from https://faucet.preprod.midnight.network/' 
+      };
+    }
+    if (causeMessage.includes('timeout')) {
       return { 
         success: false, 
         error: 'Transaction timed out after 2 minutes. The proof server may be slow or the network is congested.' 
       };
     }
-    
-    if (message.includes('already exists')) {
+    if (causeMessage.includes('already exists')) {
       return { success: false, error: 'Credential already exists' };
     }
-    if (message.includes('Issuer not registered')) {
+    if (causeMessage.includes('Issuer not registered')) {
       return { success: false, error: 'Issuer not registered' };
     }
-    if (message.includes('Issuer not active')) {
+    if (causeMessage.includes('Issuer not active')) {
       return { success: false, error: 'Issuer is not active' };
     }
-    if (message.includes('Only registered issuer')) {
+    if (causeMessage.includes('Only registered issuer')) {
       return { success: false, error: 'Only registered issuer can issue credentials' };
     }
     
     return {
       success: false,
-      error: error.message || 'Failed to issue credential on-chain',
+      error: causeMessage || error.message || 'Failed to issue credential on-chain',
     };
   }
 }
 
 /**
- * Revoke a credential on-chain
+ * Query credentials on-chain
  */
-export async function revokeCredentialOnChain(
-  commitment: string
-): Promise<{ success: boolean; txId?: string; error?: string }> {
+export async function queryCredentialsOnChain(
+  walletAddress: string
+): Promise<{
+  success: boolean;
+  credentials?: any[];
+  totalCredentials?: bigint;
+  totalIssuers?: bigint;
+  error?: string;
+}> {
   try {
-    console.log('📝 Revoking credential on-chain:', commitment);
+    console.log('🔍 Querying credentials on-chain for:', walletAddress.slice(0, 20) + '...');
 
-    const providers = await initializeProviders();
-    const wallet = getWalletState();
+    const publicDataProvider = indexerPublicDataProvider(
+      NETWORK_CONFIG.indexer,
+      NETWORK_CONFIG.indexerWS
+    );
+
+    const contractState = await publicDataProvider.queryContractState(CONTRACT_ADDRESS);
     
-    if (!wallet.coinPublicKey) {
-      return { success: false, error: 'Wallet not connected' };
+    if (!contractState) {
+      return {
+        success: false,
+        error: 'Contract not found or no state available',
+      };
     }
 
-    // Get issuer public key bytes
-    const pubKeyHex = wallet.coinPublicKey.slice(0, 64);
-    const pubKeyBytes = hexToBytes32(pubKeyHex);
+    // Parse ledger state
+    const { ledger } = await import('@midnight-ntwrk/contract/dist/managed/PrivaMedAI/contract/index.js');
+    const state = ledger(contractState.data);
 
-    // Convert commitment hex to bytes
-    const commitmentBytes = hexToBytes32(commitment);
+    console.log('✅ Contract state retrieved');
+    const totalCredentials = BigInt(state.credentials?.size?.() || 0);
+    const totalIssuers = BigInt(state.issuerRegistry?.size?.() || 0);
+    console.log('   Total credentials:', totalCredentials);
+    console.log('   Total issuers:', totalIssuers);
 
-    console.log('📤 Submitting revokeCredential transaction...');
-
-    const result = await (submitCallTx as any)(providers, {
-      contractAddress: CONTRACT_ADDRESS,
-      compiledContract: providers.compiledContract,
-      circuitId: CIRCUITS.REVOKE_CREDENTIAL,
-      args: [pubKeyBytes, commitmentBytes],
-    });
-
-    const txId = (result as any)?.public?.txId;
-    console.log('✅ Credential revoked successfully:', txId);
-
+    // Return only stats - actual credentials are stored in localStorage
+    // The contract doesn't index credentials by patient address for privacy
     return {
       success: true,
-      txId: txId ? String(txId) : undefined,
+      credentials: [],
+      totalCredentials,
+      totalIssuers,
     };
   } catch (error: any) {
-    console.error('❌ Failed to revoke credential:', error);
-    
-    const message = error.message || '';
-    if (message.includes('Credential not found')) {
-      return { success: false, error: 'Credential not found' };
-    }
-    if (message.includes('Only issuer')) {
-      return { success: false, error: 'Only the issuing issuer can revoke this credential' };
-    }
-    if (message.includes('Already revoked')) {
-      return { success: false, error: 'Credential is already revoked' };
-    }
-    
+    console.error('❌ Failed to query credentials:', error);
     return {
       success: false,
-      error: error.message || 'Failed to revoke credential on-chain',
+      error: error.message || 'Failed to query credentials on-chain',
     };
   }
 }
@@ -239,8 +318,7 @@ export async function checkCredentialOnChain(
     }
 
     // Parse ledger state
-    const { contracts } = await import('@midnight-ntwrk/contract/dist/index.browser.js');
-    const ledger = contracts.PrivaMedAI.ledger;
+    const { ledger } = await import('@midnight-ntwrk/contract/dist/managed/PrivaMedAI/contract/index.js');
     const state = ledger(contractState.data);
 
     // Convert commitment hex to bytes32
@@ -277,66 +355,97 @@ export async function checkCredentialOnChain(
   }
 }
 
+
 /**
- * Query credentials on-chain
+ * Revoke a credential on-chain (issuer only)
  */
-export async function queryCredentialsOnChain(
-  walletAddress: string
+export async function revokeCredentialOnChain(
+  callerPubKey: string,
+  commitment: string
 ): Promise<{
   success: boolean;
-  credentials?: any[];
-  totalCredentials?: bigint;
-  totalIssuers?: bigint;
+  txId?: string;
   error?: string;
 }> {
   try {
-    console.log('🔍 Querying credentials on-chain for:', walletAddress.slice(0, 20) + '...');
+    console.log('🗑️ Revoking credential on-chain:', commitment.slice(0, 16) + '...');
 
-    const publicDataProvider = indexerPublicDataProvider(
-      NETWORK_CONFIG.indexer,
-      NETWORK_CONFIG.indexerWS
-    );
-
-    const contractState = await publicDataProvider.queryContractState(CONTRACT_ADDRESS);
+    const providers = await initializeProviders();
+    const compiledContract = await getCompiledContract();
+    const wallet = getWalletState();
     
-    if (!contractState) {
-      return {
-        success: false,
-        error: 'Contract not found or no state available',
-      };
+    if (!wallet.coinPublicKey) {
+      return { success: false, error: 'Wallet not connected' };
     }
 
-    // Parse ledger state
-    const { contracts } = await import('@midnight-ntwrk/contract/dist/index.browser.js');
-    const ledger = contracts.PrivaMedAI.ledger;
-    const state = ledger(contractState.data);
+    // Ensure contract is joined first
+    await ensureContractJoined(providers, wallet);
 
-    console.log('✅ Contract state retrieved');
-    const totalCredentials = BigInt(state.credentials?.size?.() || 0);
-    const totalIssuers = BigInt(state.issuerRegistry?.size?.() || 0);
-    console.log('   Total credentials:', totalCredentials);
-    console.log('   Total issuers:', totalIssuers);
+    // Convert commitment hex to bytes32
+    const commitmentBytes = hexToBytes32(commitment);
+    
+    // Convert caller pubkey to bytes32
+    const pubKeyBytes = hexToBytes32(callerPubKey.slice(0, 64));
 
-    const credentials = totalCredentials > 0 
-      ? [{ 
-          commitment: '0x' + '0'.repeat(64),
-          issuer: 'Unknown',
-          status: 'VALID',
-          expiry: 0n,
-        }]
-      : [];
+    console.log('📤 Submitting revokeCredential transaction...');
+
+    // Add timeout to prevent infinite hanging
+    const submitWithTimeout = Promise.race([
+      (submitCallTx as any)(providers, {
+        contractAddress: CONTRACT_ADDRESS,
+        compiledContract,
+        circuitId: CIRCUITS.REVOKE_CREDENTIAL,
+        privateStateId: PRIVATE_STATE_ID,
+        args: [pubKeyBytes, commitmentBytes],
+      }),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Transaction timeout - proof server may be slow or unresponsive')), 120000)
+      )
+    ]);
+
+    const result = await submitWithTimeout;
+    const txId = (result as any)?.public?.txId;
+    console.log('✅ Credential revoked successfully:', txId);
 
     return {
       success: true,
-      credentials,
-      totalCredentials,
-      totalIssuers,
+      txId: txId ? String(txId) : undefined,
     };
   } catch (error: any) {
-    console.error('❌ Failed to query credentials:', error);
+    console.error('❌ Failed to revoke credential:', error);
+    
+    // Extract the real error from the FiberFailure wrapper
+    const cause = error.cause?.cause || error.cause;
+    const causeMessage = cause?.message || cause?.failure?.message || error.cause?.message || '';
+    
+    console.error('   Real cause:', cause);
+    console.error('   Cause message:', causeMessage);
+    
+    if (causeMessage.includes('Insufficient Funds') || causeMessage.includes('could not balance dust')) {
+      return { 
+        success: false, 
+        error: 'Insufficient funds: Your wallet needs tDUST tokens. Get some from https://faucet.preprod.midnight.network/' 
+      };
+    }
+    if (causeMessage.includes('timeout')) {
+      return { 
+        success: false, 
+        error: 'Transaction timed out after 2 minutes. The proof server may be slow or the network is congested.' 
+      };
+    }
+    if (causeMessage.includes('Only issuer can revoke')) {
+      return { success: false, error: 'Only the original issuer can revoke this credential' };
+    }
+    if (causeMessage.includes('Credential not found')) {
+      return { success: false, error: 'Credential not found on-chain' };
+    }
+    if (causeMessage.includes('Already revoked')) {
+      return { success: false, error: 'Credential is already revoked' };
+    }
+    
     return {
       success: false,
-      error: error.message || 'Failed to query credentials on-chain',
+      error: causeMessage || error.message || 'Failed to revoke credential on-chain',
     };
   }
 }

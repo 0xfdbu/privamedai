@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ShieldCheck, Upload, CheckCircle, XCircle, FileCheck, AlertCircle, Send, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, TextArea, Alert, Badge } from '../common';
-import { submitProofVerification } from '../../services/contractInteraction';
+import { submitProofVerification, type VerifierType } from '../../services/contractInteraction';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { CONFIG } from '../../services/contractService';
 
@@ -271,18 +271,41 @@ export function VerifyProof() {
       // Convert commitment to bytes for the contract call
       const commitmentHex = commitment.startsWith('0x') ? commitment.slice(2) : commitment;
       
-      // Get the credential data bytes from the proof (needed for on-chain verification)
-      let credentialDataBytes: Uint8Array;
-      if (proofData.credentialDataBytes && Array.isArray(proofData.credentialDataBytes)) {
-        credentialDataBytes = new Uint8Array(proofData.credentialDataBytes);
+      // Determine verifier type and parameters from the circuitId
+      const circuitId = proofData.circuitId || '';
+      let verifierType: VerifierType;
+      let params: { minAge?: number; requiredPrescription?: number; requiredCondition?: number } = {};
+      
+      if (circuitId.includes('FreeHealthClinic') || circuitId.includes('freeHealthClinic')) {
+        verifierType = 'freeHealthClinic';
+        // Extract minAge from rules if available
+        const rules = publicInputs.rules || [];
+        const ageRule = rules.find((r: any) => r.field === 'age');
+        params.minAge = ageRule ? parseInt(ageRule.value) : 18; // Default to 18 if not specified
+      } else if (circuitId.includes('Pharmacy') || circuitId.includes('pharmacy')) {
+        verifierType = 'pharmacy';
+        // Extract prescription code from rules
+        const rules = publicInputs.rules || [];
+        const rxRule = rules.find((r: any) => r.field === 'prescriptionCode');
+        params.requiredPrescription = rxRule ? parseInt(rxRule.value) : 500; // Default
+      } else if (circuitId.includes('Hospital') || circuitId.includes('hospital')) {
+        verifierType = 'hospital';
+        // Extract age and condition from rules
+        const rules = publicInputs.rules || [];
+        const ageRule = rules.find((r: any) => r.field === 'age');
+        const conditionRule = rules.find((r: any) => r.field === 'conditionCode');
+        params.minAge = ageRule ? parseInt(ageRule.value) : 18;
+        params.requiredCondition = conditionRule ? parseInt(conditionRule.value) : 100;
       } else {
-        throw new Error('Missing credential data bytes in proof. Please generate a new proof with the latest version.');
+        // Default to free health clinic
+        verifierType = 'freeHealthClinic';
+        params.minAge = 18;
       }
       
       const submitResult = await submitProofVerification(
         commitmentHex,
-        credentialDataBytes,
-        proofData.circuitId || 'verifyCredential'
+        verifierType,
+        params
       );
       
       if (submitResult.success) {

@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Share2, Copy, Check, Download, Link2, AlertCircle } from 'lucide-react';
+import { Share2, Copy, Check, Download, Link2, AlertCircle, Sparkles } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, Badge, Alert } from '../common';
-import { getStoredCredentials } from '../../services/contractService';
+import { getStoredCredentials, getWalletState } from '../../services/contractService';
+import { generateProductionZKProof } from '../../services/proofServiceProd';
+import type { HealthClaim } from '../../types/claims';
 
 interface ProofData {
   proof: string;
   txId: string;
   circuitId: string;
   timestamp: string;
+  credentialType: string;
 }
 
 export function QRShare() {
@@ -18,38 +21,89 @@ export function QRShare() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasCredentials, setHasCredentials] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [walletConnected, setWalletConnected] = useState(false);
 
   useEffect(() => {
-    // Check if user has credentials
     const credentials = getStoredCredentials();
     setHasCredentials(credentials.length > 0);
+    const wallet = getWalletState();
+    setWalletConnected(wallet.isConnected);
   }, []);
 
-  const generateQR = () => {
+  const generateProof = async () => {
     setError(null);
+    setIsGenerating(true);
     
-    // Get the most recent credential and proof data
-    const credentials = getStoredCredentials();
-    if (credentials.length === 0) {
-      setError('No credentials found. Please issue a credential first.');
-      return;
-    }
+    try {
+      const credentials = getStoredCredentials();
+      if (credentials.length === 0) {
+        throw new Error('No credentials found. Please issue a credential first.');
+      }
 
-    // Get the most recent credential to create a shareable reference
-    // This creates a verifiable link to the credential on-chain
-    const latestCredential = credentials[credentials.length - 1];
-    
-    // Create proof data based on real credential
-    const realProofData: ProofData = {
-      proof: latestCredential.commitment,
-      txId: latestCredential.claimHash.slice(0, 66),
-      circuitId: 'verifyCredential',
-      timestamp: new Date(latestCredential.issuedAt).toISOString(),
-    };
-    
-    setProofData(realProofData);
-    setGeneratedQR(realProofData.proof);
-    setShareLink(`${window.location.origin}/verify/${realProofData.proof.slice(2)}`);
+      // Get the most recent credential
+      const latestCredential = credentials[credentials.length - 1];
+      
+      if (!latestCredential.commitment || !latestCredential.claimHash) {
+        throw new Error('Credential is missing required data (commitment or claimHash)');
+      }
+
+      // Get claimDataBytes from the credential
+      let claimDataBytes: Uint8Array;
+      if (latestCredential.claimDataBytes && Array.isArray(latestCredential.claimDataBytes)) {
+        claimDataBytes = new Uint8Array(latestCredential.claimDataBytes);
+      } else {
+        // Fallback: encode encryptedData to bytes
+        const encoder = new TextEncoder();
+        claimDataBytes = new Uint8Array(32);
+        claimDataBytes.set(encoder.encode(latestCredential.encryptedData || '').slice(0, 32));
+      }
+
+      // Prepare health claim for selective disclosure if available
+      const proofOptions: any = {};
+      if (latestCredential.healthClaim) {
+        proofOptions.healthClaim = latestCredential.healthClaim as HealthClaim;
+      }
+
+      // Generate the actual ZK proof
+      const proofResult = await generateProductionZKProof(
+        [{ field: 'type', operator: '==', value: latestCredential.claimType, description: 'Credential type verification' }],
+        latestCredential.commitment,
+        claimDataBytes,
+        proofOptions
+      );
+
+      if (!proofResult.success) {
+        throw new Error(proofResult.error || 'Failed to generate proof');
+      }
+
+      // Create proof data
+      const realProofData: ProofData = {
+        proof: proofResult.proof,
+        txId: proofResult.txId || '',
+        circuitId: proofResult.circuitId || 'verifyCredential',
+        timestamp: new Date().toISOString(),
+        credentialType: latestCredential.claimType,
+      };
+      
+      setProofData(realProofData);
+      
+      // Create shareable QR data (proof hash + commitment)
+      const qrPayload = JSON.stringify({
+        proof: proofResult.proof.slice(0, 100), // Truncated for QR size
+        commitment: latestCredential.commitment,
+        circuitId: proofResult.circuitId,
+        timestamp: realProofData.timestamp,
+      });
+      
+      setGeneratedQR(qrPayload);
+      setShareLink(`${window.location.origin}/verify?proof=${latestCredential.commitment.slice(2, 34)}`);
+      
+    } catch (err: any) {
+      setError(err.message || 'Failed to generate proof');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const copyLink = () => {
@@ -58,6 +112,29 @@ export function QRShare() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const downloadProof = () => {
+    if (!proofData) return;
+    
+    const data = {
+      proofId: proofData.proof.slice(0, 32),
+      type: proofData.credentialType,
+      circuitId: proofData.circuitId,
+      generatedAt: proofData.timestamp,
+      qrData: proofData.proof,
+      txId: proofData.txId,
+      contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS,
+      network: import.meta.env.VITE_NETWORK_ID || 'preprod',
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `zk-proof-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const downloadQR = () => {
@@ -84,11 +161,20 @@ export function QRShare() {
   return (
     <Card>
       <CardHeader 
-        title="Share Proof"
-        subtitle="Generate QR code or shareable link for instant verification"
+        title="Share ZK Proof"
+        subtitle="Generate a QR code or shareable link for instant verification"
         icon={Share2}
       />
       <CardBody className="space-y-4">
+        {!walletConnected && (
+          <Alert variant="warning">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              Please connect your wallet to generate proofs.
+            </div>
+          </Alert>
+        )}
+        
         {error && (
           <Alert variant="error">
             <div className="flex items-center gap-2">
@@ -101,7 +187,8 @@ export function QRShare() {
         {!generatedQR ? (
           <>
             <Alert variant="info">
-              Generate a QR code or link that verifiers can scan to instantly verify your credential without accessing your private data.
+              Generate a zero-knowledge proof QR code that verifiers can scan to instantly 
+              verify your credential without accessing your private data.
             </Alert>
             
             {!hasCredentials && (
@@ -111,12 +198,13 @@ export function QRShare() {
             )}
             
             <Button 
-              onClick={generateQR}
+              onClick={generateProof}
               className="w-full"
-              disabled={!hasCredentials}
-              leftIcon={<Share2 className="w-4 h-4" />}
+              disabled={!hasCredentials || !walletConnected || isGenerating}
+              isLoading={isGenerating}
+              leftIcon={isGenerating ? undefined : <Sparkles className="w-4 h-4" />}
             >
-              Generate Shareable Proof
+              {isGenerating ? 'Generating ZK Proof...' : 'Generate ZK Proof QR'}
             </Button>
           </>
         ) : (
@@ -145,12 +233,12 @@ export function QRShare() {
                     <span className="font-mono text-slate-700">{proofData.circuitId}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Transaction:</span>
-                    <span className="font-mono text-slate-700 truncate max-w-[150px]">{proofData.txId}</span>
+                    <span className="text-slate-500">Credential:</span>
+                    <span className="text-slate-700">{proofData.credentialType}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Generated:</span>
-                    <span className="text-slate-700">{new Date(proofData.timestamp).toLocaleDateString()}</span>
+                    <span className="text-slate-700">{new Date(proofData.timestamp).toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -187,17 +275,17 @@ export function QRShare() {
               </Button>
               <Button 
                 variant="secondary" 
-                onClick={copyLink}
+                onClick={downloadProof}
                 className="flex-1"
-                leftIcon={copied ? <Check className="w-4 h-4" /> : <Link2 className="w-4 h-4" />}
+                leftIcon={<Download className="w-4 h-4" />}
               >
-                Copy Link
+                Download Proof
               </Button>
             </div>
 
             <div className="flex items-center justify-center gap-2">
-              <Badge variant="success">Valid for 24 hours</Badge>
-              <Badge variant="info">Zero-Knowledge</Badge>
+              <Badge variant="success">Zero-Knowledge</Badge>
+              <Badge variant="info">Privacy-Preserving</Badge>
             </div>
 
             <Button 

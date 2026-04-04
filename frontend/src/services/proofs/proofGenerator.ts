@@ -18,7 +18,7 @@ import {
 } from './config';
 import { serializeCredentialData, hexToBytes32 } from './utils/serialization';
 import { fetchZKConfig } from './utils/zkConfig';
-import { executeCircuitAndGetProofData } from './circuits/execution';
+import { executeCircuitAndGetProofData, type CircuitParams } from './circuits/execution';
 
 export async function generateProductionZKProof(
   rules: GeneratedRule[],
@@ -27,6 +27,7 @@ export async function generateProductionZKProof(
   options?: {
     contractAddress?: string;
     proofServerUrl?: string;
+    healthClaim?: { age: number; conditionCode: number; prescriptionCode: number };
   }
 ): Promise<ZKProofResult> {
   const circuitId = selectCircuitForRules(rules);
@@ -34,6 +35,12 @@ export async function generateProductionZKProof(
   console.log('🔐 Generating CRYPTOGRAPHIC ZK Proof...');
   console.log('   Circuit:', circuitId);
   console.log('   Rules:', rules.length);
+  console.log('   OPTIONS RECEIVED:', { 
+    hasOptions: !!options, 
+    hasHealthClaim: !!(options?.healthClaim),
+    healthClaimData: options?.healthClaim,
+    optionsKeys: options ? Object.keys(options) : []
+  });
   
   try {
     const proofServerUrl = options?.proofServerUrl || getProofServerUrl();
@@ -57,13 +64,50 @@ export async function generateProductionZKProof(
     console.log('   Data Bytes:', toHex(credentialDataBytes));
     console.log('   Data Hash:', toHex(credentialDataHash));
     
+    // Prepare private state with health claim if provided (for selective disclosure)
+    // CRITICAL: Circuit expects BigInt values, not numbers
+    const privateState = options?.healthClaim ? {
+      healthClaim: {
+        age: BigInt(options.healthClaim.age),
+        conditionCode: BigInt(options.healthClaim.conditionCode),
+        prescriptionCode: BigInt(options.healthClaim.prescriptionCode),
+      }
+    } : {};
+    
+    console.log('   Private state prepared:', {
+      hasHealthClaim: !!privateState.healthClaim,
+      age: privateState.healthClaim?.age?.toString(),
+      conditionCode: privateState.healthClaim?.conditionCode?.toString(),
+      prescriptionCode: privateState.healthClaim?.prescriptionCode?.toString(),
+    });
+    
+    // Extract circuit parameters from rules (thresholds to prove against)
+    const circuitParams: CircuitParams = {};
+    for (const rule of rules) {
+      const value = BigInt(rule.value);
+      if (rule.field === 'age' && (rule.operator === '>=' || rule.operator === '>')) {
+        circuitParams.minAge = value;
+      } else if (rule.field === 'conditionCode' && rule.operator === '==') {
+        circuitParams.requiredCondition = value;
+      } else if (rule.field === 'prescriptionCode' && rule.operator === '==') {
+        circuitParams.requiredPrescription = value;
+      }
+    }
+    console.log('   Circuit params:', {
+      minAge: circuitParams.minAge?.toString(),
+      requiredCondition: circuitParams.requiredCondition?.toString(),
+      requiredPrescription: circuitParams.requiredPrescription?.toString(),
+    });
+    
     // Execute circuit to generate proof data
     console.log('   Executing circuit to generate proof data...');
     const proofData = await executeCircuitAndGetProofData(
       circuitId,
       commitmentBytes,
       credentialDataBytes,
-      credentialDataHash
+      credentialDataHash,
+      privateState,
+      circuitParams
     );
     
     console.log('   Proof data generated:');

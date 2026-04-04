@@ -8,12 +8,26 @@ import { createCircuitContext, dummyContractAddress, toHex, ChargedState } from 
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { CONFIG, getContractAddress } from '../../contractService';
 import type { PrivaMedAICircuit } from '../config';
+import type { HealthClaim } from '../../../types/claims';
 
 export interface ProofData {
   input: any;
   output: any;
   publicTranscript: any[];
   privateTranscriptOutputs: any[];
+}
+
+/**
+ * Private state for the PrivaMedAI contract
+ * Stores the health claim data used by witnesses
+ * NOTE: Circuit expects BigInt values (Compact Uint types map to bigint)
+ */
+export interface PrivaMedAIPrivateState {
+  healthClaim?: {
+    age: bigint;
+    conditionCode: bigint;
+    prescriptionCode: bigint;
+  };
 }
 
 /**
@@ -38,9 +52,7 @@ export async function fetchContractState(
     }
     
     // Parse the ledger state using the contract's ledger function for logging
-    const contractModule = await import('@midnight-ntwrk/contract/dist/index.browser.js');
-    const { contracts } = contractModule;
-    const ledger = contracts.PrivaMedAI.ledger;
+    const { ledger } = await import('@midnight-ntwrk/contract/dist/managed/PrivaMedAI/contract/index.js');
     
     if (!ledger) {
       throw new Error('Ledger function not found in contract');
@@ -86,30 +98,64 @@ export async function fetchContractState(
 }
 
 /**
+ * Create witnesses object for the PrivaMedAI contract
+ * Maps witness function names to their implementations
+ */
+function createWitnesses(privateState: PrivaMedAIPrivateState) {
+  return {
+    // For standard verification - returns empty bytes
+    local_secret_key: (): [PrivaMedAIPrivateState, Uint8Array] => {
+      return [privateState, new Uint8Array(32)];
+    },
+    
+    // For selective disclosure - returns the health claim data as bigints
+    get_private_health_claim: (): [PrivaMedAIPrivateState, { age: bigint; conditionCode: bigint; prescriptionCode: bigint }] => {
+      if (!privateState.healthClaim) {
+        throw new Error('HealthClaim witness data not provided');
+      }
+      return [privateState, {
+        age: BigInt(privateState.healthClaim.age),
+        conditionCode: BigInt(privateState.healthClaim.conditionCode),
+        prescriptionCode: BigInt(privateState.healthClaim.prescriptionCode),
+      }];
+    },
+  };
+}
+
+/**
+ * Circuit parameters for selective disclosure circuits
+ */
+export interface CircuitParams {
+  minAge?: bigint;
+  requiredPrescription?: bigint;
+  requiredCondition?: bigint;
+}
+
+/**
  * Execute the circuit using REAL on-chain state to generate proof data
+ * 
+ * For selective disclosure circuits (verifyForFreeHealthClinic, verifyForPharmacy, verifyForHospital),
+ * the healthClaim parameter must be provided in privateState.
+ * 
+ * Circuit parameters (thresholds) must be provided via circuitParams:
+ * - verifyForFreeHealthClinic: minAge (default: 18n)
+ * - verifyForPharmacy: requiredPrescription (default: 500n)
+ * - verifyForHospital: minAge (default: 18n), requiredCondition (default: 100n)
  */
 export async function executeCircuitAndGetProofData(
   circuitId: PrivaMedAICircuit,
   commitmentBytes: Uint8Array,
-  credentialDataBytes: Uint8Array,
-  _credentialDataHash: Uint8Array
+  _credentialDataBytes: Uint8Array,
+  _credentialDataHash: Uint8Array,
+  privateState: PrivaMedAIPrivateState = {},
+  circuitParams: CircuitParams = {}
 ): Promise<ProofData> {
-  // Import the browser-compatible contract entry point
-  const contractModule = await import('@midnight-ntwrk/contract/dist/index.browser.js');
-  const { contracts } = contractModule;
+  // Import the contract entry point (browser-compatible)
+  const { Contract } = await import('@midnight-ntwrk/contract/dist/managed/PrivaMedAI/contract/index.js');
   
-  const PrivaMedAI = contracts.PrivaMedAI;
-  if (!PrivaMedAI) {
-    throw new Error('PrivaMedAI contract not found in compiled module');
-  }
-  
-  const { Contract } = PrivaMedAI;
-  if (!Contract) {
-    throw new Error('Contract class not found in PrivaMedAI module');
-  }
-  
-  // Create contract instance with empty witnesses
-  const contract = new Contract({});
+  // Create contract instance with witnesses
+  const witnesses = createWitnesses(privateState);
+  const contract = new Contract(witnesses);
   
   // Fetch the REAL on-chain state
   const onChainState = await fetchContractState(commitmentBytes);
@@ -122,33 +168,68 @@ export async function executeCircuitAndGetProofData(
     dummyContractAddress(),
     '0'.repeat(64),
     onChainState.chargedState,
-    {} // privateState
+    privateState
   );
   
   let circuitResult;
+  
+  // Our contract has 12 circuits - only selective disclosure circuits are available for verification
   switch (circuitId) {
-    case 'verifyCredential':
-      circuitResult = contract.circuits.verifyCredential(
+    // Selective disclosure circuits
+    case 'verifyForFreeHealthClinic': {
+      if (!privateState.healthClaim) {
+        throw new Error('HealthClaim required for verifyForFreeHealthClinic circuit');
+      }
+      const freeHealthClinicCircuit = (contract.circuits as any).verifyForFreeHealthClinic;
+      if (!freeHealthClinicCircuit) {
+        throw new Error('verifyForFreeHealthClinic circuit not available in this contract version.');
+      }
+      // minAge threshold (default 18) - proves: witness_age >= minAge
+      const minAge = circuitParams.minAge ?? 18n;
+      circuitResult = freeHealthClinicCircuit(
         circuitContext,
         commitmentBytes,
-        credentialDataBytes
+        minAge
       );
       break;
-    case 'bundledVerify2Credentials':
-      circuitResult = contract.circuits.bundledVerify2Credentials(
+    }
+    case 'verifyForPharmacy': {
+      if (!privateState.healthClaim) {
+        throw new Error('HealthClaim required for verifyForPharmacy circuit');
+      }
+      const pharmacyCircuit = (contract.circuits as any).verifyForPharmacy;
+      if (!pharmacyCircuit) {
+        throw new Error('verifyForPharmacy circuit not available in this contract version.');
+      }
+      // requiredPrescription code (default 500) - proves: witness_prescriptionCode == requiredPrescription
+      const requiredPrescription = circuitParams.requiredPrescription ?? 500n;
+      circuitResult = pharmacyCircuit(
         circuitContext,
-        commitmentBytes, credentialDataBytes,
-        commitmentBytes, credentialDataBytes
+        commitmentBytes,
+        requiredPrescription
       );
       break;
-    case 'bundledVerify3Credentials':
-      circuitResult = contract.circuits.bundledVerify3Credentials(
+    }
+    case 'verifyForHospital': {
+      if (!privateState.healthClaim) {
+        throw new Error('HealthClaim required for verifyForHospital circuit');
+      }
+      const hospitalCircuit = (contract.circuits as any).verifyForHospital;
+      if (!hospitalCircuit) {
+        throw new Error('verifyForHospital circuit not available in this contract version.');
+      }
+      // minAge threshold (default 18) and requiredCondition code (default 100)
+      // proves: witness_age >= minAge AND witness_conditionCode == requiredCondition
+      const minAge = circuitParams.minAge ?? 18n;
+      const requiredCondition = circuitParams.requiredCondition ?? 100n;
+      circuitResult = hospitalCircuit(
         circuitContext,
-        commitmentBytes, credentialDataBytes,
-        commitmentBytes, credentialDataBytes,
-        commitmentBytes, credentialDataBytes
+        commitmentBytes,
+        minAge,
+        requiredCondition
       );
       break;
+    }
     default:
       throw new Error(`Unsupported circuit: ${circuitId}`);
   }

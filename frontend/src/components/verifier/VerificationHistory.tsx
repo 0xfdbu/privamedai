@@ -1,91 +1,163 @@
-import { useState } from 'react';
-import { History, CheckCircle, XCircle, Clock } from 'lucide-react';
-import { Card, CardHeader, CardBody, Badge } from '../common';
+import { useState, useEffect } from 'react';
+import { History, CheckCircle, XCircle, Clock, Info } from 'lucide-react';
+import { Card, CardHeader, CardBody, Badge, Alert } from '../common';
+import { queryCredentialsOnChain } from '../../services/contractInteraction';
 
-interface VerificationRecord {
-  id: string;
-  timestamp: string;
-  credentialType: string;
-  issuer: string;
-  result: 'valid' | 'invalid' | 'pending';
-  verifier: string;
+interface NetworkStats {
+  totalCredentials: bigint;
+  totalIssuers: bigint;
+  isLoading: boolean;
+  error?: string;
 }
 
 export function VerificationHistory() {
-  const [records] = useState<VerificationRecord[]>([
-    {
-      id: '1',
-      timestamp: '2024-03-15 14:30',
-      credentialType: 'Vaccination Record',
-      issuer: 'City General Hospital',
-      result: 'valid',
-      verifier: '0x7890...1234',
-    },
-    {
-      id: '2',
-      timestamp: '2024-03-14 09:15',
-      credentialType: 'Medical Clearance',
-      issuer: 'State Health Dept',
-      result: 'valid',
-      verifier: '0xabcd...efgh',
-    },
-    {
-      id: '3',
-      timestamp: '2024-03-13 16:45',
-      credentialType: 'Free Healthcare Eligibility',
-      issuer: 'Public Health Dept',
-      result: 'invalid',
-      verifier: '0x5678...9012',
-    },
-  ]);
+  const [stats, setStats] = useState<NetworkStats>({
+    totalCredentials: 0n,
+    totalIssuers: 0n,
+    isLoading: true,
+  });
 
-  const getResultIcon = (result: string) => {
-    switch (result) {
-      case 'valid': return <CheckCircle className="w-4 h-4 text-emerald-600" />;
-      case 'invalid': return <XCircle className="w-4 h-4 text-red-600" />;
-      case 'pending': return <Clock className="w-4 h-4 text-amber-600" />;
-      default: return null;
-    }
-  };
+  useEffect(() => {
+    loadNetworkStats();
+  }, []);
 
-  const getResultBadge = (result: string) => {
-    switch (result) {
-      case 'valid': return <Badge variant="success">Valid</Badge>;
-      case 'invalid': return <Badge variant="error">Invalid</Badge>;
-      case 'pending': return <Badge variant="warning">Pending</Badge>;
-      default: return <Badge>Unknown</Badge>;
+  const loadNetworkStats = async () => {
+    try {
+      // Query on-chain stats
+      const result = await queryCredentialsOnChain('');
+      if (result.success) {
+        setStats({
+          totalCredentials: result.totalCredentials || 0n,
+          totalIssuers: result.totalIssuers || 0n,
+          isLoading: false,
+        });
+      } else {
+        setStats(prev => ({
+          ...prev,
+          isLoading: false,
+          error: result.error,
+        }));
+      }
+    } catch (error: any) {
+      setStats({
+        totalCredentials: 0n,
+        totalIssuers: 0n,
+        isLoading: false,
+        error: error.message,
+      });
     }
   };
 
   return (
     <Card>
       <CardHeader 
-        title="Verification History"
-        subtitle="Recent proof verifications"
+        title="Network Overview"
+        subtitle="PrivaMedAI network statistics"
         icon={History}
       />
       <CardBody>
-        <div className="space-y-3">
-          {records.map((record) => (
-            <div 
-              key={record.id}
-              className="p-4 bg-slate-50 border border-slate-200 rounded-lg"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  {getResultIcon(record.result)}
-                  <span className="font-medium text-slate-900">{record.credentialType}</span>
-                </div>
-                {getResultBadge(record.result)}
-              </div>
-              <div className="text-sm text-slate-500 space-y-1">
-                <p>Issuer: {record.issuer}</p>
-                <p>Verifier: {record.verifier}</p>
-                <p className="text-xs">{record.timestamp}</p>
-              </div>
+        <Alert variant="info">
+          <div className="flex items-start gap-2">
+            <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium">On-Chain Verification</p>
+              <p className="text-sm mt-1">
+                All verifications happen directly on the Midnight blockchain through 
+                zero-knowledge proof circuits. Each verification creates a permanent, 
+                auditable record without revealing private health data.
+              </p>
             </div>
-          ))}
+          </div>
+        </Alert>
+
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="w-5 h-5 text-emerald-600" />
+              <span className="text-sm font-medium text-emerald-800">Total Credentials</span>
+            </div>
+            <p className="text-3xl font-bold text-emerald-900">
+              {stats.isLoading ? '...' : stats.totalCredentials.toString()}
+            </p>
+            <p className="text-xs text-emerald-600 mt-1">Issued on network</p>
+          </div>
+
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="w-5 h-5 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">Registered Issuers</span>
+            </div>
+            <p className="text-3xl font-bold text-blue-900">
+              {stats.isLoading ? '...' : stats.totalIssuers.toString()}
+            </p>
+            <p className="text-xs text-blue-600 mt-1">Active providers</p>
+          </div>
         </div>
+
+        <div className="space-y-3">
+          <h3 className="font-medium text-slate-700">Verification Circuits</h3>
+          
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <span className="font-medium text-slate-900">verifyCredential</span>
+              </div>
+              <Badge variant="success">Active</Badge>
+            </div>
+            <p className="text-sm text-slate-500">
+              Standard credential verification - validates credential exists and is not revoked.
+            </p>
+          </div>
+
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <span className="font-medium text-slate-900">verifyForFreeHealthClinic</span>
+              </div>
+              <Badge variant="success">Active</Badge>
+            </div>
+            <p className="text-sm text-slate-500">
+              Selective disclosure - only proves patient is over minimum age.
+            </p>
+          </div>
+
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <span className="font-medium text-slate-900">verifyForPharmacy</span>
+              </div>
+              <Badge variant="success">Active</Badge>
+            </div>
+            <p className="text-sm text-slate-500">
+              Selective disclosure - only proves patient has specific prescription.
+            </p>
+          </div>
+
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+                <span className="font-medium text-slate-900">verifyForHospital</span>
+              </div>
+              <Badge variant="success">Active</Badge>
+            </div>
+            <p className="text-sm text-slate-500">
+              Selective disclosure - proves age threshold AND condition match.
+            </p>
+          </div>
+        </div>
+
+        {stats.error && (
+          <Alert variant="error">
+            <div className="flex items-center gap-2">
+              <XCircle className="w-4 h-4" />
+              Failed to load network stats: {stats.error}
+            </div>
+          </Alert>
+        )}
       </CardBody>
     </Card>
   );

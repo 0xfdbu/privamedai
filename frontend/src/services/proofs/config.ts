@@ -4,11 +4,12 @@
 
 import type { GeneratedRule } from '../../types/claims';
 
+// Selective disclosure circuits for ZK proof generation
+// These circuits allow proving specific claims without revealing full credential data
 export type PrivaMedAICircuit = 
-  | 'verifyCredential'
-  | 'bundledVerify2Credentials'
-  | 'bundledVerify3Credentials'
-  | 'checkCredentialStatus';
+  | 'verifyForFreeHealthClinic'  // Proves: age >= minAge (reveals only age threshold match)
+  | 'verifyForPharmacy'          // Proves: prescription code match (reveals only prescription validity)
+  | 'verifyForHospital';         // Proves: age >= minAge AND condition code match
 
 export interface ZKProofResult {
   success: boolean;
@@ -33,11 +34,22 @@ export function getZkConfigBaseUrl(): string {
   return 'http://localhost:3000/managed/PrivaMedAI';
 }
 
-export function selectCircuitForRules(rules: GeneratedRule[]): PrivaMedAICircuit {
-  const count = rules.length;
-  if (count === 1) return 'verifyCredential';
-  if (count === 2) return 'bundledVerify2Credentials';
-  return 'bundledVerify3Credentials';
+/**
+ * Select the appropriate verification circuit based on the user's intent
+ * 
+ * For selective disclosure, we detect the verifier type from the rules/context
+ */
+export function selectCircuitForRules(
+  _rules: GeneratedRule[], 
+  context?: { verifierType?: 'freeHealthClinic' | 'pharmacy' | 'hospital' }
+): PrivaMedAICircuit {
+  // If explicit verifier type is provided, use it
+  if (context?.verifierType === 'freeHealthClinic') return 'verifyForFreeHealthClinic';
+  if (context?.verifierType === 'pharmacy') return 'verifyForPharmacy';
+  if (context?.verifierType === 'hospital') return 'verifyForHospital';
+  
+  // Default to freeHealthClinic for single-rule age verification
+  return 'verifyForFreeHealthClinic';
 }
 
 export async function checkProofServerHealth(url?: string): Promise<{

@@ -62,7 +62,7 @@
     "@midnight-ntwrk/midnight-js-http-client-proof-provider": "^4.0.2",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "^4.0.2",
     "@midnight-ntwrk/midnight-js-level-private-state-provider": "^4.0.2",
-    "@midnight-ntwrk/midnight-js-network-id": "^4.0.2",
+    "@midnight-ntwrk/midnight-js-network-id": "^4.0.4",
     "@midnight-ntwrk/midnight-js-node-zk-config-provider": "^4.0.2",
     "@midnight-ntwrk/midnight-js-types": "^4.0.2",
     "@midnight-ntwrk/midnight-js-utils": "^4.0.2",
@@ -76,5 +76,8 @@
     "pino": "^9.7.0",
     "pino-pretty": "^13.0.0",
     "tweetnacl": "^1.0.3"
+  },
+  "overrides": {
+    "@midnight-ntwrk/midnight-js-network-id": "^4.0.4"
   }
 }

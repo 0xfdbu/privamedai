@@ -1,21 +1,7 @@
-export interface Credential {
-  id: string;
-  issuer: string;
-  claimType: string;
-  issuedAt: number;
-  expiresAt: number;
-  isRevoked: boolean;
-  encryptedData: string;
-  commitment: string;
-  claimHash: string;
-}
-
-export interface IssuerInfo {
-  name: string;
-  publicKey: string;
-  isActive: boolean;
-  credentialsIssued: number;
-}
+/**
+ * Re-export all types from claims.ts
+ */
+export * from './claims';
 
 export interface ClaimField {
   id: string;

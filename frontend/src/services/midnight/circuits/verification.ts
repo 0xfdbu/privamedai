@@ -1,125 +1,161 @@
 /**
  * Verification Circuit Functions
  * 
- * On-chain proof verification
+ * On-chain selective disclosure proof verification
  */
 
-import { submitCallTx } from '@midnight-ntwrk/midnight-js-contracts';
+export type VerifierType = 'freeHealthClinic' | 'pharmacy' | 'hospital';
+
+import { submitCallTx, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { initializeProviders } from '../providers';
+import { getCompiledContract } from '../providers/contract';
+import { createInitialPrivateState } from '../witnesses';
 import { CIRCUITS, CONTRACT_ADDRESS } from '../config';
-import { hexToBytes32, hashString } from '../utils/bytes';
+import { hexToBytes32 } from '../utils/bytes';
 import { getWalletState } from '../../contractService';
 
+// Private state ID for this contract
+const PRIVATE_STATE_ID = 'privamedai-private-state';
+
 /**
- * Verify a credential on-chain
+ * Helper to ensure contract is found and private state is seeded
  */
-export async function verifyCredentialOnChain(
-  commitment: string,
-  credentialData: string
-): Promise<{
-  success: boolean;
-  isValid?: boolean;
-  txId?: string;
-  error?: string;
-}> {
+async function ensureContractJoined(providers: any, wallet: any): Promise<void> {
+  const compiledContract = await getCompiledContract();
+  const initialPrivateState = createInitialPrivateState(
+    hexToBytes32(wallet.coinPublicKey.slice(0, 64))
+  );
+  
   try {
-    console.log('🔍 Verifying credential on-chain:', commitment);
-
-    const providers = await initializeProviders();
-    
-    // Convert commitment hex to bytes
-    const commitmentBytes = hexToBytes32(commitment);
-    
-    // Create credential data hash
-    const credentialDataHash = hashString(credentialData);
-
-    console.log('📤 Submitting verifyCredential transaction...');
-
-    const result = await (submitCallTx as any)(providers, {
+    await findDeployedContract(providers, {
       contractAddress: CONTRACT_ADDRESS,
-      compiledContract: providers.compiledContract,
-      circuitId: CIRCUITS.VERIFY_CREDENTIAL,
-      args: [commitmentBytes, credentialDataHash],
+      compiledContract,
+      privateStateId: PRIVATE_STATE_ID,
+      initialPrivateState,
     });
-
-    const txId = (result as any)?.public?.txId;
-    console.log('✅ Credential verification completed:', txId);
-
-    return {
-      success: true,
-      isValid: true,
-      txId: txId ? String(txId) : undefined,
-    };
-  } catch (error: any) {
-    console.error('❌ Failed to verify credential:', error);
-    
-    const message = error.message || '';
-    if (message.includes('Credential not found')) {
-      return { success: false, isValid: false, error: 'Credential not found' };
-    }
-    if (message.includes('Credential revoked')) {
-      return { success: false, isValid: false, error: 'Credential has been revoked' };
-    }
-    if (message.includes('Issuer not found') || message.includes('Issuer not active')) {
-      return { success: false, isValid: false, error: 'Issuer is not active' };
-    }
-    if (message.includes('Hash mismatch')) {
-      return { success: false, isValid: false, error: 'Credential data does not match' };
-    }
-    
-    return {
-      success: false,
-      isValid: false,
-      error: error.message || 'Failed to verify credential on-chain',
-    };
+    console.log('✅ Found deployed contract and seeded private state');
+  } catch (findError: any) {
+    console.warn('⚠️ findDeployedContract warning (may be already joined):', findError.message);
+    // Continue anyway - we might already be joined
   }
 }
 
 /**
- * Submit proof verification on-chain
- * Used by verifiers to submit verified proofs to the blockchain
+ * Submit selective disclosure proof verification on-chain
+ * 
+ * Uses the appropriate verification circuit based on verifier type:
+ * - freeHealthClinic: Proves age >= minAge without revealing actual age
+ * - pharmacy: Proves prescription code match without revealing other data
+ * - hospital: Proves age >= minAge AND condition code match
  */
 export async function submitProofVerification(
   commitmentHex: string,
-  credentialDataBytes: Uint8Array,
-  circuitId: string = 'verifyCredential'
+  verifierType: 'freeHealthClinic' | 'pharmacy' | 'hospital',
+  params: {
+    minAge?: number;
+    requiredPrescription?: number;
+    requiredCondition?: number;
+  }
 ): Promise<{
   success: boolean;
   txId?: string;
+  isValid?: boolean;
   error?: string;
 }> {
   try {
-    console.log('🔍 Submitting proof verification on-chain...');
+    console.log('🔍 Submitting selective disclosure proof verification on-chain...');
+    console.log('   Verifier type:', verifierType);
+    console.log('   Parameters:', params);
 
     const providers = await initializeProviders();
+    const compiledContract = await getCompiledContract();
     const wallet = getWalletState();
     
     if (!wallet.coinPublicKey) {
       return { success: false, error: 'Wallet not connected' };
     }
 
+    // Ensure contract is joined first
+    await ensureContractJoined(providers, wallet);
+
     // Convert commitment hex to bytes32
     const commitmentBytes = hexToBytes32(commitmentHex);
 
+    // Determine circuit and args based on verifier type
+    let circuitId: string;
+    let args: any[];
+
+    switch (verifierType) {
+      case 'freeHealthClinic': {
+        if (params.minAge === undefined) {
+          return { success: false, error: 'minAge parameter required for freeHealthClinic verification' };
+        }
+        circuitId = CIRCUITS.VERIFY_FREE_HEALTH_CLINIC;
+        args = [commitmentBytes, BigInt(params.minAge)];
+        console.log('   Using verifyForFreeHealthClinic circuit with minAge:', params.minAge);
+        break;
+      }
+      case 'pharmacy': {
+        if (params.requiredPrescription === undefined) {
+          return { success: false, error: 'requiredPrescription parameter required for pharmacy verification' };
+        }
+        circuitId = CIRCUITS.VERIFY_PHARMACY;
+        args = [commitmentBytes, BigInt(params.requiredPrescription)];
+        console.log('   Using verifyForPharmacy circuit with prescription:', params.requiredPrescription);
+        break;
+      }
+      case 'hospital': {
+        if (params.minAge === undefined || params.requiredCondition === undefined) {
+          return { success: false, error: 'minAge and requiredCondition parameters required for hospital verification' };
+        }
+        circuitId = CIRCUITS.VERIFY_HOSPITAL;
+        args = [commitmentBytes, BigInt(params.minAge), BigInt(params.requiredCondition)];
+        console.log('   Using verifyForHospital circuit with minAge:', params.minAge, 'condition:', params.requiredCondition);
+        break;
+      }
+      default:
+        return { success: false, error: `Unknown verifier type: ${verifierType}` };
+    }
+
     const result = await (submitCallTx as any)(providers, {
       contractAddress: CONTRACT_ADDRESS,
-      compiledContract: providers.compiledContract,
-      circuitId: circuitId,
-      args: [commitmentBytes, credentialDataBytes],
+      compiledContract,
+      circuitId,
+      privateStateId: PRIVATE_STATE_ID,
+      args,
     });
 
     const txId = (result as any)?.public?.txId;
-    console.log('✅ Proof verification submitted:', txId);
+    const returnValue = (result as any)?.returnValue;
+    
+    console.log('✅ Selective disclosure verification submitted:', txId);
+    console.log('   Verification result:', returnValue);
 
     return {
       success: true,
       txId: txId ? String(txId) : undefined,
+      isValid: returnValue === true,
     };
   } catch (error: any) {
     console.error('❌ Failed to submit proof verification:', error);
+    
+    // Extract the real error from the FiberFailure wrapper
+    const cause = error.cause?.cause || error.cause;
+    const causeMessage = cause?.message || cause?.failure?.message || error.cause?.message || '';
+    
+    console.error('   Real cause:', cause);
+    console.error('   Cause message:', causeMessage);
+    
+    if (causeMessage.includes('Insufficient Funds') || causeMessage.includes('could not balance dust')) {
+      return { 
+        success: false, 
+        error: 'Insufficient funds: Your wallet needs tDUST tokens. Get some from https://faucet.preprod.midnight.network/' 
+      };
+    }
+    
     return {
       success: false,
-      error: error.message || 'Failed to submit proof verification',
+      error: causeMessage || error.message || 'Failed to submit proof verification',
     };
   }
 }
