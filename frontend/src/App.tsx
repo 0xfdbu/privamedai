@@ -25,8 +25,7 @@ import { QRShare } from './components/user/QRShare';
 
 // Issuer Portal Pages
 import { IssueCredential } from './components/issuer/IssueCredential';
-import { RegisterIssuer } from './components/issuer/RegisterIssuer';
-import { RegisteredIssuers } from './components/issuer/RegisteredIssuers';
+import { IssuerManagement } from './components/issuer/IssuerManagement';
 import { ManageCredentials } from './components/issuer/ManageCredentials';
 
 // Verifier Portal Pages
@@ -226,8 +225,8 @@ function IssuerLayout() {
           <Route path="/" element={<Navigate to="issue" replace />} />
           <Route path="issue" element={<IssueCredential />} />
           <Route path="manage" element={<ManageCredentials />} />
-          <Route path="register" element={<RegisterIssuer />} />
-          <Route path="issuers" element={<RegisteredIssuers />} />
+          <Route path="issuers" element={<IssuerManagement />} />
+          <Route path="register" element={<Navigate to="/issuer/issuers" replace />} />
         </Routes>
       </div>
     </div>

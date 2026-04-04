@@ -62,7 +62,7 @@ export function RegisterIssuer() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl">
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
