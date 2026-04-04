@@ -575,11 +575,21 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
           }
         }
         
+        // Generate claimDataBytes if missing (for backwards compatibility)
+        let claimDataBytes: number[] | undefined = cred.claimDataBytes;
+        if (!claimDataBytes && cred.encryptedData) {
+          const encoder = new TextEncoder();
+          const bytes = new Uint8Array(32);
+          bytes.set(encoder.encode(cred.encryptedData).slice(0, 32));
+          claimDataBytes = Array.from(bytes);
+          console.log('Import debug - generated claimDataBytes from encryptedData');
+        }
+        
         return {
           ...cred,
           claimData: claimData || {},
           healthClaim,
-          claimDataBytes: cred.claimDataBytes,
+          claimDataBytes,
         };
       }).filter((cred: any) => {
         // Must have commitment and either claimDataBytes or be a valid credential

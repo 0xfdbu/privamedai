@@ -170,6 +170,16 @@ export function IssueCredential() {
         return;
       }
 
+      // Generate claimDataBytes for ZK proof generation
+      const encryptedData = JSON.stringify({ 
+        patientAddress: formData.patientAddress, 
+        claimData,
+        issuedTo: formData.patientAddress 
+      });
+      const encoder = new TextEncoder();
+      const claimDataBytes = new Uint8Array(32);
+      claimDataBytes.set(encoder.encode(encryptedData).slice(0, 32));
+
       const credential: Credential = {
         id: issueResult.commitment || '',
         issuer: wallet.coinPublicKey || '',
@@ -177,11 +187,7 @@ export function IssueCredential() {
         issuedAt: Date.now(),
         expiresAt: Date.now() + parseInt(formData.expiryDays) * 24 * 60 * 60 * 1000,
         isRevoked: false,
-        encryptedData: JSON.stringify({ 
-          patientAddress: formData.patientAddress, 
-          claimData,
-          issuedTo: formData.patientAddress 
-        }),
+        encryptedData,
         commitment: issueResult.commitment || '',
         claimHash: issueResult.claimHash || '',
         healthClaim: {
@@ -189,6 +195,7 @@ export function IssueCredential() {
           conditionCode: formData.medicalData.conditionCode,
           prescriptionCode: formData.medicalData.prescriptionCode,
         },
+        claimDataBytes: Array.from(claimDataBytes),
       };
 
       setResult({
