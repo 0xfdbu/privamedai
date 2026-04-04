@@ -765,7 +765,7 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-3 mb-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
                         <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-sm">
                           <span className="text-slate-400 text-xs uppercase tracking-wide">Proof Type</span>
                           <p className="font-medium text-slate-700 capitalize mt-0.5">{message.proof.type}</p>
@@ -821,7 +821,7 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
       </div>
 
       {/* Input Area - Fixed at bottom */}
-      <div className="fixed bottom-0 left-64 right-0 bg-white border-t border-slate-100 z-20">
+      <div className="fixed bottom-0 left-0 lg:left-64 right-0 bg-white border-t border-slate-100 z-20">
         <div className="max-w-3xl mx-auto px-4 py-4">
           {/* Status Bar */}
           <div className="flex gap-2 mb-3">

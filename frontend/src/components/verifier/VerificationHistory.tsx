@@ -70,7 +70,7 @@ export function VerificationHistory() {
           </div>
         </Alert>
 
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle className="w-5 h-5 text-emerald-600" />

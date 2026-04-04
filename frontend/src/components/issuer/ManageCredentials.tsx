@@ -143,7 +143,7 @@ export function ManageCredentials() {
                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                 Network-Wide (On-Chain)
               </h4>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-blue-700">{onChainStats?.total ?? '-'}</p>
                   <p className="text-sm text-blue-600">Total Credentials Issued</p>
@@ -161,7 +161,7 @@ export function ManageCredentials() {
                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                 Your Organization (This Session)
               </h4>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="text-center">
                   <p className="text-2xl font-bold text-slate-900">{credentials.length}</p>
                   <p className="text-sm text-slate-500">Issued by You</p>

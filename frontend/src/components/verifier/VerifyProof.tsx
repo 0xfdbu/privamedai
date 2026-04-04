@@ -375,7 +375,7 @@ export function VerifyProof() {
                     <FileCheck className="w-5 h-5 text-emerald-600" />
                     <span className="font-semibold text-emerald-900">Validation Details</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-slate-500 uppercase mb-1">Type</p>
                       <p className="text-slate-900 font-medium">{result.type}</p>

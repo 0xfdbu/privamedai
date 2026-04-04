@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom';
 import { 
   Shield,
@@ -10,7 +11,9 @@ import {
   Plus,
   Hash,
   Users,
-  ClipboardList
+  ClipboardList,
+  Menu,
+  X
 } from 'lucide-react';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
@@ -66,11 +69,19 @@ const verifierNav: NavItem[] = [
   { path: '/verifier/history', label: 'History', icon: ClipboardList },
 ];
 
-function Sidebar() {
+function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 h-screen fixed left-0 top-0 overflow-y-auto z-50 shadow-xl">
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+      <aside className={`w-64 bg-white border-r border-slate-200 h-screen fixed left-0 top-0 overflow-y-auto z-50 shadow-xl transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       {/* Logo */}
-      <div className="p-4 border-b border-slate-200 bg-white">
+      <div className="p-4 border-b border-slate-200 bg-white flex items-center justify-between">
         <NavLink to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/20 flex-shrink-0">
             <Shield className="w-6 h-6 text-white" />
@@ -80,6 +91,13 @@ function Sidebar() {
             <p className="text-xs text-slate-500 truncate">ZK Medical Credentials</p>
           </div>
         </NavLink>
+        {/* Close button for mobile */}
+        <button 
+          onClick={onClose}
+          className="lg:hidden p-2 text-slate-400 hover:text-slate-600"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       <div className="p-4">
@@ -117,6 +135,7 @@ function Sidebar() {
         <Route path="/verifier/*" element={<SubNav items={verifierNav} title="Verifier" />} />
       </Routes>
     </aside>
+    </>
   );
 }
 
@@ -167,11 +186,11 @@ function PatientLayout() {
 // Wrapper components with headers
 function CredentialWalletPage() {
   return (
-    <div className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen p-4 sm:p-6 lg:p-8">
+      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">My Credentials</h1>
-          <p className="text-slate-500">View and manage your medical credentials</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">My Credentials</h1>
+          <p className="text-sm text-slate-500">View and manage your medical credentials</p>
         </div>
         <CredentialWallet />
       </div>
@@ -181,11 +200,11 @@ function CredentialWalletPage() {
 
 function QRSharePage() {
   return (
-    <div className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen p-4 sm:p-6 lg:p-8">
+      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Share Proof</h1>
-          <p className="text-slate-500">Share your credentials via QR code</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Share Proof</h1>
+          <p className="text-sm text-slate-500">Share your credentials via QR code</p>
         </div>
         <QRShare />
       </div>
@@ -195,12 +214,12 @@ function QRSharePage() {
 
 function IssuerLayout() {
   return (
-    <div className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen p-4 sm:p-6 lg:p-8">
+      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Medical Provider Portal</h1>
-            <p className="text-slate-500">Issue credentials and manage registrations</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Medical Provider Portal</h1>
+            <p className="text-sm text-slate-500">Issue credentials and manage registrations</p>
           </div>
         </div>
         <Routes>
@@ -217,12 +236,12 @@ function IssuerLayout() {
 
 function VerifierLayout() {
   return (
-    <div className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen p-4 sm:p-6 lg:p-8">
+      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Verifier Portal</h1>
-            <p className="text-slate-500">Verify zero-knowledge proofs without accessing private data</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Verifier Portal</h1>
+            <p className="text-sm text-slate-500">Verify zero-knowledge proofs without accessing private data</p>
           </div>
         </div>
         <Routes>
@@ -236,12 +255,30 @@ function VerifierLayout() {
 }
 
 function App() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-slate-50 flex">
-        <Sidebar />
+        <Sidebar isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
         
-        <div className="flex-1 ml-64 flex flex-col min-h-screen">
+        <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
+          {/* Mobile header with menu button */}
+          <div className="lg:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+            <NavLink to="/" className="flex items-center gap-2">
+              <div className="p-1.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg shadow-sm">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <span className="font-bold text-slate-900">PrivaMedAI</span>
+            </NavLink>
+            <button 
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-2 text-slate-600 hover:text-slate-900"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+          </div>
+          
           <Header />
           
           <main className="flex-1">

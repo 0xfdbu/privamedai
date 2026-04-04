@@ -320,7 +320,7 @@ export function IssueCredential() {
               <label className="block text-sm font-medium text-slate-700 mb-3">
                 Medical Conditions & Certifications
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {MEDICAL_CONDITIONS.map((condition) => {
                   const isSelected = formData.medicalData.selectedConditions.includes(condition.id);
                   const Icon = condition.icon;
@@ -355,7 +355,7 @@ export function IssueCredential() {
             </div>
 
             {/* Additional Details */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Patient Age
@@ -387,7 +387,7 @@ export function IssueCredential() {
             </div>
 
             {/* Status Selects */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Vaccination Status
@@ -432,7 +432,7 @@ export function IssueCredential() {
               <p className="text-xs text-purple-600 mb-3">
                 These codes are used for zero-knowledge selective disclosure. They remain private and are only revealed through specific verification circuits.
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
                     Condition Code
