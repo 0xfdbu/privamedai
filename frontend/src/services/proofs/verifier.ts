@@ -60,6 +60,26 @@ export async function verifyZKProof(
     );
 
     console.log('   Calling proof server /check endpoint...');
+    console.log('   ZK Config base URL:', getZkConfigBaseUrl());
+    console.log('   Proof server URL:', getProofServerUrl());
+
+    // Verify ZK config can be loaded first
+    try {
+      const zkConfig = await zkConfigProvider.get(circuitId as PrivaMedAICircuit);
+      console.log('   ZK Config loaded:', {
+        circuitId,
+        hasProverKey: zkConfig.proverKey.length > 0,
+        hasVerifierKey: zkConfig.verifierKey.length > 0,
+        hasIr: zkConfig.zkir?.length > 0,
+      });
+    } catch (zkError: any) {
+      console.error('   Failed to load ZK config:', zkError.message);
+      return {
+        valid: false,
+        error: `Failed to load ZK config for circuit ${circuitId}: ${zkError.message}`,
+        circuitId,
+      };
+    }
 
     // REAL SNARK VERIFICATION
     // This hits the proof server's /check endpoint which:
@@ -83,9 +103,24 @@ export async function verifyZKProof(
 
   } catch (error: any) {
     console.error('❌ Proof verification error:', error);
+    console.error('   Error details:', {
+      message: error.message,
+      status: error.status,
+      statusText: error.statusText,
+      response: error.response?.data || 'No response data',
+    });
+    
+    // Provide more helpful error messages based on status code
+    let errorMessage = error.message || 'Verification error';
+    if (error.status === 400) {
+      errorMessage = 'Proof verification failed: The proof data is invalid or the circuit configuration has changed. Try generating a new proof.';
+    } else if (error.status === 404) {
+      errorMessage = `Circuit not found: ${circuitId}. The ZK configuration may be missing.`;
+    }
+    
     return {
       valid: false,
-      error: error.message || 'Verification error',
+      error: errorMessage,
       circuitId,
     };
   }
