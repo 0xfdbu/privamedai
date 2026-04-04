@@ -7,20 +7,31 @@
 import { WitnessContext } from '@midnight-ntwrk/compact-runtime';
 import type { Ledger } from '@midnight-ntwrk/contract/dist/managed/PrivaMedAI/contract/index.js';
 
+/**
+ * Private state for PrivaMedAI
+ * Contains the health claim data used by verification circuits
+ */
 export type PrivaMedAIPrivateState = {
   readonly secretKey: Uint8Array;
-  readonly credentialData: Uint8Array;
-  readonly bundledCredentialData: Uint8Array[];
+  readonly healthClaim?: {
+    age: bigint;
+    conditionCode: bigint;
+    prescriptionCode: bigint;
+  };
+  // Legacy fields for backward compatibility
+  readonly credentialData?: Uint8Array;
+  readonly bundledCredentialData?: Uint8Array[];
 };
 
+/**
+ * Create private state with health claim
+ */
 export const createPrivaMedAIPrivateState = (
   secretKey: Uint8Array,
-  credentialData: Uint8Array = new Uint8Array(32),
-  bundledCredentialData: Uint8Array[] = []
+  healthClaim?: { age: bigint; conditionCode: bigint; prescriptionCode: bigint }
 ): PrivaMedAIPrivateState => ({
   secretKey,
-  credentialData,
-  bundledCredentialData,
+  healthClaim,
 });
 
 /**
@@ -31,20 +42,27 @@ export const witnesses = {
   /**
    * Get the private health claim data (age, condition, prescription)
    * Used by verification circuits for selective disclosure
+   * 
+   * CRITICAL: This must return the EXACT health claim values that were
+   * used to compute the claimHash during credential issuance.
    */
   get_private_health_claim: (
     context: WitnessContext<Ledger, PrivaMedAIPrivateState>
   ): [PrivaMedAIPrivateState, { age: bigint; conditionCode: bigint; prescriptionCode: bigint }] => {
-    // Default health claim - in production, this would come from actual credential data
+    // Use healthClaim from private state if available
+    if (context.privateState.healthClaim) {
+      return [context.privateState, context.privateState.healthClaim];
+    }
+    
+    // Fallback: extract from credentialData for backward compatibility
+    const credentialData = context.privateState.credentialData || new Uint8Array(32);
     const healthClaim = {
-      age: BigInt(context.privateState.credentialData[0] || 25),
+      age: BigInt(credentialData[0] || 0),
       conditionCode: BigInt(
-        (context.privateState.credentialData[1] || 0) * 256 + 
-        (context.privateState.credentialData[2] || 0)
+        (credentialData[1] || 0) + (credentialData[2] || 0) * 256
       ),
       prescriptionCode: BigInt(
-        (context.privateState.credentialData[3] || 0) * 256 + 
-        (context.privateState.credentialData[4] || 0)
+        (credentialData[3] || 0) + (credentialData[4] || 0) * 256
       ),
     };
     return [context.privateState, healthClaim];
@@ -56,11 +74,14 @@ export const witnesses = {
  */
 export function createInitialPrivateState(
   secretKey?: Uint8Array,
-  credentialData?: Uint8Array
+  healthClaim?: { age: number | bigint; conditionCode: number | bigint; prescriptionCode: number | bigint }
 ): PrivaMedAIPrivateState {
   return {
     secretKey: secretKey || new Uint8Array(32),
-    credentialData: credentialData || new Uint8Array(32),
-    bundledCredentialData: [],
+    healthClaim: healthClaim ? {
+      age: BigInt(healthClaim.age),
+      conditionCode: BigInt(healthClaim.conditionCode),
+      prescriptionCode: BigInt(healthClaim.prescriptionCode),
+    } : undefined,
   };
 }

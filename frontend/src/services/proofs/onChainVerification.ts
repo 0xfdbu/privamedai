@@ -25,6 +25,8 @@ export interface OnChainVerificationResult {
   error?: string;
 }
 
+// No encoding function needed - we pass healthClaim directly to private state
+
 /**
  * Submit proof verification as an on-chain transaction
  * 
@@ -44,11 +46,17 @@ export async function submitOnChainVerification(
     minAge?: number;
     requiredPrescription?: number;
     requiredCondition?: number;
+  },
+  healthClaim?: {
+    age: number;
+    conditionCode: number;
+    prescriptionCode: number;
   }
 ): Promise<OnChainVerificationResult> {
   console.log('⛓️ Submitting on-chain proof verification...');
   console.log('   Circuit:', circuitId);
   console.log('   Parameters:', params);
+  console.log('   Health claim:', healthClaim);
 
   try {
     const providers = await initializeProviders();
@@ -59,8 +67,35 @@ export async function submitOnChainVerification(
       return { success: false, error: 'Wallet not connected' };
     }
 
-    // Ensure contract is joined first
-    await ensureContractJoined(providers, wallet);
+    // Create initial private state WITH the health claim data
+    // This is what the witness will use to compute the claim hash
+    const initialPrivateState = createInitialPrivateState(
+      hexToBytes32(wallet.coinPublicKey.slice(0, 64)),
+      healthClaim
+    );
+    
+    console.log('   Private state health claim:', healthClaim);
+
+    // Ensure contract is joined with the correct private state
+    try {
+      await findDeployedContract(providers, {
+        contractAddress: CONTRACT_ADDRESS,
+        compiledContract,
+        privateStateId: PRIVATE_STATE_ID,
+        initialPrivateState,
+      });
+      console.log('✅ Contract joined with health claim data');
+    } catch (findError: any) {
+      const errorMsg = findError.message || '';
+      if (errorMsg.includes('already joined')) {
+        console.log('ℹ️ Contract already joined');
+        // Need to update private state with health claim
+        await providers.privateStateProvider.set(PRIVATE_STATE_ID, initialPrivateState);
+        console.log('✅ Updated private state with health claim');
+      } else {
+        throw findError;
+      }
+    }
 
     // Convert commitment hex to bytes32
     const commitmentBytes = hexToBytes32(commitmentHex);
@@ -129,28 +164,16 @@ export async function submitOnChainVerification(
       };
     }
     
+    if (causeMessage.includes('Claim hash mismatch')) {
+      return {
+        success: false,
+        error: 'Claim hash mismatch: The health claim data does not match what was stored when the credential was issued. This can happen if:\n1. The credential was issued with different health claim values\n2. The credential was issued before the claim hash formula was updated\n\nPlease issue a new credential and try again.',
+      };
+    }
+    
     return {
       success: false,
       error: causeMessage || error.message || 'On-chain verification failed',
     };
-  }
-}
-
-async function ensureContractJoined(providers: any, wallet: any): Promise<void> {
-  const compiledContract = await getCompiledContract();
-  const initialPrivateState = createInitialPrivateState(
-    hexToBytes32(wallet.coinPublicKey.slice(0, 64))
-  );
-  
-  try {
-    await findDeployedContract(providers, {
-      contractAddress: CONTRACT_ADDRESS,
-      compiledContract,
-      privateStateId: PRIVATE_STATE_ID,
-      initialPrivateState,
-    });
-    console.log('✅ Contract joined');
-  } catch (e: any) {
-    console.warn('Contract join warning:', e.message);
   }
 }

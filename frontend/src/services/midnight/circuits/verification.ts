@@ -35,8 +35,40 @@ async function ensureContractJoined(providers: any, wallet: any): Promise<void> 
     });
     console.log('✅ Found deployed contract and seeded private state');
   } catch (findError: any) {
-    console.warn('⚠️ findDeployedContract warning (may be already joined):', findError.message);
-    // Continue anyway - we might already be joined
+    // Check if it's a "contract already joined" error
+    const errorMsg = findError.message || '';
+    if (errorMsg.includes('already joined') || errorMsg.includes('already exists')) {
+      console.log('ℹ️ Contract already joined, private state already seeded');
+      return;
+    }
+    
+    // Check if it's a signing key error
+    if (errorMsg.includes('getSigningKey') || errorMsg.includes('signing key')) {
+      console.warn('⚠️ Signing key issue, attempting to set it manually');
+      // Set the signing key manually
+      const signingKey = new Uint8Array(32);
+      const pubKeyBytes = hexToBytes32(wallet.coinPublicKey.slice(0, 64));
+      signingKey.set(pubKeyBytes.slice(0, 32));
+      await providers.privateStateProvider.setSigningKey(CONTRACT_ADDRESS, signingKey);
+      
+      // Try again
+      try {
+        await findDeployedContract(providers, {
+          contractAddress: CONTRACT_ADDRESS,
+          compiledContract,
+          privateStateId: PRIVATE_STATE_ID,
+          initialPrivateState,
+        });
+        console.log('✅ Second attempt succeeded');
+        return;
+      } catch (retryError: any) {
+        console.error('❌ Second attempt failed:', retryError.message);
+        throw retryError;
+      }
+    }
+    
+    console.error('❌ findDeployedContract failed:', findError.message);
+    throw findError;
   }
 }
 
