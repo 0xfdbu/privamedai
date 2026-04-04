@@ -695,7 +695,7 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
           </div>
         ) : (
           // Messages
-          <div className="max-w-3xl mx-auto pb-40">
+          <div className="max-w-3xl mx-auto pb-40 pt-10">
             {messages.map((message) => (
               <div
                 key={message.id}
