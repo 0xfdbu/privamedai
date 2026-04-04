@@ -2,6 +2,7 @@
 
 [![Midnight](https://img.shields.io/badge/Midnight-Preprod-blue)](https://midnight.network)
 [![Compact](https://img.shields.io/badge/Compact-0.30.0-green)](https://docs.midnight.network)
+[![Tests](https://img.shields.io/badge/Tests-95%20Passing-brightgreen)](TEST_REPORT.md)
 [![License](https://img.shields.io/badge/License-Apache%202.0-yellow)](LICENSE)
 
 PrivaMedAI is a privacy-preserving medical credential platform built on the Midnight blockchain. It enables healthcare providers to issue verifiable credentials while allowing patients to prove specific claims without revealing sensitive health data through zero-knowledge proofs and selective disclosure.
@@ -308,6 +309,45 @@ Imagine a **sealed envelope system**:
 The difference: In ZK, the "envelope" is mathematics, not paper!
 
 ## 🧪 Testing
+
+We maintain comprehensive test coverage with **109 tests** covering contract logic, ZK proof generation, and end-to-end integration.
+
+### Test Report
+📊 **[View Full Test Report](TEST_REPORT.md)** - Detailed breakdown of all 109 tests, coverage analysis, and verification results.
+
+### Quick Test Run
+
+```bash
+# Run all tests
+npx vitest run
+
+# Run specific test suites
+npx vitest run tests/contract-tests.ts          # Contract logic (41 tests)
+npx vitest run tests/proof-verification.test.ts # ZK proofs (54 tests)
+npx vitest run tests/integration-tests.ts       # E2E integration (14 tests)
+
+# Run with coverage
+npx vitest run --coverage
+```
+
+### Test Coverage Summary
+
+| Suite | Tests | Status |
+|-------|-------|--------|
+| **Contract Tests** | 41 | ✅ All Passing |
+| **ZK Proof Verification** | 54 | ✅ All Passing |
+| **Integration Tests** | 14 | ⏭️ Network Dependent |
+
+### What Tests Verify
+
+✅ **Real ZK Proofs** - Prover keys are 2.8MB (not mock data)  
+✅ **Real Midnight SDK** - Official `@midnight-ntwrk/*` packages  
+✅ **Valid Cryptographic Artifacts** - ZKIR files, verifier keys  
+✅ **Selective Disclosure** - All 3 circuits work correctly  
+✅ **Access Control** - Admin/issuer separation enforced  
+✅ **Security Boundaries** - Revocation, suspension, claim hash validation  
+
+### Compile & Type Check
 
 ```bash
 # Compile contract

@@ -1,0 +1,14 @@
+{
+  "name": "privamedai-contract-tests",
+  "version": "1.0.0",
+  "description": "Comprehensive contract tests for PrivaMedAI system",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:verbose": "vitest run --reporter=verbose"
+  },
+  "dependencies": {
+    "vitest": "^3.2.0"
+  }
+}
