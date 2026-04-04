@@ -356,6 +356,14 @@ export function AIChatComposer() {
           selectiveDisclosureParams.requiredCondition = selectedCredential.healthClaim!.conditionCode;
           disclosedFields = ['age >= threshold', 'conditionCode match'];
           privateFields = ['actual age value', 'prescriptionCode'];
+        } else if (rulesHaveCondition) {
+          // Hospital: proves condition only (default age)
+          verifierType = 'hospital';
+          circuitId = 'verifyForHospital';
+          selectiveDisclosureParams.minAge = 18; // Default
+          selectiveDisclosureParams.requiredCondition = selectedCredential.healthClaim!.conditionCode;
+          disclosedFields = ['conditionCode match'];
+          privateFields = ['actual age', 'prescriptionCode'];
         } else if (rulesHaveAge) {
           // Free Health Clinic: proves age only
           verifierType = 'freeHealthClinic';
