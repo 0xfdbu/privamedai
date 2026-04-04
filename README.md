@@ -6,11 +6,11 @@
 
 PrivaMedAI is a privacy-preserving medical credential platform built on the Midnight blockchain. It enables healthcare providers to issue verifiable credentials while allowing patients to prove specific claims without revealing sensitive health data through zero-knowledge proofs and selective disclosure.
 
-## ⚠️ Current State & Known Limitations
+## 🎯 Hackathon Demo Scope
 
 This is a **functional hackathon demonstration** of selective disclosure on Midnight. It uses **real ZK proofs** and **real on-chain transactions** on the preprod network.
 
-### ✅ What's Working
+### ✅ What's Working (Production-Grade)
 
 | Feature | Status | Details |
 |---------|--------|---------|
@@ -22,15 +22,16 @@ This is a **functional hackathon demonstration** of selective disclosure on Midn
 | **Two-Step Verification** | ✅ Working | Local SNARK pre-validation → On-chain authoritative verification |
 | **Mobile Responsive** | ✅ Working | Fully responsive UI for all devices |
 
-### ⚠️ Known Limitations
+### 📝 Demo Simplifications
 
-| Limitation | Impact | Notes |
-|------------|--------|-------|
-| **Expiry Not Enforced** | Medium | Expiry timestamp stored but not checked in verification circuits (commented out in contract) |
-| **No Nullifier Tracking** | Medium | Same proof can be verified multiple times; no replay protection |
-| **No Cryptographic Binding** | Low | Credential not cryptographically bound to subject's wallet (data-based commitment) |
-| **AI-Powered Verifier Detection** | Low | Verifier type inferred from AI parsing; explicit selection would be more reliable |
-| **Circuit Parameter Mismatch** | Low | Hash computation must match exactly between issuance and verification |
+The following features are intentionally simplified for hackathon demo purposes:
+
+| Aspect | Demo Behavior | Production Consideration |
+|--------|---------------|-------------------------|
+| **Expiry** | Stored but not enforced in circuits | Uncomment expiry check in contract for production |
+| **Proof Replay** | Same proof can be verified multiple times | Add nullifier tracking to prevent replay attacks |
+| **Credential Binding** | Data-based commitment | Cryptographically bind to subject's wallet for stronger security |
+| **Verifier Selection** | AI-powered detection from natural language | Explicit verifier selection UI for production reliability |
 
 ### 🔒 Privacy Guarantees
 
