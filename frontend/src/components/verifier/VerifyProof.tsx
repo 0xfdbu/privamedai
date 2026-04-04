@@ -343,30 +343,26 @@ export function VerifyProof() {
         params.minAge = 18;
       }
       
-      // Look up the credential to get the health claim for witness
-      const storedCredentials = getStoredCredentials();
-      const credential = storedCredentials.find(c => 
-        c.commitment.toLowerCase() === commitmentHex.toLowerCase() ||
-        c.id.toLowerCase() === commitmentHex.toLowerCase()
-      );
+      // Get health claim from proof data (needed for on-chain submission witness)
+      const healthClaim = proofData.healthClaim;
       
-      if (!credential?.healthClaim) {
+      if (!healthClaim) {
         setTxResult({ 
-          error: 'Health claim not found for this credential. The credential may have been issued before health claim storage was added. Please issue a new credential.', 
+          error: 'Health claim not found in proof data. This proof may have been generated before health claim storage was added. Please generate a new proof.', 
           status: 'failed' 
         });
         setIsSubmitting(false);
         return;
       }
       
-      console.log('   Found credential with health claim:', credential.healthClaim);
+      console.log('   Using health claim from proof:', healthClaim);
       
       // Use submitOnChainVerification which properly handles health claim private state
       const submitResult = await submitOnChainVerification(
         commitmentHex,
         circuitId as any,
         params,
-        credential.healthClaim
+        healthClaim
       );
       
       if (submitResult.success) {

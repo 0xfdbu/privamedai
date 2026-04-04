@@ -44,6 +44,11 @@ interface GeneratedProof {
   publicInputs?: string; // Required for cryptographic verification
   credentialDataBytes?: number[]; // For on-chain submission
   serializedPreimage?: number[]; // For verification (proof preimage)
+  healthClaim?: { // Required for on-chain submission (witness data)
+    age: number;
+    conditionCode: number;
+    prescriptionCode: number;
+  };
 }
 
 const SUGGESTED_PROMPTS = [
@@ -489,7 +494,7 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
   };
 
   const copyProof = (proof: GeneratedProof) => {
-    // Include all data needed for verification
+    // Include all data needed for verification and on-chain submission
     const proofData = {
       proofId: proof.id,
       type: proof.type,
@@ -499,6 +504,7 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
       serializedPreimage: proof.serializedPreimage, // Required for SNARK verification
       publicInputs: proof.publicInputs, // Required for verification
       credentialDataBytes: proof.credentialDataBytes, // For on-chain submission
+      healthClaim: proof.healthClaim, // Required for on-chain submission (witness data)
       txId: proof.txId,
       rules: proof.rules,
       contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS,
@@ -524,6 +530,7 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
       serializedPreimage: proof.serializedPreimage, // Required for SNARK verification
       publicInputs: proof.publicInputs, // Required for cryptographic verification
       credentialDataBytes: proof.credentialDataBytes, // For on-chain submission
+      healthClaim: proof.healthClaim, // Required for on-chain submission (witness data)
       txId: proof.txId,
       rules: proof.rules,
       contractAddress: import.meta.env.VITE_CONTRACT_ADDRESS,
