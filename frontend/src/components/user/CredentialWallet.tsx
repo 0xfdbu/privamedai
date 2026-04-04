@@ -28,9 +28,24 @@ export function CredentialWallet() {
     localStorage.setItem('privamedai_credentials', JSON.stringify(updated));
   };
 
+  const ensureClaimDataBytes = (cred: Credential): Credential => {
+    if (cred.claimDataBytes && cred.claimDataBytes.length > 0) {
+      return cred;
+    }
+    // Generate claimDataBytes if missing
+    if (cred.encryptedData) {
+      const encoder = new TextEncoder();
+      const bytes = new Uint8Array(32);
+      bytes.set(encoder.encode(cred.encryptedData).slice(0, 32));
+      return { ...cred, claimDataBytes: Array.from(bytes) };
+    }
+    return cred;
+  };
+
   const exportAllCredentials = () => {
+    const credentialsWithBytes = credentials.map(ensureClaimDataBytes);
     const exportData = {
-      credentials: credentials,
+      credentials: credentialsWithBytes,
       downloadDate: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -43,8 +58,9 @@ export function CredentialWallet() {
   };
 
   const exportSingleCredential = (cred: Credential) => {
+    const credentialWithBytes = ensureClaimDataBytes(cred);
     const credentialData = {
-      ...cred,
+      ...credentialWithBytes,
       downloadDate: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(credentialData, null, 2)], { type: 'application/json' });
