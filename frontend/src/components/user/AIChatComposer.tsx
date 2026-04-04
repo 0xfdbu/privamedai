@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, Shield, Check, Copy, Download, Loader2, ChevronDown, AlertCircle } from 'lucide-react';
+import { Send, Sparkles, Shield, Check, Copy, Download, Loader2, ChevronDown, AlertCircle, Info } from 'lucide-react';
 import { parseNaturalLanguage } from '../../services/xaiService';
 import { generateProductionZKProof } from '../../services/proofServiceProd';
 import { getWalletState } from '../../services/contractService';
 import { queryCredentialsOnChain, checkCredentialOnChain } from '../../services/contractInteraction';
 import type { GeneratedRule } from '../../types/claims';
+import { CodeMappingsModal } from '../common/CodeMappingsModal';
 
 // Credential data interface for patient's stored credentials
 interface PatientCredential {
@@ -83,6 +84,7 @@ export function AIChatComposer() {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [patientCredentials, setPatientCredentials] = useState<PatientCredential[]>([]);
   const [showCredentialImporter, setShowCredentialImporter] = useState(false);
+  const [showCodeMappings, setShowCodeMappings] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -673,9 +675,18 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
             <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-3xl flex items-center justify-center mb-8 shadow-sm">
               <Sparkles className="w-10 h-10 text-emerald-600" />
             </div>
-            <h2 className="text-3xl font-semibold text-slate-800 mb-3">
-              What do you need to prove?
-            </h2>
+            <div className="flex items-center gap-3 mb-3">
+              <h2 className="text-3xl font-semibold text-slate-800">
+                What do you need to prove?
+              </h2>
+              <button
+                onClick={() => setShowCodeMappings(true)}
+                className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
+                title="View medical code mappings"
+              >
+                <Info className="w-5 h-5" />
+              </button>
+            </div>
             <p className="text-slate-500 text-center max-w-lg mb-10 text-lg">
               Describe your verification needs in plain English, and I'll generate a zero-knowledge proof for you.
             </p>
@@ -888,6 +899,12 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
           </p>
         </div>
       </div>
+
+      {/* Code Mappings Modal */}
+      <CodeMappingsModal 
+        isOpen={showCodeMappings} 
+        onClose={() => setShowCodeMappings(false)} 
+      />
     </div>
   );
 }
