@@ -20,6 +20,73 @@ import { serializeCredentialData, hexToBytes32 } from './utils/serialization';
 import { fetchZKConfig } from './utils/zkConfig';
 import { executeCircuitAndGetProofData, type CircuitParams } from './circuits/execution';
 
+/**
+ * Log detailed information about the serialized preimage structure
+ */
+function logSerializedPreimageDetails(
+  serializedPreimage: Uint8Array, 
+  circuitId: string, 
+  circuitParams: CircuitParams
+): void {
+  console.log('📊 Serialized Preimage Generation Analysis:');
+  console.log('   Circuit ID:', circuitId);
+  console.log('   Total size:', serializedPreimage.length, 'bytes');
+  
+  // Log first 100 bytes as hex
+  const bytesToShow = Math.min(100, serializedPreimage.length);
+  const hexPreview = Array.from(serializedPreimage.slice(0, bytesToShow))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join(' ');
+  console.log(`   First ${bytesToShow} bytes (hex):`, hexPreview);
+  
+  // Log the raw bytes array for direct comparison
+  const rawBytesArray = Array.from(serializedPreimage.slice(0, bytesToShow));
+  console.log(`   First ${bytesToShow} bytes (array):`, JSON.stringify(rawBytesArray));
+  
+  // Log circuit params used
+  console.log('   Circuit params used:');
+  console.log('     - minAge:', circuitParams.minAge?.toString() || 'not set');
+  console.log('     - requiredCondition:', circuitParams.requiredCondition?.toString() || 'not set');
+  console.log('     - requiredPrescription:', circuitParams.requiredPrescription?.toString() || 'not set');
+  
+  // Circuit-specific analysis
+  if (circuitId === 'verifyForHospital') {
+    console.log('   ℹ️  Hospital circuit (3 arguments):');
+    console.log('     - commitment: Bytes<32>');
+    console.log('     - minAge: Uint<8>');
+    console.log('     - requiredCondition: Uint<16>');
+    
+    if (!circuitParams.minAge || !circuitParams.requiredCondition) {
+      console.warn('   ⚠️  WARNING: Hospital circuit requires both minAge and requiredCondition');
+    }
+    if (serializedPreimage.length < 35) {
+      console.warn('   ⚠️  WARNING: Serialized preimage seems short for hospital circuit (expects 35+ bytes for inputs)');
+    }
+  } else if (circuitId === 'verifyForFreeHealthClinic') {
+    console.log('   ℹ️  FreeHealthClinic circuit (2 arguments):');
+    console.log('     - commitment: Bytes<32>');
+    console.log('     - minAge: Uint<8>');
+    
+    if (!circuitParams.minAge) {
+      console.warn('   ⚠️  WARNING: FreeHealthClinic circuit requires minAge');
+    }
+    if (serializedPreimage.length < 33) {
+      console.warn('   ⚠️  WARNING: Serialized preimage seems short for freeHealthClinic circuit (expects 33+ bytes for inputs)');
+    }
+  } else if (circuitId === 'verifyForPharmacy') {
+    console.log('   ℹ️  Pharmacy circuit (2 arguments):');
+    console.log('     - commitment: Bytes<32>');
+    console.log('     - requiredPrescription: Uint<16>');
+    
+    if (!circuitParams.requiredPrescription) {
+      console.warn('   ⚠️  WARNING: Pharmacy circuit requires requiredPrescription');
+    }
+    if (serializedPreimage.length < 34) {
+      console.warn('   ⚠️  WARNING: Serialized preimage seems short for pharmacy circuit (expects 34+ bytes for inputs)');
+    }
+  }
+}
+
 export async function generateProductionZKProof(
   rules: GeneratedRule[],
   credentialCommitment: string,
@@ -83,21 +150,60 @@ export async function generateProductionZKProof(
     
     // Extract circuit parameters from rules (thresholds to prove against)
     const circuitParams: CircuitParams = {};
+    console.log('   Extracting circuit params from rules:', rules.map(r => ({ field: r.field, operator: r.operator, value: r.value })));
     for (const rule of rules) {
       const value = BigInt(rule.value);
+      console.log(`   Processing rule: ${rule.field} ${rule.operator} ${rule.value}`);
       if (rule.field === 'age' && (rule.operator === '>=' || rule.operator === '>')) {
         circuitParams.minAge = value;
+        console.log(`     → Set minAge = ${value}`);
       } else if (rule.field === 'conditionCode' && rule.operator === '==') {
         circuitParams.requiredCondition = value;
+        console.log(`     → Set requiredCondition = ${value}`);
       } else if (rule.field === 'prescriptionCode' && rule.operator === '==') {
         circuitParams.requiredPrescription = value;
+        console.log(`     → Set requiredPrescription = ${value}`);
+      } else {
+        console.log(`     → No match for any circuit param`);
       }
     }
-    console.log('   Circuit params:', {
-      minAge: circuitParams.minAge?.toString(),
-      requiredCondition: circuitParams.requiredCondition?.toString(),
-      requiredPrescription: circuitParams.requiredPrescription?.toString(),
+    console.log('   Circuit params extracted:', {
+      minAge: circuitParams.minAge?.toString() || 'not set',
+      requiredCondition: circuitParams.requiredCondition?.toString() || 'not set',
+      requiredPrescription: circuitParams.requiredPrescription?.toString() || 'not set',
     });
+    
+    // Circuit-specific parameter validation
+    if (circuitId === 'verifyForHospital') {
+      if (!circuitParams.minAge) {
+        console.warn('   ⚠️  Hospital circuit: minAge not set, using default 18n');
+        circuitParams.minAge = 18n;
+      }
+      if (!circuitParams.requiredCondition) {
+        console.warn('   ⚠️  Hospital circuit: requiredCondition not set, using default 100n');
+        circuitParams.requiredCondition = 100n;
+      }
+      console.log('   Hospital circuit params finalized:', {
+        minAge: circuitParams.minAge.toString(),
+        requiredCondition: circuitParams.requiredCondition.toString(),
+      });
+    } else if (circuitId === 'verifyForFreeHealthClinic') {
+      if (!circuitParams.minAge) {
+        console.warn('   ⚠️  FreeHealthClinic circuit: minAge not set, using default 18n');
+        circuitParams.minAge = 18n;
+      }
+      console.log('   FreeHealthClinic circuit params finalized:', {
+        minAge: circuitParams.minAge.toString(),
+      });
+    } else if (circuitId === 'verifyForPharmacy') {
+      if (!circuitParams.requiredPrescription) {
+        console.warn('   ⚠️  Pharmacy circuit: requiredPrescription not set, using default 500n');
+        circuitParams.requiredPrescription = 500n;
+      }
+      console.log('   Pharmacy circuit params finalized:', {
+        requiredPrescription: circuitParams.requiredPrescription.toString(),
+      });
+    }
     
     // Execute circuit to generate proof data
     console.log('   Executing circuit to generate proof data...');
@@ -126,6 +232,9 @@ export async function generateProductionZKProof(
     );
     
     console.log('   Serialized preimage size:', serializedPreimage.length, 'bytes');
+    
+    // Log detailed preimage structure
+    logSerializedPreimageDetails(serializedPreimage, circuitId, circuitParams);
     
     // Use the official FetchZkConfigProvider
     const zkConfigProvider = new FetchZkConfigProvider<PrivaMedAICircuit>(

@@ -186,11 +186,24 @@ export async function executeCircuitAndGetProofData(
       }
       // minAge threshold (default 18) - proves: witness_age >= minAge
       const minAge = circuitParams.minAge ?? 18n;
+      
+      console.log('🏥 verifyForFreeHealthClinic circuit invocation:', {
+        commitmentBytes: commitmentBytes.length + ' bytes',
+        minAge: minAge.toString(),
+        witnessAge: privateState.healthClaim.age.toString(),
+      });
+      
       circuitResult = freeHealthClinicCircuit(
         circuitContext,
         commitmentBytes,
         minAge
       );
+      
+      console.log('🏥 verifyForFreeHealthClinic circuit executed, result:', {
+        hasProofData: !!circuitResult?.proofData,
+        inputFields: circuitResult?.proofData?.input?.value?.length || 0,
+        outputFields: circuitResult?.proofData?.output?.value?.length || 0,
+      });
       break;
     }
     case 'verifyForPharmacy': {
@@ -203,11 +216,24 @@ export async function executeCircuitAndGetProofData(
       }
       // requiredPrescription code (default 500) - proves: witness_prescriptionCode == requiredPrescription
       const requiredPrescription = circuitParams.requiredPrescription ?? 500n;
+      
+      console.log('💊 verifyForPharmacy circuit invocation:', {
+        commitmentBytes: commitmentBytes.length + ' bytes',
+        requiredPrescription: requiredPrescription.toString(),
+        witnessPrescription: privateState.healthClaim.prescriptionCode.toString(),
+      });
+      
       circuitResult = pharmacyCircuit(
         circuitContext,
         commitmentBytes,
         requiredPrescription
       );
+      
+      console.log('💊 verifyForPharmacy circuit executed, result:', {
+        hasProofData: !!circuitResult?.proofData,
+        inputFields: circuitResult?.proofData?.input?.value?.length || 0,
+        outputFields: circuitResult?.proofData?.output?.value?.length || 0,
+      });
       break;
     }
     case 'verifyForHospital': {
@@ -222,12 +248,27 @@ export async function executeCircuitAndGetProofData(
       // proves: witness_age >= minAge AND witness_conditionCode == requiredCondition
       const minAge = circuitParams.minAge ?? 18n;
       const requiredCondition = circuitParams.requiredCondition ?? 100n;
+      
+      console.log('🏥 verifyForHospital circuit invocation:', {
+        commitmentBytes: commitmentBytes.length + ' bytes',
+        minAge: minAge.toString(),
+        requiredCondition: requiredCondition.toString(),
+        witnessAge: privateState.healthClaim.age.toString(),
+        witnessCondition: privateState.healthClaim.conditionCode.toString(),
+      });
+      
       circuitResult = hospitalCircuit(
         circuitContext,
         commitmentBytes,
         minAge,
         requiredCondition
       );
+      
+      console.log('🏥 verifyForHospital circuit executed, result:', {
+        hasProofData: !!circuitResult?.proofData,
+        inputFields: circuitResult?.proofData?.input?.value?.length || 0,
+        outputFields: circuitResult?.proofData?.output?.value?.length || 0,
+      });
       break;
     }
     default:

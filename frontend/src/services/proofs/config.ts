@@ -39,9 +39,14 @@ export function getZkConfigBaseUrl(): string {
  * Select the appropriate verification circuit based on the user's intent
  * 
  * For selective disclosure, we detect the verifier type from the rules/context
+ * 
+ * Circuit selection logic:
+ * - verifyForHospital: Rules include BOTH age (>=) AND conditionCode (==)
+ * - verifyForPharmacy: Rules include prescriptionCode (==)
+ * - verifyForFreeHealthClinic: Rules include only age (>=) or default
  */
 export function selectCircuitForRules(
-  _rules: GeneratedRule[], 
+  rules: GeneratedRule[], 
   context?: { verifierType?: 'freeHealthClinic' | 'pharmacy' | 'hospital' }
 ): PrivaMedAICircuit {
   // If explicit verifier type is provided, use it
@@ -49,7 +54,33 @@ export function selectCircuitForRules(
   if (context?.verifierType === 'pharmacy') return 'verifyForPharmacy';
   if (context?.verifierType === 'hospital') return 'verifyForHospital';
   
-  // Default to freeHealthClinic for single-rule age verification
+  // Detect circuit type from rules
+  const hasAgeRule = rules.some(r => r.field === 'age' && (r.operator === '>=' || r.operator === '>'));
+  const hasConditionRule = rules.some(r => r.field === 'conditionCode' && r.operator === '==');
+  const hasPrescriptionRule = rules.some(r => r.field === 'prescriptionCode' && r.operator === '==');
+  
+  console.log('🔍 Circuit selection analysis:', {
+    hasAgeRule,
+    hasConditionRule,
+    hasPrescriptionRule,
+    totalRules: rules.length,
+    rules: rules.map(r => ({ field: r.field, operator: r.operator }))
+  });
+  
+  // Hospital circuit: requires BOTH age and condition rules
+  if (hasAgeRule && hasConditionRule) {
+    console.log('   → Selected: verifyForHospital (age + condition)');
+    return 'verifyForHospital';
+  }
+  
+  // Pharmacy circuit: requires prescription rule
+  if (hasPrescriptionRule) {
+    console.log('   → Selected: verifyForPharmacy (prescription)');
+    return 'verifyForPharmacy';
+  }
+  
+  // FreeHealthClinic circuit: age only (default)
+  console.log('   → Selected: verifyForFreeHealthClinic (age only / default)');
   return 'verifyForFreeHealthClinic';
 }
 

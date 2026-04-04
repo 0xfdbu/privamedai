@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ShieldCheck, Upload, CheckCircle, XCircle, FileCheck, AlertCircle, Send, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, TextArea, Alert, Badge } from '../common';
 
-import { verifyZKProof } from '../../services/proofs/verifier';
+import { verifyZKProof, getCircuitInfo } from '../../services/proofs/verifier';
 import { submitOnChainVerification } from '../../services/proofs/onChainVerification';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { CONFIG, getStoredCredentials } from '../../services/contractService';
@@ -17,6 +17,7 @@ interface VerificationResult {
   details?: string;
   isRealVerification?: boolean;
   proofData?: any; // Store parsed proof data for on-chain submission
+  diagnosticInfo?: string; // Additional diagnostic information
 }
 
 export function VerifyProof() {
@@ -78,9 +79,21 @@ export function VerifyProof() {
         await verifyJsonProof(trimmed);
       }
     } catch (error) {
+      console.error('Verification failed with error:', error);
+      
+      // Build diagnostic info
+      let diagnosticInfo = '';
+      if (error instanceof Error) {
+        diagnosticInfo = `Error type: ${error.name}\nMessage: ${error.message}`;
+        if (error.stack) {
+          diagnosticInfo += `\nStack: ${error.stack.split('\n').slice(0, 3).join('\n')}`;
+        }
+      }
+      
       setResult({
         valid: false,
         error: 'Failed to verify proof: ' + (error instanceof Error ? error.message : 'Unknown error'),
+        diagnosticInfo,
       });
     }
     
@@ -96,6 +109,9 @@ export function VerifyProof() {
       setResult({
         valid: false,
         error: 'Proof too short - must be at least 32 bytes',
+        diagnosticInfo: 'Raw hex proofs must be at least 64 hex characters (32 bytes).\n\n' +
+          'For full cryptographic verification, please use the JSON proof format ' +
+          '(download from AI Chat) which includes circuitId and publicInputs.',
       });
       return;
     }
@@ -110,6 +126,11 @@ export function VerifyProof() {
       setResult({
         valid: false,
         error: 'Proof format appears invalid - insufficient data for a valid ZK proof',
+        diagnosticInfo: `Proof size: ${proofBytes.length} bytes (expected > 100 bytes for a valid ZK proof).\n\n` +
+          'This may be:\n' +
+          '1. An incomplete proof\n' +
+          '2. A corrupted file\n' +
+          '3. Wrong format (use JSON proof from AI Chat)',
       });
       return;
     }
@@ -124,6 +145,12 @@ export function VerifyProof() {
       circuitId: 'unknown',
       details: '⚠️ Format is valid but cryptographic verification requires the full proof JSON (with circuitId and publicInputs). Use Copy/Download from AI Chat instead of pasting raw hex.',
       isRealVerification: false,
+      diagnosticInfo: 'Raw hex proof detected.\n\n' +
+        'To perform full SNARK verification, use the JSON proof format which includes:\n' +
+        '- circuitId (e.g., verifyForHospital)\n' +
+        '- serializedPreimage (input to the prover)\n' +
+        '- publicInputs (commitment, rules, etc.)\n\n' +
+        'Size: ' + proofBytes.length + ' bytes',
     });
   };
 
@@ -135,6 +162,9 @@ export function VerifyProof() {
       setResult({
         valid: false,
         error: 'Invalid proof format - must be valid JSON or hex-encoded cryptographic proof',
+        diagnosticInfo: 'Failed to parse JSON.\n\n' +
+          'If pasting a proof, ensure it is valid JSON from the AI Chat download, ' +
+          'or use the raw hex format (starts with 0x).',
       });
       return;
     }
@@ -159,16 +189,42 @@ export function VerifyProof() {
       ? JSON.parse(proofData.publicInputs) 
       : proofData.publicInputs;
     
+    // Diagnostic logging for missing fields
     if (!serializedPreimage || !circuitId) {
+      console.error('Missing required fields:', {
+        hasSerializedPreimage: !!serializedPreimage,
+        hasCircuitId: !!circuitId,
+        availableKeys: Object.keys(proofData),
+      });
+      
+      let diagnosticInfo = 'Missing required fields:\n';
+      if (!serializedPreimage) diagnosticInfo += '- serializedPreimage: not found\n';
+      if (!circuitId) diagnosticInfo += '- circuitId: not found\n';
+      diagnosticInfo += '\nAvailable fields: ' + Object.keys(proofData).join(', ') + '\n\n';
+      diagnosticInfo += 'This proof may have been generated with an older version. ' +
+        'Please generate a new proof with the latest version.';
+      
       setResult({
         valid: false,
         error: 'Invalid proof format. Missing serializedPreimage or circuit ID. Please generate a new proof with the latest version.',
+        diagnosticInfo,
       });
       return;
     }
     
+    // Log circuit info for diagnostics
+    const circuitInfo = getCircuitInfo(circuitId);
+    console.log('Circuit info:', circuitInfo);
+    
     // Convert serializedPreimage array back to Uint8Array
     const preimageBytes = new Uint8Array(serializedPreimage);
+    
+    console.log('Verification setup:', {
+      circuitId,
+      preimageSize: preimageBytes.length,
+      expectedArgs: circuitInfo?.argCount || 'unknown',
+      publicInputsKeys: publicInputs ? Object.keys(publicInputs) : [],
+    });
     
     // Perform real SNARK verification
     setIsVerifying(true);
@@ -185,11 +241,53 @@ export function VerifyProof() {
         details: verificationResult.details,
         isRealVerification: true,
         proofData: proofData,
+        diagnosticInfo: `Circuit: ${circuitId}\n` +
+          `Arguments: ${circuitInfo?.argCount || 'unknown'}\n` +
+          `Serialized preimage: ${preimageBytes.length} bytes\n` +
+          `Verification: PASSED`,
       });
     } else {
+      // Build comprehensive diagnostic info for failure
+      let diagnosticInfo = `Circuit: ${circuitId}\n`;
+      diagnosticInfo += `Expected arguments: ${circuitInfo?.argCount || 'unknown'}\n`;
+      if (circuitInfo) {
+        diagnosticInfo += `Argument structure:\n`;
+        circuitInfo.args.forEach((arg, i) => {
+          diagnosticInfo += `  ${i + 1}. ${arg.name}: ${arg.type} (${arg.size} bytes)\n`;
+        });
+      }
+      diagnosticInfo += `\nSerialized preimage size: ${preimageBytes.length} bytes\n`;
+      diagnosticInfo += `First 32 bytes (hex): ${Array.from(preimageBytes.slice(0, 32))
+        .map(b => b.toString(16).padStart(2, '0')).join(' ')}\n\n`;
+      
+      // Circuit-specific diagnostics
+      if (circuitId === 'verifyForHospital') {
+        diagnosticInfo += 'Hospital Circuit Notes:\n';
+        diagnosticInfo += '- Requires 3 arguments: commitment, minAge, requiredCondition\n';
+        diagnosticInfo += '- If proof was generated before the 3rd argument was added, it will fail\n';
+        diagnosticInfo += '- Solution: Generate a new proof with the hospital circuit selected\n';
+      } else if (circuitId === 'verifyForFreeHealthClinic') {
+        diagnosticInfo += 'FreeHealthClinic Circuit Notes:\n';
+        diagnosticInfo += '- Requires 2 arguments: commitment, minAge\n';
+      } else if (circuitId === 'verifyForPharmacy') {
+        diagnosticInfo += 'Pharmacy Circuit Notes:\n';
+        diagnosticInfo += '- Requires 2 arguments: commitment, requiredPrescription\n';
+      }
+      
+      diagnosticInfo += '\nError: ' + verificationResult.error;
+      
+      console.error('Verification failed:', {
+        circuitId,
+        error: verificationResult.error,
+        preimageSize: preimageBytes.length,
+        diagnosticInfo,
+      });
+      
       setResult({
         valid: false,
         error: verificationResult.error,
+        circuitId: circuitId,
+        diagnosticInfo,
       });
     }
   };
@@ -415,13 +513,42 @@ export function VerifyProof() {
                       <p className="text-sm text-slate-600">{result.details}</p>
                     </div>
                   )}
+                  {result.diagnosticInfo && (
+                    <div className="mt-4 pt-4 border-t border-emerald-100">
+                      <p className="text-xs text-slate-500 uppercase mb-1">Diagnostic Info</p>
+                      <pre className="text-xs text-slate-700 bg-slate-50 p-2 rounded overflow-x-auto whitespace-pre-wrap">
+                        {result.diagnosticInfo}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {result.error && (
-                <div className="mt-4 p-3 bg-red-50 rounded border border-red-200">
-                  <p className="text-sm text-red-700">{result.error}</p>
-                </div>
+              {!result.valid && (
+                <>
+                  {result.error && (
+                    <div className="mt-4 p-3 bg-red-50 rounded border border-red-200">
+                      <p className="text-sm text-red-700">{result.error}</p>
+                    </div>
+                  )}
+                  
+                  {/* Diagnostic Information for Failed Verification */}
+                  {result.diagnosticInfo && (
+                    <div className="mt-4 p-4 bg-white rounded-xl border border-red-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertCircle className="w-5 h-5 text-red-600" />
+                        <span className="font-semibold text-red-900">Diagnostic Information</span>
+                      </div>
+                      <pre className="text-xs text-slate-700 bg-slate-50 p-3 rounded overflow-x-auto whitespace-pre-wrap font-mono">
+                        {result.diagnosticInfo}
+                      </pre>
+                      <p className="text-xs text-slate-500 mt-3">
+                        This information can help identify why the verification failed. 
+                        Common issues include wrong circuit selection or outdated proof format.
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Proof Details Section */}
