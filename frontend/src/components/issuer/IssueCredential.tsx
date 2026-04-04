@@ -18,12 +18,14 @@ import {
   Wallet,
   Clock,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Info
 } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, Input, Alert } from '../common';
 import { getWalletState } from '../../services/contractService';
 import { issueCredentialOnChain } from '../../services/contractInteraction';
 import type { Credential } from '../../types/claims';
+import { getConditionName, getPrescriptionName } from '../../constants/medicalCodes';
 
 // Medical condition cards - cleaner than checkboxes
 interface MedicalCondition {

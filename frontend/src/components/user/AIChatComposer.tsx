@@ -579,6 +579,7 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
           ...cred,
           claimData: claimData || {},
           healthClaim,
+          claimDataBytes: cred.claimDataBytes,
         };
       }).filter((cred: any) => {
         // Must have commitment and either claimDataBytes or be a valid credential
