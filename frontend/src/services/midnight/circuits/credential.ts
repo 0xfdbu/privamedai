@@ -177,6 +177,12 @@ export async function issueCredentialOnChain(
       encryptedData: JSON.stringify({ patientAddress, claimData, issuedTo: patientAddress }),
       commitment: toHex(commitment),
       claimHash: toHex(claimHash),
+      // Store health claim for witness access during verification
+      healthClaim: {
+        age: Number(healthClaimFields.age),
+        conditionCode: Number(healthClaimFields.conditionCode),
+        prescriptionCode: Number(healthClaimFields.prescriptionCode),
+      },
     };
     storeCredential(credential);
     console.log('💾 Credential stored locally:', credential.id);

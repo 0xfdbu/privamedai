@@ -144,7 +144,7 @@ export async function submitOnChainVerification(
     
     console.log('✅ On-chain verification submitted:', txId);
     console.log('   Verification result:', returnValue);
-    console.log('   View on explorer: https://explorer.midnight.network/tx/' + txId);
+    console.log('   View on explorer: https://preprod.midnightexplorer.com/transactions/' + txId);
 
     return {
       success: true,

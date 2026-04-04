@@ -383,6 +383,9 @@ export function IssueCredential() {
                   min={1}
                   max={3650}
                 />
+                <p className="text-xs text-amber-600 mt-1">
+                  ⚠️ Expiry is stored but not currently enforced in verification circuits
+                </p>
               </div>
             </div>
 

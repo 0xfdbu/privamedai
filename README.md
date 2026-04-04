@@ -6,6 +6,46 @@
 
 PrivaMedAI is a privacy-preserving medical credential platform built on the Midnight blockchain. It enables healthcare providers to issue verifiable credentials while allowing patients to prove specific claims without revealing sensitive health data through zero-knowledge proofs and selective disclosure.
 
+## ⚠️ Current State & Known Limitations
+
+This is a **functional hackathon demonstration** of selective disclosure on Midnight. It uses **real ZK proofs** and **real on-chain transactions** on the preprod network.
+
+### ✅ What's Working
+
+| Feature | Status | Details |
+|---------|--------|---------|
+| **Real ZK Proof Generation** | ✅ Production | Uses local proof server (`:6300`) to generate SNARK proofs |
+| **Real On-Chain Verification** | ✅ Production | Transactions submitted to Midnight preprod, verified by network validators |
+| **Selective Disclosure** | ✅ Working | Same credential reveals different fields based on verifier type |
+| **3 Verifier Circuits** | ✅ Working | Free Health Clinic (age), Pharmacy (prescription), Hospital (age+condition) |
+| **Health Claim Privacy** | ✅ Working | Private data accessed via witness, never appears on-chain |
+| **Two-Step Verification** | ✅ Working | Local SNARK pre-validation → On-chain authoritative verification |
+| **Mobile Responsive** | ✅ Working | Fully responsive UI for all devices |
+
+### ⚠️ Known Limitations
+
+| Limitation | Impact | Notes |
+|------------|--------|-------|
+| **Expiry Not Enforced** | Medium | Expiry timestamp stored but not checked in verification circuits (commented out in contract) |
+| **No Nullifier Tracking** | Medium | Same proof can be verified multiple times; no replay protection |
+| **No Cryptographic Binding** | Low | Credential not cryptographically bound to subject's wallet (data-based commitment) |
+| **AI-Powered Verifier Detection** | Low | Verifier type inferred from AI parsing; explicit selection would be more reliable |
+| **Circuit Parameter Mismatch** | Low | Hash computation must match exactly between issuance and verification |
+
+### 🔒 Privacy Guarantees
+
+**What stays private (never on-chain):**
+- Actual age value
+- Condition codes
+- Prescription codes
+- Full credential data
+
+**What's visible on-chain:**
+- Credential commitment hash
+- Boolean assertion results (e.g., "age ≥ 18: true")
+- Verification counter increments
+- Transaction metadata
+
 ## 🌟 Features
 
 ### Core Capabilities
@@ -153,7 +193,8 @@ const NETWORK_CONFIG = {
 2. Enter patient wallet address
 3. Select medical conditions
 4. Set selective disclosure codes (age, condition, prescription)
-5. Submit and download credential JSON
+5. Set expiry period (⚠️ stored but not enforced in circuits - see limitations)
+6. Submit and download credential JSON
 
 ### 3. Generate ZK Proof (Patient)
 
@@ -168,7 +209,7 @@ const NETWORK_CONFIG = {
 1. Go to **Verifier Portal → Verify Proof**
 2. Upload proof file or paste proof data
 3. Submit to blockchain for verification
-4. View verification result
+4. View verification result on [Midnight Explorer](https://preprod.midnightexplorer.com)
 
 ## 🔐 Selective Disclosure Flow
 
@@ -242,6 +283,7 @@ npm run build
 - [Compact Language Reference](https://docs.midnight.network/develop/reference/compact/lang-ref)
 - [Midnight.js Examples](https://github.com/midnightntwrk/midnight-js)
 - [Preprod Faucet](https://faucet.preprod.midnight.network/)
+- [Preprod Explorer](https://preprod.midnightexplorer.com)
 
 ## 📄 License
 
@@ -250,6 +292,12 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 ## 🤝 Contributing
 
 This is a hackathon project demonstrating selective disclosure on Midnight. Feel free to fork and extend!
+
+**Areas for contribution:**
+- Enable expiry checking in verification circuits
+- Add nullifier tracking for replay protection
+- Implement cryptographic binding to subject wallet
+- Add more verifier types (range proofs, NOT proofs)
 
 ---
 

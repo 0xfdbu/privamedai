@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { ShieldCheck, Upload, CheckCircle, XCircle, FileCheck, AlertCircle, Send, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardBody, Button, TextArea, Alert, Badge } from '../common';
-import { submitProofVerification, type VerifierType } from '../../services/contractInteraction';
+
 import { verifyZKProof } from '../../services/proofs/verifier';
 import { submitOnChainVerification } from '../../services/proofs/onChainVerification';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
-import { CONFIG } from '../../services/contractService';
+import { CONFIG, getStoredCredentials } from '../../services/contractService';
 
 interface VerificationResult {
   valid: boolean;
@@ -221,23 +221,19 @@ export function VerifyProof() {
       
       // Determine verifier type and parameters from the circuitId
       const circuitId = proofData.circuitId || '';
-      let verifierType: VerifierType;
       let params: { minAge?: number; requiredPrescription?: number; requiredCondition?: number } = {};
       
       if (circuitId.includes('FreeHealthClinic') || circuitId.includes('freeHealthClinic')) {
-        verifierType = 'freeHealthClinic';
         // Extract minAge from rules if available
         const rules = publicInputs.rules || [];
         const ageRule = rules.find((r: any) => r.field === 'age');
         params.minAge = ageRule ? parseInt(ageRule.value) : 18; // Default to 18 if not specified
       } else if (circuitId.includes('Pharmacy') || circuitId.includes('pharmacy')) {
-        verifierType = 'pharmacy';
         // Extract prescription code from rules
         const rules = publicInputs.rules || [];
         const rxRule = rules.find((r: any) => r.field === 'prescriptionCode');
         params.requiredPrescription = rxRule ? parseInt(rxRule.value) : 500; // Default
       } else if (circuitId.includes('Hospital') || circuitId.includes('hospital')) {
-        verifierType = 'hospital';
         // Extract age and condition from rules
         const rules = publicInputs.rules || [];
         const ageRule = rules.find((r: any) => r.field === 'age');
@@ -246,14 +242,33 @@ export function VerifyProof() {
         params.requiredCondition = conditionRule ? parseInt(conditionRule.value) : 100;
       } else {
         // Default to free health clinic
-        verifierType = 'freeHealthClinic';
         params.minAge = 18;
       }
       
-      const submitResult = await submitProofVerification(
+      // Look up the credential to get the health claim for witness
+      const storedCredentials = getStoredCredentials();
+      const credential = storedCredentials.find(c => 
+        c.commitment.toLowerCase() === commitmentHex.toLowerCase() ||
+        c.id.toLowerCase() === commitmentHex.toLowerCase()
+      );
+      
+      if (!credential?.healthClaim) {
+        setTxResult({ 
+          error: 'Health claim not found for this credential. The credential may have been issued before health claim storage was added. Please issue a new credential.', 
+          status: 'failed' 
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
+      console.log('   Found credential with health claim:', credential.healthClaim);
+      
+      // Use submitOnChainVerification which properly handles health claim private state
+      const submitResult = await submitOnChainVerification(
         commitmentHex,
-        verifierType,
-        params
+        circuitId as any,
+        params,
+        credential.healthClaim
       );
       
       if (submitResult.success) {
@@ -489,7 +504,7 @@ export function VerifyProof() {
                         Waiting for network confirmation. This may take a few moments.
                       </p>
                       <a 
-                        href={`https://explorer.midnight.network/tx/${txResult.txId}`}
+                        href={`https://preprod.midnightexplorer.com/transactions/${txResult.txId}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-blue-600 hover:underline mt-2 inline-block"
@@ -508,7 +523,7 @@ export function VerifyProof() {
                         The ZK proof has been cryptographically verified on-chain. The credential is valid.
                       </p>
                       <a 
-                        href={`https://explorer.midnight.network/tx/${txResult.txId}`}
+                        href={`https://preprod.midnightexplorer.com/transactions/${txResult.txId}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-blue-600 hover:underline mt-2 inline-block"
