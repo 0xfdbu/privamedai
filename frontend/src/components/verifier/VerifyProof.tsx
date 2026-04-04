@@ -630,14 +630,6 @@ export function VerifyProof() {
                       <p className="text-xs text-slate-500 mt-2">
                         Waiting for network confirmation. This may take a few moments.
                       </p>
-                      <a 
-                        href={`https://preprod.midnightexplorer.com/transactions/${txResult.txId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-600 hover:underline mt-2 inline-block"
-                      >
-                        View on Explorer →
-                      </a>
                     </div>
                   )}
 
@@ -649,14 +641,6 @@ export function VerifyProof() {
                       <p className="text-xs text-slate-500 mt-2">
                         The ZK proof has been cryptographically verified on-chain. The credential is valid.
                       </p>
-                      <a 
-                        href={`https://preprod.midnightexplorer.com/transactions/${txResult.txId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-600 hover:underline mt-2 inline-block"
-                      >
-                        View on Explorer →
-                      </a>
                     </div>
                   )}
 
