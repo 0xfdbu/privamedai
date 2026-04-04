@@ -30,10 +30,8 @@ export function CredentialWallet() {
 
   const exportAllCredentials = () => {
     const exportData = {
-      type: 'privamedai-credentials-backup',
-      exportedAt: new Date().toISOString(),
-      count: credentials.length,
       credentials: credentials,
+      downloadDate: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -45,12 +43,11 @@ export function CredentialWallet() {
   };
 
   const exportSingleCredential = (cred: Credential) => {
-    const exportData = {
-      type: 'privamedai-credential',
-      exportedAt: new Date().toISOString(),
+    const credentialData = {
       ...cred,
+      downloadDate: new Date().toISOString(),
     };
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(credentialData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
