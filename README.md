@@ -106,22 +106,24 @@ The app will be available at `http://localhost:5173`
 ### Available Circuits
 
 **Admin & Issuer Management:**
-- `initialize` - Set contract admin
+- `initialize` - Set contract admin 🎯
 - `getAdmin` - Query admin address
-- `registerIssuer` - Open issuer registration
+- `registerIssuer` - Open issuer registration 🎯
 - `getIssuerInfo` - Query issuer details
 - `updateIssuerStatus` - Admin manage issuers
 
 **Credential Lifecycle:**
-- `issueCredential` - Issue single credential
-- `revokeCredential` - Issuer revocation
-- `adminRevokeCredential` - Admin emergency revocation
-- `checkCredentialStatus` - Query credential state
+- `issueCredential` - Issue single credential 🎯
+- `revokeCredential` - Issuer revocation 🎯
+- `adminRevokeCredential` - Admin emergency revocation 
+- `checkCredentialStatus` - Query credential state 🎯
 
-**🎯 Selective Disclosure (ZK Proofs):**
-- `verifyForFreeHealthClinic` - Prove age ≥ minAge
-- `verifyForPharmacy` - Prove prescription match
-- `verifyForHospital` - Prove age + condition match
+**🎯 Selective Disclosure (ZK Proofs):** 
+- `verifyForFreeHealthClinic` - Prove age ≥ minAge 🎯
+- `verifyForPharmacy` - Prove prescription match 🎯
+- `verifyForHospital` - Prove age + condition match 🎯 
+
+**For this hackathon demo, only Core functionalities/Circuits were Integrated / Tested**
 
 ## 🏗️ Architecture
 
@@ -149,7 +151,7 @@ repo/
 ├── frontend/                 # React frontend
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── user/            # AI Chat, Wallet, QR Share
+│   │   │   ├── user/            # AI Chat, Wallet
 │   │   │   ├── issuer/          # Issue Credential, Register Issuer
 │   │   │   └── verifier/        # Verify Proof, Network Stats
 │   │   └── services/
@@ -204,7 +206,7 @@ const NETWORK_CONFIG = {
 2. Import your credential file
 3. Describe what you need to prove (e.g., "prove I'm over 18 for clinic")
 4. AI generates selective disclosure proof
-5. Download or share QR code
+5. Download or copy
 
 ### 4. Verify Proof (Verifier)
 

@@ -15,7 +15,7 @@ export function CredentialWallet() {
           <h3 className="text-lg font-medium text-slate-700 mb-2">Privately Handled</h3>
           <p className="text-slate-500 max-w-sm mx-auto">
             Your medical credentials are handed over to you privately by your healthcare provider. 
-            They are stored securely in your browser for generating zero-knowledge proofs.
+            Contact your healthcare provider for a credential file.
           </p>
         </div>
       </CardBody>

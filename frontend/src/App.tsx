@@ -171,7 +171,7 @@ function PatientLayout() {
     <Routes>
       <Route path="/" element={<Navigate to="ai" replace />} />
       <Route path="ai" element={
-        <div className="h-[calc(100vh-64px)]">
+        <div className="h-full">
           <AIChatComposer />
         </div>
       } />
