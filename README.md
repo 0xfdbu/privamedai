@@ -41,12 +41,18 @@ The following features are intentionally simplified for hackathon demo purposes:
 - Condition codes (e.g., 100 = diabetes)
 - Prescription codes (e.g., 500)
 - All health claim data
+- Patient identity / wallet address (Midnight uses shielded addresses)
 
 **What's visible on-chain (public):**
-- Transaction hash
-- Verification counter increments
-- Credential commitment (hash identifier)
-- Threshold values checked (e.g., "age ≥ 18", "condition = 100")
+- Transaction hash (the receipt)
+- That the contract state changed
+- That `totalVerificationsPerformed` incremented
+- The tx was included in a block (validators accepted the SNARK proof)
+
+**What's NOT human-readable on the explorer:**
+- The serialized contract state blob (46KB encrypted data)
+- Which specific verifier circuit was called
+- The threshold values — they're embedded in the serialized state, not displayed as plain text
 
 ## 🌟 Features
 
@@ -228,6 +234,36 @@ HealthClaim           Witness Data        Boolean Result
 (age, condition,      + Private Key       (valid/invalid)
 prescription)         + On-Chain State
 ```
+
+### On-Chain Verification: Who Does What
+
+The on-chain verification transaction is **submitted by the patient** (the prover), not the verifier. This is critical for privacy:
+
+1. **Patient** generates the ZK proof on their device — they already hold the `healthClaim` (age, condition, prescription) in their imported credential file
+2. **Patient** clicks "Submit On-Chain Verification" — their Lace wallet signs the tx, their `healthClaim` fills the private witness
+3. **Patient** shows the verifier the tx hash or success screen
+4. **Verifier (doctor/clinic/pharmacy)** looks up the tx on [Midnight Explorer](https://preprod.midnightexplorer.com) to confirm it exists and was committed
+
+The verifier **never receives or needs the healthClaim data**. The proof JSON that gets copied/downloaded contains `healthClaim` only because the on-chain submission step requires it — in production, this would never leave the patient's wallet. For the demo, the patient submits the tx from their own device so the private data never leaves their control.
+
+### What the Verifier Can See On-Chain
+
+When a verifier looks up the tx on the Midnight Explorer, they can confirm:
+
+- ✅ A verification transaction was submitted to the PrivaMedAI contract
+- ✅ It was included in a block (network validators accepted it)
+- ✅ The contract state was mutated (the circuit executed successfully)
+- ✅ The `totalVerificationsPerformed` counter incremented
+
+### What the Verifier Can NEVER See On-Chain
+
+- ❌ Patient's actual age (e.g., 35)
+- ❌ Patient's condition code (e.g., 100 = diabetes)
+- ❌ Patient's prescription code (e.g., 500)
+- ❌ Patient's identity or wallet address (Midnight uses shielded addresses)
+- ❌ The preimage of the `claimHash` (one-way cryptographic hash)
+
+The tx hash is the **receipt**. The SNARK proof is embedded in the transaction cryptography — validators verified it, but the proof itself does not leak private inputs.
 
 ## 🧠 How ZK Proofs Work (Beginner's Guide)
 
