@@ -211,25 +211,13 @@ export function VerifyProof() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 py-6">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur">
-              <ShieldCheck className="w-7 h-7" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">Verify Proof</h1>
-              <p className="text-emerald-100 text-sm mt-1">
-                Validate zero-knowledge proofs on-chain
-              </p>
-            </div>
-          </div>
-          <div className="hidden sm:flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2 text-sm">
-            <Sparkles className="w-4 h-4" />
-            <span>ZK-Enabled</span>
-          </div>
+      {/* Header */}
+      <div className="text-center mb-8">
+        <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/25">
+          <ShieldCheck className="w-8 h-8 text-white" />
         </div>
+        <h1 className="text-2xl font-bold text-slate-900">Submit Proof</h1>
+        <p className="text-slate-500 mt-1">Validate your credential proof. Copy the transaction ID to show medical providers.</p>
       </div>
 
       {!result ? (

@@ -26,9 +26,9 @@ import { VerifyProof } from './components/verifier/VerifyProof';
 const navItems = [
   { path: '/patient/ai', label: 'Generate Proof', icon: Sparkles, section: 'Patient' },
   { path: '/patient/credentials', label: 'My Credentials', icon: CreditCard, section: 'Patient' },
+  { path: '/patient/verify', label: 'Verify Proof', icon: ShieldCheck, section: 'Patient' },
   { path: '/issuer/issue', label: 'Issue Credential', icon: PlusCircle, section: 'Provider' },
   { path: '/issuer/issuers', label: 'Registered Issuers', icon: Building2, section: 'Provider' },
-  { path: '/verifier/verify', label: 'Verify Proof', icon: ShieldCheck, section: 'Verifier' },
 ];
 
 // Group nav items by section
@@ -143,25 +143,24 @@ function AppContent() {
         <AppLayout>
           <main className="flex-1">
             <Routes>
-              {/* Patient Routes */}
-              <Route path="/patient/ai" element={
-                <div className="h-full">
-                  <AIChatComposer />
-                </div>
-              } />
-              <Route path="/patient/credentials" element={<CredentialWalletPage />} />
-              
-              {/* Provider Routes */}
-              <Route path="/issuer/issue" element={<IssueCredential />} />
-              <Route path="/issuer/issuers" element={<IssuerManagement />} />
-              
-              {/* Verifier Routes */}
-              <Route path="/verifier/verify" element={<VerifyProof />} />
-              
-              {/* Legacy redirects */}
-              <Route path="/patient" element={<Navigate to="/patient/ai" replace />} />
-              <Route path="/issuer" element={<Navigate to="/issuer/issue" replace />} />
-              <Route path="/verifier" element={<Navigate to="/verifier/verify" replace />} />
+               {/* Patient Routes */}
+               <Route path="/patient/ai" element={
+                 <div className="h-full">
+                   <AIChatComposer />
+                 </div>
+               } />
+               <Route path="/patient/credentials" element={<CredentialWalletPage />} />
+               <Route path="/patient/verify" element={<VerifyProof />} />
+               
+               {/* Provider Routes */}
+               <Route path="/issuer/issue" element={<IssueCredential />} />
+               <Route path="/issuer/issuers" element={<IssuerManagement />} />
+               
+               {/* Legacy redirects */}
+               <Route path="/patient" element={<Navigate to="/patient/ai" replace />} />
+               <Route path="/issuer" element={<Navigate to="/issuer/issue" replace />} />
+               <Route path="/verifier" element={<Navigate to="/patient/verify" replace />} />
+               <Route path="/verifier/verify" element={<Navigate to="/patient/verify" replace />} />
             </Routes>
           </main>
         </AppLayout>
