@@ -29,16 +29,19 @@
 | Credential Binding| Data-based commitment          | Add wallet binding |
 | Verifier Selection| AI natural-language detection  | Add explicit UI |
 
-### 🔒 Privacy Guarantees
-**Private (never on-chain):**
+## 🔒 Privacy Properties
+
+**Private (never stored in public ledger):**
 - Actual age, condition codes, prescription codes
-- Full health claim data
-- Patient identity (shielded addresses)
+- Full health claim data (only used as witness input in ZK proofs)
+
+**Protected via commitments (hashed before going on-chain):**
+- Credential binding data (includes patient address and claim metadata) is stored only as a hash commitment, not in plaintext. An attacker would need to guess the full preimage to link a specific patient to a credential.
 
 **Public (on-chain):**
 - Transaction hash & block inclusion
 - `totalVerificationsPerformed` counter
-- Circuit called
+- Which verifier circuit was called (clinic / pharmacy / hospital)
 
 ## 🌟 Core Features
 - Zero-knowledge medical credentials on-chain
