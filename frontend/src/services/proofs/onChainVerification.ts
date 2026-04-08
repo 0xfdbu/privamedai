@@ -21,6 +21,8 @@ const PRIVATE_STATE_ID = 'privamedai-private-state';
 export interface OnChainVerificationResult {
   success: boolean;
   txId?: string;
+  txHash?: string;
+  rawTx?: string;
   isValid?: boolean;
   error?: string;
 }
@@ -140,15 +142,35 @@ export async function submitOnChainVerification(
     });
 
     const txId = (result as any)?.public?.txId;
+    const txHash = (result as any)?.public?.txHash;
     const returnValue = (result as any)?.returnValue;
+    
+    // Get the deserialized ledger transaction
+    const finalized = (result as any)?.public;
+    const ledgerTx = finalized?.tx;
+    
+    // Get raw serialized transaction
+    let rawHex: string | undefined;
+    if (ledgerTx) {
+      try {
+        const serializedBytes: Uint8Array = ledgerTx.serialize();
+        rawHex = Buffer.from(serializedBytes).toString('hex');
+        console.log('   TX raw hex:', rawHex.substring(0, 64) + '...');
+      } catch (e) {
+        console.log('   Could not serialize TX:', e);
+      }
+    }
     
     console.log('✅ On-chain verification submitted:', txId);
     console.log('   Verification result:', returnValue);
+    console.log('   TX Hash:', txHash);
     console.log('   View on explorer: https://preprod.midnightexplorer.com/transactions/' + txId);
 
     return {
       success: true,
       txId: txId ? String(txId) : undefined,
+      txHash: txHash ? String(txHash) : undefined,
+      rawTx: rawHex,
       isValid: returnValue === true,
     };
   } catch (error: any) {

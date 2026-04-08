@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { ShieldCheck, Upload, CheckCircle, XCircle, FileCheck, AlertCircle, Send, Loader2, FileJson, ArrowRight, Sparkles } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ShieldCheck, Upload, CheckCircle, XCircle, FileCheck, AlertCircle, Send, Loader2, FileJson, ArrowRight, Sparkles, ExternalLink } from 'lucide-react';
 import { verifyZKProof, getCircuitInfo } from '../../services/proofs/verifier';
 import { submitOnChainVerification } from '../../services/proofs/onChainVerification';
+import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { CONFIG } from '../../services/contractService';
 
 interface VerificationResult {
@@ -21,8 +22,37 @@ export function VerifyProof() {
   const [proofInput, setProofInput] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [txResult, setTxResult] = useState<{txId?: string; error?: string; status?: 'pending' | 'success' | 'failed'} | null>(null);
+  const [txResult, setTxResult] = useState<{txId?: string; txHash?: string; rawTx?: string; error?: string; status?: 'pending' | 'success' | 'failed'} | null>(null);
   const [result, setResult] = useState<VerificationResult | null>(null);
+
+  // Watch for transaction status
+  useEffect(() => {
+    if (!txResult?.txId || txResult.status !== 'pending') return;
+
+    const checkStatus = async () => {
+      try {
+        const publicDataProvider = indexerPublicDataProvider(
+          CONFIG.indexer,
+          CONFIG.indexerWS
+        );
+        
+        const txData = await publicDataProvider.watchForTxData(txResult.txId);
+        
+        if (txData.status === 'SucceedEntirely') {
+          setTxResult(prev => prev ? { ...prev, status: 'success' } : null);
+        } else {
+          setTxResult(prev => prev ? { ...prev, status: 'failed', error: `Transaction failed with status: ${txData.status}` } : null);
+        }
+      } catch (error: any) {
+        console.error('Failed to check transaction status:', error);
+        setTxResult(prev => prev ? { ...prev, status: 'failed', error: error.message } : null);
+      }
+    };
+
+    // Check after a short delay to allow transaction to propagate
+    const timer = setTimeout(checkStatus, 3000);
+    return () => clearTimeout(timer);
+  }, [txResult?.txId, txResult?.status]);
 
   const handleVerify = async () => {
     if (!proofInput.trim()) return;
@@ -192,7 +222,12 @@ export function VerifyProof() {
       );
       
       if (submitResult.success) {
-        setTxResult({ txId: submitResult.txId, status: 'pending' });
+        setTxResult({ 
+          txId: submitResult.txId, 
+          txHash: submitResult.txHash,
+          rawTx: submitResult.rawTx,
+          status: 'pending' 
+        });
       } else {
         setTxResult({ error: submitResult.error, status: 'failed' });
       }
@@ -413,7 +448,24 @@ export function VerifyProof() {
                     <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
                     <span className="font-medium text-amber-800">Verifying on-chain...</span>
                   </div>
-                  <p className="text-xs font-mono text-amber-900 break-all">{txResult.txId}</p>
+                  <div className="space-y-1 text-xs">
+                    <p className="text-amber-700">Transaction ID:</p>
+                    <p className="font-mono text-amber-900 break-all">{txResult.txId}</p>
+                    {txResult.txHash && (
+                      <>
+                        <p className="text-amber-700 mt-2">Transaction Hash:</p>
+                        <p className="font-mono text-amber-900 break-all">{txResult.txHash}</p>
+                      </>
+                    )}
+                    <a 
+                      href={`https://preprod.midnightexplorer.com/transactions/${txResult.txId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-blue-600 hover:underline mt-2"
+                    >
+                      View in Explorer <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
                 </div>
               )}
 
@@ -423,7 +475,32 @@ export function VerifyProof() {
                     <CheckCircle className="w-4 h-4 text-emerald-600" />
                     <span className="font-medium text-emerald-800">Verified on-chain!</span>
                   </div>
-                  <p className="text-xs font-mono text-emerald-900 break-all">{txResult.txId}</p>
+                  <div className="space-y-1 text-xs">
+                    <p className="text-emerald-700">Transaction ID:</p>
+                    <p className="font-mono text-emerald-900 break-all">{txResult.txId}</p>
+                    {txResult.txHash && (
+                      <>
+                        <p className="text-emerald-700 mt-2">Transaction Hash:</p>
+                        <p className="font-mono text-emerald-900 break-all">{txResult.txHash}</p>
+                      </>
+                    )}
+                    <a 
+                      href={`https://preprod.midnightexplorer.com/transactions/${txResult.txId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-blue-600 hover:underline mt-2"
+                    >
+                      View in Explorer <ExternalLink className="w-3 h-3" />
+                    </a>
+                    {txResult.rawTx && (
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-emerald-700 hover:text-emerald-900">Raw Transaction Data</summary>
+                        <pre className="mt-2 text-xs font-mono text-emerald-800 bg-white p-2 rounded border border-emerald-200 overflow-x-auto whitespace-pre-wrap break-all">
+                          {txResult.rawTx}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
                 </div>
               )}
 

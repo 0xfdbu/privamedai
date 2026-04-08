@@ -4,7 +4,8 @@ import {
   CreditCard, 
   PlusCircle,
   Building2,
-  ShieldCheck, 
+  ShieldCheck,
+  Settings,
 } from 'lucide-react';
 import { Header } from './components/layout/Header';
 import { Footer } from './components/layout/Footer';
@@ -17,6 +18,7 @@ import { AIChatComposer } from './components/user/AIChatComposer';
 // Issuer Portal Pages
 import { IssueCredential } from './components/issuer/IssueCredential';
 import { IssuerManagement } from './components/issuer/IssuerManagement';
+import { ManageCredentials } from './components/issuer/ManageCredentials';
 
 // Verifier Portal Pages
 import { VerifyProof } from './components/verifier/VerifyProof';
@@ -27,6 +29,7 @@ const navItems = [
   { path: '/patient/verify', label: 'Submit Proof', icon: ShieldCheck, section: 'Patient' },
   { path: '/issuer/issue', label: 'Issue Credential', icon: PlusCircle, section: 'Provider' },
   { path: '/issuer/issuers', label: 'Registered Issuers', icon: Building2, section: 'Provider' },
+  { path: '/issuer/manage', label: 'Manage Credentials', icon: Settings, section: 'Provider' },
 ];
 
 // Group nav items by section
@@ -132,11 +135,12 @@ function AppContent() {
                    <AIChatComposer />
                  </div>
                } />
-               <Route path="/patient/verify" element={<VerifyProof />} />
-               
-               {/* Provider Routes */}
-               <Route path="/issuer/issue" element={<IssueCredential />} />
-               <Route path="/issuer/issuers" element={<IssuerManagement />} />
+                <Route path="/patient/verify" element={<VerifyProof />} />
+                
+                {/* Provider Routes */}
+                <Route path="/issuer/issue" element={<IssueCredential />} />
+                <Route path="/issuer/issuers" element={<IssuerManagement />} />
+                <Route path="/issuer/manage" element={<ManageCredentials />} />
                
                {/* Legacy redirects */}
                <Route path="/patient" element={<Navigate to="/patient/ai" replace />} />

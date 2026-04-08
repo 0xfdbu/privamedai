@@ -127,7 +127,7 @@ export function ManageCredentials() {
   const revokedCount = credentials.filter(c => c.status === 'REVOKED').length;
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-6xl space-y-6 mx-auto py-6">
       <Card>
         <CardHeader 
           title="Manage Issued Credentials" 
