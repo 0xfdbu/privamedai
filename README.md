@@ -1,4 +1,4 @@
-**# PrivaMedAI - Zero-Knowledge Medical Credentials on Midnight Network**
+# PrivaMedAI - Zero-Knowledge Medical Credentials on Midnight Network**
 
 [![Midnight](https://img.shields.io/badge/Midnight-Preprod-blue)](https://midnight.network)
 [![Compact](https://img.shields.io/badge/Compact-0.30.0-green)](https://docs.midnight.network)
