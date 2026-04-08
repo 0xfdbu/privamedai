@@ -12,7 +12,6 @@ import { Footer } from './components/layout/Footer';
 // User Portal Pages
 import { LandingPage } from './components/LandingPage';
 import { AIChatComposer } from './components/user/AIChatComposer';
-import { CredentialWallet } from './components/user/CredentialWallet';
 
 
 // Issuer Portal Pages
@@ -25,7 +24,6 @@ import { VerifyProof } from './components/verifier/VerifyProof';
 // Sidebar navigation
 const navItems = [
   { path: '/patient/ai', label: 'Generate Proof', icon: Sparkles, section: 'Patient' },
-  { path: '/patient/credentials', label: 'My Credentials', icon: CreditCard, section: 'Patient' },
   { path: '/patient/verify', label: 'Submit Proof', icon: ShieldCheck, section: 'Patient' },
   { path: '/issuer/issue', label: 'Issue Credential', icon: PlusCircle, section: 'Provider' },
   { path: '/issuer/issuers', label: 'Registered Issuers', icon: Building2, section: 'Provider' },
@@ -90,21 +88,6 @@ function Sidebar() {
   );
 }
 
-// Page wrapper for credential wallet
-function CredentialWalletPage() {
-  return (
-    <div className="min-h-screen p-4 sm:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">My Credentials</h1>
-          <p className="text-sm text-slate-500">View and manage your medical credentials</p>
-        </div>
-        <CredentialWallet />
-      </div>
-    </div>
-  );
-}
-
 function AppLayout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const isLandingPage = location.pathname === '/';
@@ -149,7 +132,6 @@ function AppContent() {
                    <AIChatComposer />
                  </div>
                } />
-               <Route path="/patient/credentials" element={<CredentialWalletPage />} />
                <Route path="/patient/verify" element={<VerifyProof />} />
                
                {/* Provider Routes */}
