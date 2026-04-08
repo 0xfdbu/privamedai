@@ -22,14 +22,7 @@ const FEATURES = [
     desc: 'Issue verifiable medical credentials on the Midnight blockchain with selective disclosure built-in.',
     accent: '#ccfbf1',
     iconColor: '#0d9488',
-  },
-  {
-    icon: ShieldCheck,
-    label: 'For Verifiers',
-    desc: 'Verify proofs on-chain without accessing any private health data. Validate authenticity instantly.',
-    accent: '#dcfce7',
-    iconColor: '#16a34a',
-  },
+  }
 ];
 
 export function LandingPage() {

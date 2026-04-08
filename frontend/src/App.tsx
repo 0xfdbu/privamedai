@@ -26,7 +26,7 @@ import { VerifyProof } from './components/verifier/VerifyProof';
 const navItems = [
   { path: '/patient/ai', label: 'Generate Proof', icon: Sparkles, section: 'Patient' },
   { path: '/patient/credentials', label: 'My Credentials', icon: CreditCard, section: 'Patient' },
-  { path: '/patient/verify', label: 'Verify Proof', icon: ShieldCheck, section: 'Patient' },
+  { path: '/patient/verify', label: 'Submit Proof', icon: ShieldCheck, section: 'Patient' },
   { path: '/issuer/issue', label: 'Issue Credential', icon: PlusCircle, section: 'Provider' },
   { path: '/issuer/issuers', label: 'Registered Issuers', icon: Building2, section: 'Provider' },
 ];
