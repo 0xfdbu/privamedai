@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Sparkles, ArrowRight, UserCircle, Stethoscope, ShieldCheck, Activity, Check } from 'lucide-react';
+import { Sparkles, ArrowRight, UserCircle, Stethoscope, ShieldCheck, Activity, Check, Heading1 } from 'lucide-react';
 import { WalletButton } from './layout/WalletButton';
 
 const CIRCUITS = [
@@ -211,6 +211,77 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* ─── Selective Disclosure ─── */}
+      <section style={{ maxWidth: 1120, margin: '0 auto', padding: '88px 24px' }}>
+        <div style={{ marginBottom: 48 }}>
+          <p className="pmx-num">03 — PRIVACY</p>
+          <h2 style={{ fontSize: 'clamp(28px, 3vw, 38px)', fontWeight: 800, color: '#022c22', letterSpacing: '-0.025em', margin: '8px 0 12px' }}>
+            Selective Disclosure
+          </h2>
+          <p style={{ fontSize: 16, color: '#6b7280', fontFamily: "'DM Sans', sans-serif", maxWidth: 500 }}>
+            Zero-knowledge proofs let you prove what you need to share — nothing more.
+          </p>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
+          {/* What's Private */}
+          <div style={{ background: '#fff', border: '1px solid #fecaca', borderRadius: 20, padding: 32 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+              <div style={{ width: 40, height: 40, background: '#fef2f2', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ShieldCheck size={20} color="#dc2626" />
+              </div>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: '#991b1b', margin: 0 }}>
+                ZK-Protected (never on-chain)
+              </h3>
+            </div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[
+                'Actual age value (e.g., 35)',
+                'Condition codes (e.g., 100 = diabetes)',
+                'Prescription codes (e.g., 500)',
+                'All health claim data',
+                'Patient identity / wallet address',
+              ].map((item, i) => (
+                <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <span style={{ width: 20, height: 20, background: '#fee2e2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                  </span>
+                  <span style={{ fontSize: 14, color: '#7f1d1d', fontFamily: "'DM Sans', sans-serif" }}>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* What's Visible */}
+          <div style={{ background: '#fff', border: '1px solid #bbf7d0', borderRadius: 20, padding: 32 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+              <div style={{ width: 40, height: 40, background: '#f0fdf4', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Activity size={20} color="#16a34a" />
+              </div>
+              <h3 style={{ fontSize: 18, fontWeight: 700, color: '#166534', margin: 0 }}>
+                Visible on-chain (public)
+              </h3>
+            </div>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[
+                'Transaction hash (the receipt)',
+                'Contract state changed',
+                'totalVerificationsPerformed incremented',
+                'Transaction included in a block',
+                'The circuit you called',
+              ].map((item, i) => (
+                <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <span style={{ width: 20, height: 20, background: '#dcfce7', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="3"><path d="M20 6L9 17l-5-5" /></svg>
+                  </span>
+                  <span style={{ fontSize: 14, color: '#14532d', fontFamily: "'DM Sans', sans-serif" }}>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
       {/* ─── CTA Banner ─── */}
       <section style={{ maxWidth: 1120, margin: '0 auto', padding: '80px 24px' }}>
         <div style={{
@@ -221,10 +292,10 @@ export function LandingPage() {
           <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, rgba(16,185,129,0.15) 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
           <div style={{ position: 'absolute', top: -80, right: -80, width: 320, height: 320, background: 'radial-gradient(circle, rgba(16,185,129,0.2) 0%, transparent 70%)', borderRadius: '50%' }} />
           <div style={{ position: 'relative', zIndex: 1 }}>
-            <p className="pmx-num" style={{ color: '#6ee7b7', marginBottom: 16 }}>GET STARTED</p>
-            <h2 style={{ fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', margin: '0 0 16px' }}>
+            <p className="pmx-num" style={{ color: '#6ee7b7', marginBottom: 16 }}>04 — GET STARTED</p>
+            <h1 style={{ fontSize: 'clamp(36px, 4vw, 52px)', fontWeight: 800, color: '#fff', letterSpacing: '-0.03em', margin: '0 0 16px' }}>
               Take control of your<br />medical privacy.
-            </h2>
+            </h1>
             <p style={{ fontSize: 16, color: '#a7f3d0', fontFamily: "'DM Sans', sans-serif", margin: '0 0 36px' }}>
               Your data. Your proof. Zero exposure.
             </p>

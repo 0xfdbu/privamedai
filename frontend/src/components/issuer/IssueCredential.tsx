@@ -277,7 +277,7 @@ export function IssueCredential() {
 
   if (result?.success) {
     return (
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto py-8">
         <Card className="border-emerald-200 shadow-xl shadow-emerald-500/10 overflow-hidden">
           <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 p-6 text-white">
             <div className="flex items-center gap-3">
@@ -551,7 +551,7 @@ export function IssueCredential() {
           </Card>
 
           {/* How It Works Card */}
-          <Card className="bg-slate-50 border-slate-200">
+          <Card className="bg-slate-50 border-slate-200 ">
             <CardBody className="p-4">
               <h3 className="font-semibold text-slate-900 text-sm mb-3">How It Works</h3>
               <div className="space-y-3">

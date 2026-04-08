@@ -249,6 +249,7 @@ When a verifier looks up the tx on the Midnight Explorer, they can confirm:
 - ✅ It was included in a block (network validators accepted it)
 - ✅ The contract state was mutated (the circuit executed successfully)
 - ✅ The `totalVerificationsPerformed` counter incremented
+- ✅ The `Verify..` circuit you called
 
 ### What the Verifier Can NEVER See On-Chain
 
