@@ -231,7 +231,7 @@ export function LandingPage() {
                 <ShieldCheck size={20} color="#dc2626" />
               </div>
               <h3 style={{ fontSize: 18, fontWeight: 700, color: '#991b1b', margin: 0 }}>
-                ZK-Protected (never on-chain)
+                ZK-Protected
               </h3>
             </div>
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
