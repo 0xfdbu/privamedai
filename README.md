@@ -77,11 +77,10 @@ App runs at `http://localhost:5173`
 - **Contract Address:** `18610af33928fa54fd2393c54413a1724e781922b0277c630bb1658475249a31`
 - **Deployment Tx:** `007c1086b4e1fcb2412e07fc4c9bf5498ec49d254c468972270d543bec3dd69269`
 - **Block Height:** 204246
-- **Circuits:** 12 (3 patient-facing selective disclosure circuits fully integrated)
 
 ## 🏗️ Architecture
 ```
-Frontend (React) ↔ Midnight Preprod Node ↔ Smart Contract (12 circuits)
+Frontend (React) ↔ Midnight Preprod Node ↔ Smart Contract 
                   ↕
              Proof Server (local) + Indexer
 ```
