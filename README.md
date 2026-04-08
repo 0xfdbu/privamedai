@@ -38,10 +38,7 @@
 **Public (on-chain):**
 - Transaction hash & block inclusion
 - `totalVerificationsPerformed` counter
-
-**Not human-readable on explorer:**
-- Serialized contract state (encrypted blob)
-- Specific verifier circuit called
+- Circuit called
 
 ## 🌟 Core Features
 - Zero-knowledge medical credentials on-chain
