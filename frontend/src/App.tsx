@@ -28,7 +28,7 @@ const navItems = [
   { path: '/patient/ai', label: 'Generate Proof', icon: Sparkles, section: 'Patient' },
   { path: '/patient/verify', label: 'Submit Proof', icon: ShieldCheck, section: 'Patient' },
   { path: '/issuer/issue', label: 'Issue Credential', icon: PlusCircle, section: 'Provider' },
-  { path: '/issuer/issuers', label: 'Registered Issuers', icon: Building2, section: 'Provider' },
+  { path: '/issuer/issuers', label: 'Register As Issuer', icon: Building2, section: 'Provider' },
   { path: '/issuer/manage', label: 'Manage Credentials', icon: Settings, section: 'Provider' },
 ];
 
