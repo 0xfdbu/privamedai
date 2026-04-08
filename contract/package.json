@@ -32,7 +32,7 @@
   },
   "scripts": {
     "compact": "rm -rf src/managed/* && name=$(basename $(ls src/*.compact) .compact) && compactc src/$name.compact src/managed/$name",
-    "build": "rm -rf dist && tsc --project tsconfig.build.json && cp -Rf ./src/managed ./dist/managed && cp ./src/*.compact ./dist",
+    "build": "rm -rf dist && mkdir -p dist && cp -Rf ./src/managed ./dist/managed && cp ./src/*.compact ./dist",
     "lint": "eslint src",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "npm run compact && npm run build",
