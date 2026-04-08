@@ -1,13 +1,22 @@
 import { GeneratedRule } from '../types/claims';
 
-const API_URL = import.meta.env.VITE_XAI_API_URL || 'https://api.x.ai/v1/chat/completions';
-const MODEL = import.meta.env.VITE_XAI_MODEL || 'grok-4-1-fast-reasoning';
-const API_KEY = import.meta.env.VITE_XAI_API_KEY;
+const STORAGE_KEY = 'privamed-ai-settings';
 
-export interface AIResponse {
-  rules: GeneratedRule[];
-  explanation: string;
-  circuitType: 'single' | 'bundled';
+const DEFAULT_SETTINGS = {
+  apiKey: '',
+  model: 'minimax/minimax-m2.5:free',
+};
+
+function getSettings() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+    }
+  } catch (e) {
+    console.error('Failed to load AI settings:', e);
+  }
+  return DEFAULT_SETTINGS;
 }
 
 const SYSTEM_PROMPT = `You are an AI Claim Composer for PrivaMedAI, a privacy-preserving medical credential system using zero-knowledge proofs.
@@ -42,20 +51,37 @@ Rules:
 4. Use bundled circuitType if more than 2 rules
 5. Keep explanations under 100 characters`;
 
+export interface AIResponse {
+  rules: GeneratedRule[];
+  explanation: string;
+  circuitType: 'single' | 'bundled';
+}
+
 export async function parseNaturalLanguage(input: string): Promise<AIResponse> {
-  if (!API_KEY || API_KEY === 'your-xai-api-key-here') {
-    throw new Error('AI API key not configured. Please set VITE_XAI_API_KEY in your .env file. Get your key from https://x.ai');
+  const settings = getSettings();
+  const { apiKey, model } = settings;
+
+  if (!apiKey || apiKey.trim() === '') {
+    throw new Error(
+      'AI API key not configured. Click the ⚙️ icon in the AI chat to set up your OpenRouter API key.'
+    );
+  }
+
+  if (!model || model.trim() === '') {
+    throw new Error('Please configure a model in the AI settings.');
   }
 
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
+        'Authorization': `Bearer ${apiKey.trim()}`,
+        'HTTP-Referer': window.location.origin,
+        'X-Title': 'PrivaMedAI',
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: model.trim(),
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: input }
@@ -66,22 +92,32 @@ export async function parseNaturalLanguage(input: string): Promise<AIResponse> {
     });
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    const content = data.choices[0]?.message?.content;
+    console.log('AI Response:', JSON.stringify(data, null, 2));
     
-    if (!content) {
-      throw new Error('Empty response');
+    const content = data.choices?.[0]?.message?.content ?? data.choices?.[0]?.message?.text ?? '';
+    
+    if (!content || typeof content !== 'string') {
+      console.log('No content in response, full data:', data);
+      throw new Error('Empty response from AI');
     }
 
     // Extract JSON from response (handle markdown code blocks)
     const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || 
                       content.match(/{[\s\S]*}/);
     
-    const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
-    const parsed = JSON.parse(jsonStr);
+    let parsed: any;
+    try {
+      const jsonStr = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
+      parsed = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('Failed to parse JSON from response:', content);
+      throw new Error('AI response was not valid JSON');
+    }
 
     return {
       rules: parsed.rules || [],
@@ -94,3 +130,7 @@ export async function parseNaturalLanguage(input: string): Promise<AIResponse> {
   }
 }
 
+export function hasApiKeyConfigured(): boolean {
+  const settings = getSettings();
+  return settings.apiKey.trim().length > 0;
+}

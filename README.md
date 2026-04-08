@@ -59,9 +59,9 @@ The following features are intentionally simplified for hackathon demo purposes:
 ### Core Capabilities
 - **🔐 Zero-Knowledge Credentials** - Medical credentials issued on-chain with cryptographic privacy
 - **🎯 Selective Disclosure** - Prove specific claims (age, prescriptions, conditions) without revealing full health records
-- **🏥 Multi-Role Verifiers** - Different verification levels for clinics, pharmacies, and hospitals
-- **✅ Verifiable Proofs** - On-chain verification with immutable audit trails
-- **🤖 AI-Powered Interface** - Natural language proof generation
+- **🏥 Multi-Role Verifiers** - Different verification for clinics, pharmacies, and hospitals
+- **✅ On-Chain Verification** - Transaction submitted to blockchain for verification
+- **🤖 AI-Powered Interface** - Natural language proof generation via OpenRouter
 
 ### Selective Disclosure Verifiers
 | Verifier | Discloses | Keeps Private |
@@ -111,25 +111,16 @@ The app will be available at `http://localhost:5173`
 
 ### Available Circuits
 
-**Admin & Issuer Management:**
-- `initialize` - Set contract admin 🎯
-- `getAdmin` - Query admin address
-- `registerIssuer` - Open issuer registration 🎯
-- `getIssuerInfo` - Query issuer details
-- `updateIssuerStatus` - Admin manage issuers
+The contract has 12 circuits. The frontend integrates the core patient-facing workflows:
 
-**Credential Lifecycle:**
-- `issueCredential` - Issue single credential 🎯
-- `revokeCredential` - Issuer revocation 🎯
-- `adminRevokeCredential` - Admin emergency revocation 
-- `checkCredentialStatus` - Query credential state 🎯
+**Patient & Credential:**
+- `issueCredential` - Issue medical credential to patient 🎯
+- `checkCredentialStatus` - Query credential state on-chain 🎯
 
 **🎯 Selective Disclosure (ZK Proofs):** 
 - `verifyForFreeHealthClinic` - Prove age ≥ minAge 🎯
 - `verifyForPharmacy` - Prove prescription match 🎯
-- `verifyForHospital` - Prove age + condition match 🎯 
-
-**For this hackathon demo, only Core functionalities/Circuits were Integrated / Tested**
+- `verifyForHospital` - Prove age + condition match 🎯
 
 ## 🏗️ Architecture
 
@@ -146,26 +137,30 @@ The app will be available at `http://localhost:5173`
 └─────────────────┘     └──────────────────┘
 ```
 
+**Frontend Integrates:**
+- AI Chat for natural language proof generation
+- Credential import and management
+- 3 selective disclosure circuits (clinic, pharmacy, hospital)
+
 ## 📁 Project Structure
 
 ```
 repo/
-├── contract/                 # Compact smart contract
+├── contract/                 # Compact smart contract (12 circuits)
 │   ├── src/
-│   │   └── PrivaMedAI.compact    # Main contract (12 circuits)
-│   └── dist/                     # Compiled artifacts
+│   │   └── PrivaMedAI.compact
+│   └── dist/                 # Compiled artifacts
 ├── frontend/                 # React frontend
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── user/            # AI Chat, Wallet
-│   │   │   ├── issuer/          # Issue Credential, Register Issuer
-│   │   │   └── verifier/        # Verify Proof, Network Stats
+│   │   │   ├── user/        # AI Chat (natural language proof gen)
+│   │   │   ├── issuer/       # Issue credentials
+│   │   │   └── verifier/    # Verify proofs on-chain
 │   │   └── services/
-│   │       ├── midnight/        # Contract integration
-│   │       └── proofs/          # ZK proof generation
-│   └── public/managed/          # ZK config files
+│   │       └── proofs/       # ZK proof generation
+│   └── public/managed/       # ZK config files
 └── scripts/
-    └── deploy-privamedai.ts     # Deployment script
+    └── deploy-privamedai.ts  # Deployment script
 ```
 
 ## 🔧 Configuration
@@ -348,10 +343,7 @@ The difference: In ZK, the "envelope" is mathematics, not paper!
 
 ## 🧪 Testing
 
-We maintain comprehensive test coverage with **109 tests** covering contract logic, ZK proof generation, and end-to-end integration. Tests were created using multi-agent swarm validation and Midnight MCP documentation verification.
-
-### Test Report
-📊 **[View Full Test Report](TEST_REPORT.md)** - Detailed breakdown of all 109 tests, coverage analysis, and verification results.
+We maintain comprehensive test coverage with **95 tests** covering contract logic, ZK proof generation, and integration.
 
 ### Quick Test Run
 
@@ -362,7 +354,6 @@ npx vitest run
 # Run specific test suites
 npx vitest run tests/contract-tests.ts          # Contract logic (41 tests)
 npx vitest run tests/proof-verification.test.ts # ZK proofs (54 tests)
-npx vitest run tests/integration-tests.ts       # E2E integration (14 tests)
 
 # Run with coverage
 npx vitest run --coverage
@@ -374,8 +365,8 @@ npx vitest run --coverage
 |-------|-------|--------|---------------|
 | **Contract Tests** | 41 | ✅ All Passing | Issuer mgmt, credentials, circuits |
 | **ZK Proof Verification** | 54 | ✅ All Passing | SNARK validation, artifacts, circuits |
-| **Integration Tests** | 14 | ⏭️ Network Dependent | E2E flows, network integration |
-| **TOTAL** | **109** | **95 Core Passing** | **Full system coverage** |
+| **Integration Tests** | 14 | ⏭️ Skipped | Requires network (wallet sync, funded account) |
+| **TOTAL** | **109** | **95 Passing** | **Core system coverage** |
 
 ### What Tests Verify
 
@@ -396,10 +387,10 @@ npx vitest run --coverage
 | Verifier Keys | ~2.1 KB | Official SDK format |
 | ZKIR Files | 8-12 KB | Valid JSON IR |
 
-#### ✅ All 3 Selective Disclosure Circuits
-- `verifyForFreeHealthClinic` (age ≥ threshold)
-- `verifyForPharmacy` (prescription match)
-- `verifyForHospital` (age + condition match)
+#### ✅ All 3 Selective Disclosure Circuits (Frontend Integrated)
+- `verifyForFreeHealthClinic` (age ≥ threshold) - AI: "prove I'm over 18 for clinic"
+- `verifyForPharmacy` (prescription match) - AI: "prove I have prescription for pharmacy"  
+- `verifyForHospital` (age + condition match) - AI: "prove my age and condition for hospital"
 
 #### ✅ Security Boundaries
 - Admin-only function protection
@@ -505,7 +496,7 @@ This is a hackathon project demonstrating selective disclosure on Midnight. Feel
 - Enable expiry checking in verification circuits
 - Add nullifier tracking for replay protection
 - Implement cryptographic binding to subject wallet
-- Add more verifier types (range proofs, NOT proofs)
+- Improve AI model selection and prompt engineering
 
 ---
 

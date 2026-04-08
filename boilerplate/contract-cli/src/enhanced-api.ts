@@ -1,5 +1,5 @@
 // Enhanced API wrapper for PrivaMedAI Contract
-// Generated on: 2026-04-02T23:13:58.518Z
+// Generated on: 2026-04-07T22:58:11.286Z
 // Auto-generated from PrivaMedAI.compact
 
 import { type Logger } from 'pino';
@@ -123,28 +123,22 @@ export class EnhancedContractAPI {
     return await (originalApi as any).issueCredential(...args);
   }
   /**
-   * Execute batchIssue3Credentials function
+   * Execute verifyForFreeHealthClinic function
    */
-  async batchIssue3Credentials(...args: any[]): Promise<any> {
-    return await (originalApi as any).batchIssue3Credentials(...args);
+  async verifyForFreeHealthClinic(...args: any[]): Promise<any> {
+    return await (originalApi as any).verifyForFreeHealthClinic(...args);
   }
   /**
-   * Execute verifyCredential function
+   * Execute verifyForPharmacy function
    */
-  async verifyCredential(...args: any[]): Promise<any> {
-    return await (originalApi as any).verifyCredential(...args);
+  async verifyForPharmacy(...args: any[]): Promise<any> {
+    return await (originalApi as any).verifyForPharmacy(...args);
   }
   /**
-   * Execute bundledVerify3Credentials function
+   * Execute verifyForHospital function
    */
-  async bundledVerify3Credentials(...args: any[]): Promise<any> {
-    return await (originalApi as any).bundledVerify3Credentials(...args);
-  }
-  /**
-   * Execute bundledVerify2Credentials function
-   */
-  async bundledVerify2Credentials(...args: any[]): Promise<any> {
-    return await (originalApi as any).bundledVerify2Credentials(...args);
+  async verifyForHospital(...args: any[]): Promise<any> {
+    return await (originalApi as any).verifyForHospital(...args);
   }
   /**
    * Execute revokeCredential function
@@ -170,7 +164,7 @@ export class EnhancedContractAPI {
 export const CONTRACT_METADATA = {
   name: 'PrivaMedAI Contract',
   fileName: 'PrivaMedAI.compact',
-  generatedAt: '2026-04-02T23:13:58.518Z',
+  generatedAt: '2026-04-07T22:58:11.286Z',
   functions: [
   {
     "name": "initialize",
@@ -266,116 +260,49 @@ export const CONTRACT_METADATA = {
     "readOnly": false
   },
   {
-    "name": "batchIssue3Credentials",
-    "parameters": [
-      {
-        "name": "callerPubKey",
-        "type": "Bytes<32>"
-      },
-      {
-        "name": "commitment1",
-        "type": "Bytes<32>"
-      },
-      {
-        "name": "claimHash1",
-        "type": "Bytes<32>"
-      },
-      {
-        "name": "expiry1",
-        "type": "Uint<64>"
-      },
-      {
-        "name": "commitment2",
-        "type": "Bytes<32>"
-      },
-      {
-        "name": "claimHash2",
-        "type": "Bytes<32>"
-      },
-      {
-        "name": "expiry2",
-        "type": "Uint<64>"
-      },
-      {
-        "name": "commitment3",
-        "type": "Bytes<32>"
-      },
-      {
-        "name": "claimHash3",
-        "type": "Bytes<32>"
-      },
-      {
-        "name": "expiry3",
-        "type": "Uint<64>"
-      }
-    ],
-    "returnType": "[]",
-    "readOnly": false
-  },
-  {
-    "name": "verifyCredential",
+    "name": "verifyForFreeHealthClinic",
     "parameters": [
       {
         "name": "commitment",
         "type": "Bytes<32>"
       },
       {
-        "name": "credentialData",
-        "type": "Bytes<32>"
+        "name": "minAge",
+        "type": "Uint<8>"
       }
     ],
     "returnType": "Boolean",
     "readOnly": true
   },
   {
-    "name": "bundledVerify3Credentials",
+    "name": "verifyForPharmacy",
     "parameters": [
       {
-        "name": "commitment1",
+        "name": "commitment",
         "type": "Bytes<32>"
       },
       {
-        "name": "credentialData1",
-        "type": "Bytes<32>"
-      },
-      {
-        "name": "commitment2",
-        "type": "Bytes<32>"
-      },
-      {
-        "name": "credentialData2",
-        "type": "Bytes<32>"
-      },
-      {
-        "name": "commitment3",
-        "type": "Bytes<32>"
-      },
-      {
-        "name": "credentialData3",
-        "type": "Bytes<32>"
+        "name": "requiredPrescription",
+        "type": "Uint<16>"
       }
     ],
     "returnType": "Boolean",
     "readOnly": true
   },
   {
-    "name": "bundledVerify2Credentials",
+    "name": "verifyForHospital",
     "parameters": [
       {
-        "name": "commitment1",
+        "name": "commitment",
         "type": "Bytes<32>"
       },
       {
-        "name": "credentialData1",
-        "type": "Bytes<32>"
+        "name": "minAge",
+        "type": "Uint<8>"
       },
       {
-        "name": "commitment2",
-        "type": "Bytes<32>"
-      },
-      {
-        "name": "credentialData2",
-        "type": "Bytes<32>"
+        "name": "requiredCondition",
+        "type": "Uint<16>"
       }
     ],
     "returnType": "Boolean",

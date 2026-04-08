@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, Shield, Check, Copy, Download, Loader2, ChevronDown, AlertCircle, Info } from 'lucide-react';
-import { parseNaturalLanguage } from '../../services/xaiService';
+import { Send, Sparkles, Shield, Check, Copy, Download, Loader2, ChevronDown, AlertCircle, Info, Settings } from 'lucide-react';
+import { parseNaturalLanguage } from '../../services/aiService';
 import { generateProductionZKProof } from '../../services/proofServiceProd';
 import { getWalletState } from '../../services/contractService';
 import { queryCredentialsOnChain, checkCredentialOnChain } from '../../services/contractInteraction';
 import type { GeneratedRule } from '../../types/claims';
 import { CodeMappingsModal } from '../common/CodeMappingsModal';
+import { AISettingsModal } from '../common/AISettingsModal';
+import { useAISettings } from '../../hooks/useAISettings';
 
 // Credential data interface for patient's stored credentials
 interface PatientCredential {
@@ -93,6 +95,9 @@ export function AIChatComposer() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // AI Settings
+  const aiSettings = useAISettings();
 
   useEffect(() => {
     const wallet = getWalletState();
@@ -697,7 +702,7 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
       >
         {isEmpty ? (
           // Empty state
-          <div className="h-full flex flex-col items-center justify-center px-4">
+          <div className="py-20 flex flex-col items-center justify-center px-4">
             <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-3xl flex items-center justify-center mb-8 shadow-sm">
               <Sparkles className="w-10 h-10 text-emerald-600" />
             </div>
@@ -705,6 +710,13 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
               <h2 className="text-3xl font-semibold text-slate-800">
                 What do you need to prove?
               </h2>
+              <button
+                onClick={() => aiSettings.setShowSettings(true)}
+                className="p-2 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-full transition-colors"
+                title="AI Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
               <button
                 onClick={() => setShowCodeMappings(true)}
                 className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors"
@@ -930,6 +942,14 @@ ${privateFields.map(f => `• ${f}`).join('\n')}`;
       <CodeMappingsModal 
         isOpen={showCodeMappings} 
         onClose={() => setShowCodeMappings(false)} 
+      />
+      
+      {/* AI Settings Modal */}
+      <AISettingsModal
+        isOpen={aiSettings.showSettings}
+        onClose={() => aiSettings.setShowSettings(false)}
+        settings={aiSettings.settings}
+        onUpdateSettings={aiSettings.updateSettings}
       />
     </div>
   );

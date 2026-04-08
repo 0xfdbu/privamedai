@@ -33,32 +33,29 @@ interface MedicalCondition {
   label: string;
   icon: React.ElementType;
   description: string;
+  conditionCode: number;
+  prescriptionCode: number;
 }
 
+// Mapping: which condition enables which ZK circuit
+// conditionCode: 100 → verifyForHospital (age + condition match)
+// prescriptionCode: 500 → verifyForPharmacy (prescription match)
 const MEDICAL_CONDITIONS: MedicalCondition[] = [
   { 
     id: 'has_diabetes_diagnosis', 
-    label: 'Diabetes Diagnosis', 
+    label: 'Diabetes', 
     icon: Activity, 
-    description: 'Type 1 or Type 2 diabetes confirmed'
+    description: 'Type 1 or Type 2 diabetes',
+    conditionCode: 100,
+    prescriptionCode: 0
   },
   { 
-    id: 'vaccinated_last_6_months', 
-    label: 'Recent Vaccination', 
+    id: 'has_prescription', 
+    label: 'Prescription', 
     icon: Syringe, 
-    description: 'Vaccinated within last 6 months'
-  },
-  { 
-    id: 'medical_clearance', 
-    label: 'Medical Clearance', 
-    icon: FileCheck, 
-    description: 'Cleared for procedures or travel'
-  },
-  { 
-    id: 'free_healthcare_eligible', 
-    label: 'Free Healthcare Eligible', 
-    icon: HeartPulse, 
-    description: 'Qualifies for subsidized care'
+    description: 'Active prescription',
+    conditionCode: 0,
+    prescriptionCode: 500
   },
 ];
 
@@ -69,8 +66,6 @@ interface CredentialData {
   medicalData: {
     age: number;
     selectedConditions: string[];
-    vaccination_status: 'none' | 'partial' | 'complete';
-    annual_wellness_exam: 'pending' | 'completed';
     identity_verified: boolean;
     // HealthClaim fields for selective disclosure
     conditionCode: number;
@@ -97,8 +92,6 @@ export function IssueCredential() {
     medicalData: {
       age: 35,
       selectedConditions: [],
-      vaccination_status: 'none',
-      annual_wellness_exam: 'pending',
       identity_verified: true,
       conditionCode: 100,
       prescriptionCode: 500,
@@ -109,23 +102,52 @@ export function IssueCredential() {
   const [showPrivateCodes, setShowPrivateCodes] = useState(false);
 
   const toggleCondition = (conditionId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      medicalData: {
-        ...prev.medicalData,
-        selectedConditions: prev.medicalData.selectedConditions.includes(conditionId)
-          ? prev.medicalData.selectedConditions.filter(id => id !== conditionId)
-          : [...prev.medicalData.selectedConditions, conditionId]
+    const condition = MEDICAL_CONDITIONS.find(c => c.id === conditionId);
+    if (!condition) return;
+    
+    const isCurrentlySelected = formData.medicalData.selectedConditions.includes(conditionId);
+    
+    setFormData(prev => {
+      const newSelected = isCurrentlySelected
+        ? prev.medicalData.selectedConditions.filter(id => id !== conditionId)
+        : [...prev.medicalData.selectedConditions, conditionId];
+      
+      // Calculate combined codes based on ALL selected conditions
+      let combinedConditionCode = 0;
+      let combinedPrescriptionCode = 0;
+      
+      newSelected.forEach(id => {
+        const cond = MEDICAL_CONDITIONS.find(c => c.id === id);
+        if (cond) {
+          if (cond.conditionCode) combinedConditionCode = cond.conditionCode;
+          if (cond.prescriptionCode) combinedPrescriptionCode = cond.prescriptionCode;
+        }
+      });
+      
+      // If BOTH diabetes (100) and prescription (500) are selected, use both
+      const hasDiabetes = newSelected.includes('has_diabetes_diagnosis');
+      const hasPrescription = newSelected.includes('has_prescription');
+      if (hasDiabetes && hasPrescription) {
+        combinedConditionCode = 100;
+        combinedPrescriptionCode = 500;
       }
-    }));
+      
+      return {
+        ...prev,
+        medicalData: {
+          ...prev.medicalData,
+          selectedConditions: newSelected,
+          conditionCode: combinedConditionCode,
+          prescriptionCode: combinedPrescriptionCode,
+        }
+      };
+    });
   };
 
   const generateClaimData = () => {
     const claimData: Record<string, any> = {
       age: formData.medicalData.age,
       identity_verified: formData.medicalData.identity_verified,
-      vaccination_status: formData.medicalData.vaccination_status,
-      annual_wellness_exam: formData.medicalData.annual_wellness_exam,
       conditionCode: formData.medicalData.conditionCode,
       prescriptionCode: formData.medicalData.prescriptionCode,
     };
@@ -217,8 +239,6 @@ export function IssueCredential() {
         medicalData: {
           age: 35,
           selectedConditions: [],
-          vaccination_status: 'none',
-          annual_wellness_exam: 'pending',
           identity_verified: true,
           conditionCode: 100,
           prescriptionCode: 500,
@@ -303,7 +323,7 @@ export function IssueCredential() {
   }
 
   return (
-    <div className="mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6 py-6">
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
         <div className="flex items-start justify-between">
@@ -318,21 +338,21 @@ export function IssueCredential() {
               </p>
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2 text-sm">
-            <Sparkles className="w-4 h-4" />
-            <span>ZK-Enabled</span>
+            <div className="hidden sm:flex items-center gap-2 bg-white/10 rounded-lg px-3 py-2 text-sm">
+              <Sparkles className="w-4 h-4" />
+              <span>ZK-Enabled</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Form */}
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="border-slate-200 shadow-sm">
-            <CardBody className="p-6">
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Patient Address */}
-                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Form */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="border-slate-200 shadow-sm">
+              <CardBody className="p-6">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Patient Address */}
+                <div className="">
                   <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
                     <Wallet className="w-4 h-4 text-emerald-600" />
                     Patient Wallet Address
@@ -397,7 +417,7 @@ export function IssueCredential() {
 
                 {/* Age and Expiry Row */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                  <div className="">
                     <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
                       <User className="w-4 h-4 text-emerald-600" />
                       Patient Age
@@ -414,7 +434,7 @@ export function IssueCredential() {
                       className="bg-white"
                     />
                   </div>
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                  <div className="">
                     <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-3">
                       <Clock className="w-4 h-4 text-emerald-600" />
                       Validity Period
@@ -433,43 +453,6 @@ export function IssueCredential() {
                     <p className="text-xs text-slate-400 mt-2">
                       Demo: Stored for reference only
                     </p>
-                  </div>
-                </div>
-
-                {/* Status Selects */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Vaccination Status
-                    </label>
-                    <select
-                      value={formData.medicalData.vaccination_status}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        medicalData: { ...prev.medicalData, vaccination_status: e.target.value as any }
-                      }))}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                    >
-                      <option value="none">None</option>
-                      <option value="partial">Partial</option>
-                      <option value="complete">Complete</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Wellness Exam
-                    </label>
-                    <select
-                      value={formData.medicalData.annual_wellness_exam}
-                      onChange={(e) => setFormData(prev => ({
-                        ...prev,
-                        medicalData: { ...prev.medicalData, annual_wellness_exam: e.target.value as any }
-                      }))}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="completed">Completed</option>
-                    </select>
                   </div>
                 </div>
 
