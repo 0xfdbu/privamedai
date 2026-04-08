@@ -457,14 +457,6 @@ export function VerifyProof() {
                         <p className="font-mono text-amber-900 break-all">{txResult.txHash}</p>
                       </>
                     )}
-                    <a 
-                      href={`https://preprod.midnightexplorer.com/transactions/${txResult.txId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-blue-600 hover:underline mt-2"
-                    >
-                      View in Explorer <ExternalLink className="w-3 h-3" />
-                    </a>
                   </div>
                 </div>
               )}
@@ -484,14 +476,6 @@ export function VerifyProof() {
                         <p className="font-mono text-emerald-900 break-all">{txResult.txHash}</p>
                       </>
                     )}
-                    <a 
-                      href={`https://preprod.midnightexplorer.com/transactions/${txResult.txId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-blue-600 hover:underline mt-2"
-                    >
-                      View in Explorer <ExternalLink className="w-3 h-3" />
-                    </a>
                     {txResult.rawTx && (
                       <details className="mt-3">
                         <summary className="cursor-pointer text-emerald-700 hover:text-emerald-900">Raw Transaction Data</summary>
