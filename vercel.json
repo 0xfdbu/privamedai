@@ -1,6 +1,6 @@
 {
   "framework": "vite",
-  "buildCommand": "npm install && cd contract && npm run build && cd ../frontend && npm run build",
+  "buildCommand": "npm install && npm run build --workspace=contract && npm run build --workspace=frontend",
   "outputDirectory": "frontend/dist",
   "installCommand": "npm install",
   "rewrites": [
