@@ -26,9 +26,8 @@
 |-------------------|--------------------------------|-----------------|
 | Expiry            | Stored but not enforced        | Uncomment check in contract |
 | Proof Replay      | Same proof reusable            | Add nullifier in prod |
-| Credential Binding| Data-based commitment          | Add wallet binding |
+| Credential Binding| Any party with the credential file can generate/verify a proof| Add wallet binding |
 | Verifier Selection| AI natural-language detection  | Add explicit UI |
-| Proof Authorization| Any party with the credential file can generate a proof  | Bind proof generation to credential holder |
 
 ## 🔒 Privacy Properties
 
