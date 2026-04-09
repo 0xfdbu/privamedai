@@ -28,6 +28,7 @@
 | Proof Replay      | Same proof reusable            | Add nullifier in prod |
 | Credential Binding| Any party with the credential file can generate/verify a proof| Add wallet binding |
 | Verifier Selection| AI natural-language detection  | Add explicit UI |
+| Issuer Registration| Public, anyone can become an issuer  | Whitelist admin |
 
 ## 🔒 Privacy Properties
 
