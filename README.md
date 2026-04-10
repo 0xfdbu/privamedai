@@ -89,13 +89,12 @@ Frontend (React) ↔ Midnight Preprod Node ↔ Smart Contract
 **Frontend includes:**
 - AI chat for natural-language proofs
 - Issuer flow (register + issue credentials)
-- Patient flow (import credential + generate proofs)
-- Verifier flow (upload proof + on-chain check)
+- Patient flow (import credential + generate proofs + Submit Proof Onchain)
 
 ## 📝 Usage (3 Simple Steps)
 1. **Issuer** → Register & issue credential (patient gets JSON file)
 2. **Patient** → Import credential → Use AI chat (“prove I’m over 18 for clinic”) → Generate ZK proof
-3. **Verifier** → Upload proof → Patient submits on-chain → Check result on [Midnight Explorer](https://preprod.midnightexplorer.com)
+3. **Verification** → Upload proof → Patient submits on-chain → Check result on [Midnight Explorer](https://preprod.midnightexplorer.com)
 
 **Important:** Patient submits the verification transaction themselves (privacy-preserving design). Verifier only sees the tx hash and success on explorer — never the private health data.
 
