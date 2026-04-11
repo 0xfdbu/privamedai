@@ -29,6 +29,9 @@
 | Credential Binding| Any party with the credential file can generate/verify a proof| Add wallet binding |
 | Verifier Selection| AI natural-language detection  | Add explicit UI |
 | Issuer Registration| Public, anyone can become an issuer  | Whitelist admin |
+| Claim hash security | `persistentHash` used (no randomness) | Use `persistentCommit` with random nonce to prevent enumeration attacks |
+| Admin initialization | `initialize()` is unprotected — anyone can call it | Derive and verify admin identity from `local_secret_key()` inside the circuit |
+| Caller identity | Caller public key passed as parameter, not ZK-proven | Derive public key from `local_secret_key()` witness inside the circuit to cryptographically prove ownership |
 
 ## 🔒 Privacy Properties
 
@@ -36,13 +39,17 @@
 - Actual age, condition codes, prescription codes
 - Full health claim data (only used as witness input in ZK proofs)
 
-**Protected via commitments (hashed before going on-chain):**
-- Credential binding data (includes patient address and claim metadata) is stored only as a hash commitment, not in plaintext. An attacker would need to guess the full preimage to link a specific patient to a credential.
+**Hashed before going on-chain (not a full commitment):** `claimHash` is stored as a `persistentHash` — a plain hash without randomness. This means an attacker who can enumerate possible health claim values (age, condition, prescription combinations) could verify a match by recomputing the hash. A production system should use `persistentCommit` with a random nonce to prevent this. [hashes and commitments](https://docs.midnight.network/concepts/how-midnight-works/keeping-data-private#hashes-and-commitments)
 
 **Public (on-chain):**
 - Transaction hash & block inclusion
-- `totalVerificationsPerformed` counter
+- `totalVerificationsPerformed` and `totalCredentialsIssued` counters
 - Which verifier circuit was called (clinic / pharmacy / hospital)
+- Issuer public keys and name hashes (stored in `issuerRegistry`)
+- Credential commitments, `claimHash`, expiry, issuer address, and status (stored in `credentials`)
+- Caller public keys passed to issuer/revocation circuits
+
+Per Midnight's model, anything passed as an argument to a ledger operation is publicly visible on-chain. [keeping data private](https://docs.midnight.network/concepts/how-midnight-works/keeping-data-private)
 
 ## 🌟 Core Features
 - Zero-knowledge medical credentials on-chain
@@ -93,7 +100,7 @@ Frontend (React) ↔ Midnight Preprod Node ↔ Smart Contract
 
 ## 📝 Usage (3 Simple Steps)
 1. **Issuer** → Register & issue credential (patient gets JSON file)
-2. **Patient** → Import credential → Use AI chat (“prove I’m over 18 for clinic”) → Generate ZK proof
+2. **Patient** → Import credential → Use AI chat ("prove I'm over 18 for clinic") → Generate ZK proof
 3. **Verification** → Upload proof → Patient submits on-chain → Check result on [Midnight Explorer](https://preprod.midnightexplorer.com)
 
 **Important:** Patient submits the verification transaction themselves (privacy-preserving design). Verifier only sees the tx hash and success on explorer — never the private health data.
